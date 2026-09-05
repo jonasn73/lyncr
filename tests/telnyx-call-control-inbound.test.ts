@@ -1471,6 +1471,116 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(playbackStart).toBeTruthy()
   })
 
+  it("call.gather.ended timeout during CLOSED hours still enters real hold (no auto-text-and-hangup)", async () => {
+    // Regression: closed/holiday timeouts used to skip straight to booking SMS + hangup even
+    // though the greeting promises "please hold, next available assistant will be right with
+    // you." Staying on the line during closed hours must now behave the same as open hours.
+    vi.doMock("@/lib/account-presence", () => ({
+      getAccountPresence: vi.fn(() =>
+        Promise.resolve({
+          presenceStatus: "CLOSED",
+          presenceClosedManual: false,
+          onJobGreetingText: "We're on a job. Press 1 to get a booking link by text, or stay on the line.",
+          closedGreetingText:
+            "Please hold, and the next available assistant will be right with you.",
+          ivrBypassCode: null,
+        })
+      ),
+      resolvePresenceAutomationGreeting: vi.fn(
+        () => "Please hold, and the next available assistant will be right with you."
+      ),
+    }))
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "voicemail",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: false,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      updateCallLog: vi.fn(),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => {
+        const d = p.replace(/\D/g, "")
+        if (d.length === 10) return `+1${d}`
+        return p.startsWith("+") ? p : `+${d}`
+      },
+    }))
+    const sendSms = vi.fn(() => Promise.resolve({ outcome: "sent" }))
+    vi.doMock("@/lib/inbound-booking-sms", () => ({
+      sendInboundBookingSmsAndTag: sendSms,
+      bookingSmsConfirmSpeech: vi.fn(() => "mock booking sms confirm speech"),
+    }))
+    vi.doMock("@/lib/call-queue-db", () => ({
+      countWaitingCallQueue: vi.fn(() => Promise.resolve(0)),
+      upsertCallQueueWaiting: vi.fn(() => Promise.resolve(null)),
+      getAccountHoldMusicUrl: vi.fn(() => Promise.resolve(null)),
+      getAccountHoldSettings: vi.fn(() =>
+        Promise.resolve({
+          holdMusicUrl: null,
+          holdMaxWaitSecs: null,
+          holdRepromptSecs: null,
+        })
+      ),
+      getCallQueuePosition: vi.fn(() => Promise.resolve(1)),
+      updateCallQueueStatus: vi.fn(() => Promise.resolve()),
+      getCallQueueStatusByCallControlId: vi.fn(() => Promise.resolve("holding")),
+      listWaitingCallQueue: vi.fn(() => Promise.resolve([])),
+    }))
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://lyncr.app")
+    vi.stubEnv("LYNCR_HOLD_MUSIC_URL", "https://cdn.example/hold.mp3")
+
+    const gatherState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_busy_gather_end",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialReason: "busy_automation",
+      fallbackType: "voicemail",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.gather.ended",
+        id: "evt-gather-timeout-closed",
+        payload: {
+          call_control_id: "cc-gather-to-closed",
+          from: "+15025369252",
+          to: "+15025571219",
+          digits: "",
+          status: "timeout",
+          client_state: gatherState,
+        },
+      },
+    })
+
+    // No immediate booking SMS + hangup — the caller must land in the real hold loop.
+    expect(sendSms).not.toHaveBeenCalled()
+    const hangupCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/hangup"))
+    expect(hangupCall).toBeFalsy()
+    const musicStarted = fetchMock.mock.calls.find(
+      (c) =>
+        String(c[0]).includes("/actions/playback_start") ||
+        String(c[0]).includes("/actions/gather_using_audio")
+    )
+    expect(musicStarted).toBeTruthy()
+  })
+
   it("call.gather.ended hold max-wait sends soft SMS and leaves (no forever hold)", async () => {
     const sendSms = vi.fn(() => Promise.resolve({ outcome: "sent" }))
     const updateQueue = vi.fn(() => Promise.resolve())

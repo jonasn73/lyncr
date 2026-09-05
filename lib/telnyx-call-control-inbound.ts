@@ -1451,27 +1451,17 @@ async function handleGatherEnded(
     return
   }
 
-  // After-hours (CLOSED) or holiday → straight to form SMS (nobody will Answer from Lines).
+  // Timeout / stay on the line — closed/holiday included: the greeting promises a real
+  // hold ("please hold, next available assistant will be right with you"), so honor it.
+  // Closed hours used to short-circuit straight to SMS+hangup here, which broke that
+  // promise for anyone who didn't press 1 — see 087 hold-queue report. Press 1 still
+  // gets the instant text above; staying on the line now means an actual hold either way.
   if (skipHoldForAfterHours) {
-    if (musicKicked) {
-      await telnyxCallControlPlaybackStop(event.callControlId).catch(() => undefined)
-    }
     console.log(
-      lyncrLog("telnyx-cc-busy-gather-after-hours-sms", {
+      lyncrLog("telnyx-cc-busy-gather-after-hours-hold", {
         callControlId: event.callControlId,
       })
     )
-    await sendInboundBookingSmsAndTag({
-      fromE164: state.callerE164,
-      ownerUserId: routing.user_id,
-      businessLineE164: state.businessLineE164,
-      callSid: event.callControlId,
-      routedToName: CAPTURE_STATUS_HOLD_PRESS1,
-      source: "cc_busy_after_hours",
-      businessLabel: resolveWorkspaceDisplayName(routing),
-    })
-    await confirmBusySmsAndHangup(event.callControlId, state)
-    return
   }
 
   // Timeout / stay on the line → hold music + Neon queue (NOT immediate SMS+hangup).

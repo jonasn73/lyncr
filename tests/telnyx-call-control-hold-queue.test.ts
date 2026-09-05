@@ -16,6 +16,8 @@ const telnyxCallControlSpeak = vi.fn<AnyFn>()
 const telnyxCallControlGatherUsingSpeak = vi.fn<AnyFn>()
 const telnyxCallControlStartAiAssistant = vi.fn<AnyFn>()
 const telnyxCallControlStopAiAssistant = vi.fn<AnyFn>()
+const sendHoldLongWaitOwnerAlert = vi.fn<AnyFn>()
+const holdLongWaitAlertMs = vi.fn<AnyFn>()
 
 vi.mock("@/lib/call-queue-db", () => ({
   countWaitingCallQueue: vi.fn(() => Promise.resolve(0)),
@@ -35,12 +37,17 @@ vi.mock("@/lib/account-presence", () => ({
 
 vi.mock("@/lib/hold-queue", () => ({
   HOLD_REPROMPT_DEFAULT: "Still here — thanks for waiting.",
+  holdLongWaitAlertMs: (...args: unknown[]) => holdLongWaitAlertMs(...args),
   holdMaxConcurrent: vi.fn(() => 5),
   holdMaxWaitSecs: vi.fn((override?: number) => override ?? 40),
   holdMusicMediaName: vi.fn(() => "hold-music.mp3"),
   holdRePromptIntervalMs: vi.fn(() => 30_000),
   lyncrHoldQueueName: vi.fn((userId: string) => `lyncr-${userId}`),
   resolveHoldMusicUrlCandidates: vi.fn(() => []),
+}))
+
+vi.mock("@/lib/hold-long-wait-alert", () => ({
+  sendHoldLongWaitOwnerAlert: (...args: unknown[]) => sendHoldLongWaitOwnerAlert(...args),
 }))
 
 vi.mock("@/lib/hold-inline-audio", () => ({
@@ -116,6 +123,8 @@ beforeEach(() => {
   telnyxCallControlStopAiAssistant.mockResolvedValue({ ok: true })
   telnyxCallControlStartAiAssistant.mockResolvedValue({ ok: true })
   sendInboundBookingSmsAndTag.mockResolvedValue({ outcome: "sent" })
+  sendHoldLongWaitOwnerAlert.mockResolvedValue({ ok: true, sent: true })
+  holdLongWaitAlertMs.mockReturnValue(999_000)
 })
 
 describe("hold-queue max-wait AI bridge (087)", () => {
@@ -233,5 +242,54 @@ describe("hold-queue gather-ended stale-event guard", () => {
     })
 
     expect(telnyxCallControlGatherUsingSpeak).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("hold-queue long-wait owner alert", () => {
+  it("texts the owner once a waiting caller crosses the alert threshold", async () => {
+    holdLongWaitAlertMs.mockReturnValue(5_000)
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-long-wait",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now() - 10_000, holdSegment: "music" },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    expect(sendHoldLongWaitOwnerAlert).toHaveBeenCalledTimes(1)
+    expect(sendHoldLongWaitOwnerAlert).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "owner-1", callerE164: "+15025559999" })
+    )
+  })
+
+  it("never fires twice for the same call (holdLongWaitAlerted already set)", async () => {
+    holdLongWaitAlertMs.mockReturnValue(5_000)
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-long-wait-2",
+      state: {
+        ...timedOutState(),
+        holdStartedAtMs: Date.now() - 20_000,
+        holdSegment: "music",
+        holdLongWaitAlerted: true,
+      },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    expect(sendHoldLongWaitOwnerAlert).not.toHaveBeenCalled()
+  })
+
+  it("does not fire before the threshold is crossed", async () => {
+    holdLongWaitAlertMs.mockReturnValue(60_000)
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-not-yet",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now() - 5_000, holdSegment: "music" },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    expect(sendHoldLongWaitOwnerAlert).not.toHaveBeenCalled()
   })
 })

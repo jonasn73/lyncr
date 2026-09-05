@@ -67,6 +67,8 @@ export type TelnyxCallControlClientState = {
   holdMaxWaitSecs?: number
   /** Account override for music segment length (seconds) — snapshotted at enqueue. */
   holdRepromptSecs?: number
+  /** True once the owner has gotten the one-time "still waiting" heads-up text for this call. */
+  holdLongWaitAlerted?: boolean
   /**
    * Call Control Speak voice used for the Busy gather (NaturalHD / Polly neural).
    * Hold rempromts reuse this so reminders match the Busy greeting persona.

@@ -22,6 +22,7 @@ import {
 import { getAccountPresence } from "@/lib/account-presence"
 import {
   HOLD_REPROMPT_DEFAULT,
+  holdLongWaitAlertMs,
   holdMaxConcurrent,
   holdMaxWaitSecs,
   holdMusicMediaName,
@@ -29,6 +30,7 @@ import {
   lyncrHoldQueueName,
   resolveHoldMusicUrlCandidates,
 } from "@/lib/hold-queue"
+import { sendHoldLongWaitOwnerAlert } from "@/lib/hold-long-wait-alert"
 import { loadHoldMusicPlaybackContentBase64 } from "@/lib/hold-inline-audio"
 import {
   CAPTURE_STATUS_HOLD_AI_ASSISTED,
@@ -850,11 +852,28 @@ export async function handleHoldLoopGatherEnded(params: {
     return
   }
 
+  // One heads-up text to the owner the first time a caller crosses the halfway mark of
+  // the max wait — still on hold, still hasn't hung up, so it's a real, waiting caller.
+  let effectiveState = state
+  if (
+    !state.holdLongWaitAlerted &&
+    holdElapsedMs(state) >= holdLongWaitAlertMs(state.holdMaxWaitSecs)
+  ) {
+    const waitedSecs = Math.round(holdElapsedMs(state) / 1000)
+    void sendHoldLongWaitOwnerAlert({
+      userId: state.userId,
+      callerE164: state.callerE164,
+      waitedSecs,
+    }).catch((e) => console.warn(lyncrLog("hold-long-wait-alert-failed", { error: String(e) })))
+    console.log(lyncrLog("telnyx-cc-hold-long-wait-alert", { callControlId, waitedSecs }))
+    effectiveState = { ...state, holdLongWaitAlerted: true }
+  }
+
   // Music segment ended with no digit:
   // - "invalid" + empty digits was the production silence bug (clip rejected ~1s) —
   //   retry music instead of immediately speaking (which stopped any real audio).
   // - timeout → re-prompt as designed.
-  if (state.holdSegment === "music") {
+  if (effectiveState.holdSegment === "music") {
     if (gatherStatus === "invalid" || gatherStatus === "cancelled") {
       console.warn(
         lyncrLog("telnyx-cc-hold-music-invalid-retry", {
@@ -863,15 +882,15 @@ export async function handleHoldLoopGatherEnded(params: {
           note: "retry_playback_not_reprompt",
         })
       )
-      await startHoldMusicGather(callControlId, state)
+      await startHoldMusicGather(callControlId, effectiveState)
       return
     }
-    await startHoldRepromptGather(callControlId, state)
+    await startHoldRepromptGather(callControlId, effectiveState)
     return
   }
 
   // Re-prompt timed out / invalid → music again.
-  await startHoldMusicGather(callControlId, state)
+  await startHoldMusicGather(callControlId, effectiveState)
 }
 
 /**

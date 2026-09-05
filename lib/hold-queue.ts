@@ -43,6 +43,16 @@ export function holdMaxWaitSecs(accountOverrideSecs?: number | null): number {
   return Math.min(900, Math.max(120, Math.floor(raw)))
 }
 
+/**
+ * Elapsed hold time (ms) at which the owner gets a one-time "someone's really
+ * waiting" heads-up text — halfway through the account's own max wait, so it
+ * always lands before the max-wait SMS+hangup, whatever that account has set.
+ */
+export function holdLongWaitAlertMs(accountOverrideSecs?: number | null): number {
+  const maxWaitMs = holdMaxWaitSecs(accountOverrideSecs) * 1000
+  return Math.max(60_000, Math.floor(maxWaitMs / 2))
+}
+
 /** Cap concurrent waiting holds per account (orphan / minute protection). */
 export function holdMaxConcurrent(): number {
   const raw = Number(envLyncrOrZing("HOLD_MAX_CONCURRENT") || "3")
