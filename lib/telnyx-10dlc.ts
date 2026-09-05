@@ -601,7 +601,15 @@ export async function assignNumberToTelnyx10DlcCampaign(
   })
   const json = await res.json().catch(() => ({}))
   if (!res.ok) {
-    return { ok: false, error: telnyxErrorDetail(json, "Could not assign the number to the campaign.") }
+    const detail = telnyxErrorDetail(json, "Could not assign the number to the campaign.")
+    // Telnyx rejects re-assigning a number that's already linked to a campaign — if it's
+    // already linked to THIS campaign, the desired state already holds. Without this, a
+    // number that assigned successfully on an earlier attempt gets reported as failed and
+    // stuck showing "needs a retry" forever, even though it's fully live on Telnyx's side.
+    if (detail.toLowerCase().includes("already assigned") && detail.includes(campaignId)) {
+      return { ok: true }
+    }
+    return { ok: false, error: detail }
   }
   return { ok: true }
 }

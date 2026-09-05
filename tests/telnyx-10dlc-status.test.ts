@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { defaultCampaignCopy } from "@/lib/messaging-10dlc"
 import {
+  assignNumberToTelnyx10DlcCampaign,
   buildTenDlcHelpMessage,
   buildTenDlcOptinMessage,
   effectiveTelnyx10DlcCampaignId,
@@ -111,5 +112,58 @@ describe("10DLC compliant opt-in copy", () => {
     expect(copy.messageFlow).toMatch(/Message frequency may vary/)
     expect(copy.sample1).toMatch(/Message frequency may vary/)
     expect(copy.sample2).toMatch(/HELP/)
+  })
+})
+
+describe("assignNumberToTelnyx10DlcCampaign", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+  })
+
+  it("treats 'already assigned to this campaign' as success, not a failure needing a retry", async () => {
+    vi.stubEnv("TELNYX_API_KEY", "test-key")
+    const campaignId = "4b30019f-690e-8e9b-5e67-c26f7f5af9d8"
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        json: () =>
+          Promise.resolve({
+            errors: [{ detail: `+15025571219 is already assigned to campaign ${campaignId}` }],
+          }),
+      })
+    )
+    const result = await assignNumberToTelnyx10DlcCampaign("+15025571219", campaignId)
+    expect(result).toEqual({ ok: true })
+  })
+
+  it("still reports a real assignment failure for a different campaign", async () => {
+    vi.stubEnv("TELNYX_API_KEY", "test-key")
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        json: () =>
+          Promise.resolve({
+            errors: [{ detail: "+15025571219 is already assigned to campaign some-other-campaign" }],
+          }),
+      })
+    )
+    const result = await assignNumberToTelnyx10DlcCampaign("+15025571219", "the-campaign-we-want")
+    expect(result.ok).toBe(false)
+  })
+
+  it("still reports an unrelated Telnyx error as a real failure", async () => {
+    vi.stubEnv("TELNYX_API_KEY", "test-key")
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        json: () => Promise.resolve({ errors: [{ detail: "Number not found." }] }),
+      })
+    )
+    const result = await assignNumberToTelnyx10DlcCampaign("+15025571219", "campaign-1")
+    expect(result.ok).toBe(false)
   })
 })
