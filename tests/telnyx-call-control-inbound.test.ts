@@ -2007,6 +2007,59 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(gatherBody.payload).toContain("We are with another customer.")
   })
 
+  it("call.speak.ended on an ElevenLabs voice closes the circuit immediately (best-quality self-heal)", async () => {
+    vi.stubEnv("ELEVENLABS_API_KEY", "test-key")
+
+    vi.doMock("@/lib/db", () => ({
+      updateCallLog: vi.fn(() => Promise.resolve()),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+    }))
+
+    // Dynamic imports so this resolves to the exact same module graph the code under
+    // test uses in this file's vi.resetModules()-per-test setup (a static top-of-file
+    // import would bind to a stale pre-reset instance and never see the update).
+    const {
+      elevenLabsCallControlVoice,
+      ELEVENLABS_VOICE_IDS,
+      elevenLabsSpeakRuntimeAllowed,
+      markElevenLabsSpeakFailed,
+      resetElevenLabsSpeakCircuitForTests,
+    } = await import("@/lib/elevenlabs-voices")
+    resetElevenLabsSpeakCircuitForTests()
+    markElevenLabsSpeakFailed("prior_test_failure")
+    expect(elevenLabsSpeakRuntimeAllowed()).toBe(false)
+
+    const confirmState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_busy_sms_confirm_end",
+      userId: "u1",
+      businessLineE164: "+15555571219",
+      callerE164: "+15551230000",
+      holdSpeakVoice: elevenLabsCallControlVoice(ELEVENLABS_VOICE_IDS.rachel),
+      dialReason: "busy_automation",
+      fallbackType: "voicemail",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.speak.ended",
+        id: "evt-speak-end-elevenlabs-ok",
+        payload: {
+          call_control_id: "cc-speak-ok",
+          from: "+15551230000",
+          to: "+15555571219",
+          direction: "incoming",
+          client_state: confirmState,
+        },
+      },
+    })
+
+    expect(elevenLabsSpeakRuntimeAllowed()).toBe(true)
+    resetElevenLabsSpeakCircuitForTests()
+  })
+
   it("a missing customer-name lookup does not break the repeat-caller signal", async () => {
     resolveInboundCapturePlanMock.mockResolvedValue({ kind: "day_dial" })
 

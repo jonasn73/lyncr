@@ -26,10 +26,22 @@ export function elevenLabsCallControlVoice(
 
 /**
  * In-memory circuit: after Telnyx `call.speak.failed` / secret errors, skip ElevenLabs
- * for the rest of this serverless instance so Busy always uses NaturalHD.
+ * so Busy always uses NaturalHD instead of dead air.
  * null = unknown (try), true = heard success once, false = prefer NaturalHD.
  */
 let elevenLabsRuntimeOk: boolean | null = null
+/** When the circuit opened — drives the cooldown retry below. */
+let elevenLabsFailedAtMs: number | null = null
+
+/**
+ * How long to prefer NaturalHD after a failure before trying ElevenLabs again.
+ * Fluid Compute reuses a warm instance across many unrelated calls (and accounts) for a
+ * long time, so without a cooldown, one transient ElevenLabs hiccup (rate limit, a single
+ * bad request) would silently downgrade "best quality" voice for everyone sharing that
+ * instance until the next cold start — sometimes hours. A short cooldown still protects
+ * against immediate repeat failures (no dead air) while self-healing shortly after.
+ */
+const ELEVENLABS_CIRCUIT_COOLDOWN_MS = 5 * 60 * 1000
 
 /** Ops kill switch — set LYNCR_ELEVENLABS_DISABLED=1 on Vercel until a paid ElevenLabs plan works. */
 export function elevenLabsDisabledByEnv(): boolean {
@@ -49,29 +61,41 @@ export function elevenLabsSpeakEnabled(): boolean {
 /** True when Call Control should attempt ElevenLabs.* (key present + circuit not open). */
 export function elevenLabsSpeakRuntimeAllowed(): boolean {
   if (!elevenLabsSpeakEnabled()) return false
-  if (elevenLabsRuntimeOk === false) return false
+  if (elevenLabsRuntimeOk === false) {
+    if (elevenLabsFailedAtMs != null && Date.now() - elevenLabsFailedAtMs >= ELEVENLABS_CIRCUIT_COOLDOWN_MS) {
+      // Cooldown elapsed — half-open: let the next call retry ElevenLabs on its own merits.
+      elevenLabsRuntimeOk = null
+      elevenLabsFailedAtMs = null
+      return true
+    }
+    return false
+  }
   return true
 }
 
-/** After `call.speak.failed` or secret create failure — prefer NaturalHD until cold start / success. */
+/** After `call.speak.failed` or secret create failure — prefer NaturalHD until the cooldown passes. */
 export function markElevenLabsSpeakFailed(reason: string): void {
   elevenLabsRuntimeOk = false
+  elevenLabsFailedAtMs = Date.now()
   console.warn(
     JSON.stringify({
       lyncr: "elevenlabs-speak-circuit-open",
       reason: String(reason || "unknown").slice(0, 200),
+      retryAfterMs: ELEVENLABS_CIRCUIT_COOLDOWN_MS,
     })
   )
 }
 
-/** Optional: reopen circuit after a proven ElevenLabs Speak (HTTP path is not enough). */
+/** Reopen the circuit immediately after a proven ElevenLabs Speak (HTTP path is not enough). */
 export function markElevenLabsSpeakSucceeded(): void {
   elevenLabsRuntimeOk = true
+  elevenLabsFailedAtMs = null
 }
 
 /** Test helper — reset circuit to unknown between Vitest cases. */
 export function resetElevenLabsSpeakCircuitForTests(): void {
   elevenLabsRuntimeOk = null
+  elevenLabsFailedAtMs = null
 }
 
 /** Remap ElevenLabs.* → NaturalHD when the runtime circuit is open / env disabled. */

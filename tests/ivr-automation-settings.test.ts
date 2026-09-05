@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   digitsMatchIvrBypass,
   defaultIvrVoiceEngineModel,
@@ -106,6 +106,30 @@ describe("ivr automation settings", () => {
     delete process.env.LYNCR_ELEVENLABS_DISABLED
     markElevenLabsSpeakFailed("test")
     expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe("Telnyx.NaturalHD.astra")
+  })
+
+  it("self-heals back to ElevenLabs after the cooldown, instead of degrading forever on a warm instance", () => {
+    // A Fluid Compute instance can stay warm across many unrelated calls/accounts for a
+    // long time — one transient failure must not silently downgrade "best quality" voice
+    // until the next cold start, with no automatic recovery (markElevenLabsSpeakSucceeded
+    // was never actually called anywhere in the app).
+    process.env.ELEVENLABS_API_KEY = "test-key"
+    delete process.env.LYNCR_ELEVENLABS_DISABLED
+    vi.useFakeTimers()
+    try {
+      markElevenLabsSpeakFailed("test")
+      expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe("Telnyx.NaturalHD.astra")
+
+      vi.advanceTimersByTime(4 * 60 * 1000)
+      expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe("Telnyx.NaturalHD.astra")
+
+      vi.advanceTimersByTime(2 * 60 * 1000)
+      expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe(
+        elevenLabsCallControlVoice(ELEVENLABS_VOICE_IDS.rachel)
+      )
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("orders personas with Best labels first (plain English, no vendor names)", () => {

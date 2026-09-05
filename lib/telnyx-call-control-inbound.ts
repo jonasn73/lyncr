@@ -90,6 +90,7 @@ import {
 import {
   elevenLabsNaturalHdFallback,
   markElevenLabsSpeakFailed,
+  markElevenLabsSpeakSucceeded,
   preferWorkingSpeakVoice,
 } from "@/lib/elevenlabs-voices"
 import {
@@ -1216,6 +1217,13 @@ async function handleSpeakEnded(
 ): Promise<void> {
   const state = event.clientState
   if (!state) return
+
+  // A Speak actually completed — if it used ElevenLabs, that's live proof the account/key
+  // is healthy right now, so close the circuit immediately instead of waiting out the
+  // cooldown (lib/elevenlabs-voices.ts) for every other call sharing this warm instance.
+  if (/^ElevenLabs\./i.test(state.holdSpeakVoice || "")) {
+    markElevenLabsSpeakSucceeded()
+  }
 
   // Booking SMS confirmation finished — hang up.
   if (state.phase === "await_busy_sms_confirm_end") {
