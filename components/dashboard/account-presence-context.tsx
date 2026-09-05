@@ -37,7 +37,7 @@ type AccountPresenceContextValue = {
   saving: boolean
   /** True when cell ring is skipped (Presence Busy). */
   presenceBypass: boolean
-  /** True when a manual Busy/Closed tap is blocking the weekly auto-schedule. */
+  /** True when a manual tap (Available, Busy, or Closed) is blocking the weekly auto-schedule. */
   presenceLocked: boolean
   /** True when the owner has a weekly auto-schedule turned on. */
   scheduleEnabled: boolean
@@ -46,6 +46,8 @@ type AccountPresenceContextValue = {
   /** "New York" — short timezone label to pair with the summary. */
   scheduleTimezoneLabel: string | null
   setPresenceStatus: (next: PresenceStatus) => Promise<void>
+  /** Clears the manual lock and applies the weekly schedule right now. */
+  resumeSchedule: () => Promise<void>
   refresh: () => Promise<void>
 }
 
@@ -235,6 +237,44 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
     [presenceStatus, presenceAvailableAt, presenceTimezone, setStatus, applyPayload]
   )
 
+  // Clears whatever manual lock is set and applies the weekly schedule right now —
+  // distinct from setPresenceStatus("AVAILABLE"), which would just re-lock as manual.
+  const resumeSchedule = useCallback(async () => {
+    setSaving(true)
+    try {
+      const res = await fetch("/api/routing/presence", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resume_schedule: true }),
+      })
+      const json = (await res.json()) as {
+        error?: string
+        migration?: string
+        data?: PresencePayload
+      }
+      if (!res.ok) {
+        toast({
+          title: "Could not resume schedule",
+          description: json.migration
+            ? `Run ${json.migration} in Neon, then try again.`
+            : json.error || res.statusText,
+          variant: "destructive",
+        })
+        return
+      }
+      applyPayload(json.data)
+    } catch (e) {
+      toast({
+        title: "Could not resume schedule",
+        description: e instanceof Error ? e.message : "Try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
+    }
+  }, [applyPayload])
+
   // Stable wrapper so context consumers do not see a new `refresh` identity every paint.
   const refreshLoud = useCallback(() => refresh({ silent: false }), [refresh])
 
@@ -253,6 +293,7 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
       scheduleSummary,
       scheduleTimezoneLabel,
       setPresenceStatus,
+      resumeSchedule,
       refresh: refreshLoud,
     }),
     [
@@ -267,6 +308,7 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
       fetching,
       saving,
       setPresenceStatus,
+      resumeSchedule,
       refreshLoud,
     ]
   )
@@ -292,6 +334,7 @@ export function useAccountPresence(): AccountPresenceContextValue {
       scheduleSummary: null,
       scheduleTimezoneLabel: null,
       setPresenceStatus: async () => {},
+      resumeSchedule: async () => {},
       refresh: async () => {},
     }
   }

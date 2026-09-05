@@ -81,14 +81,17 @@ export function isBusyPresenceStatus(status: PresenceStatus | string | null | un
 }
 
 /**
- * Manual Busy / Closed must survive the calendar sync cron.
- * AVAILABLE is never locked — cron may still auto-set ON_JOB from blockouts.
+ * Any manual dashboard/text tap — Available, Busy, or Closed — must survive the
+ * 5-minute calendar sync cron until the owner touches it again or resumes the
+ * schedule. Previously only Busy/Closed were lockable, so a manual Available tap
+ * on a day/time the weekly schedule considers off (e.g. a disabled day) got
+ * silently flipped back to Busy on the next cron tick — the owner's phone would
+ * stop ringing with no visible cause.
  */
 export function isManualPresenceLock(
-  status: PresenceStatus | string | null | undefined,
   presenceClosedManual: boolean | null | undefined
 ): boolean {
-  return presenceClosedManual === true && isBusyPresenceStatus(status)
+  return presenceClosedManual === true
 }
 
 /** Prefer trimmed custom Busy copy; ON_JOB and CLOSED share one script. */
@@ -349,9 +352,12 @@ export async function getAccountPresence(ownerUserId: string): Promise<AccountPr
 }
 
 /**
- * Owner dashboard toggle.
- * Busy (ON_JOB) or CLOSED → set manual lock so /api/cron/sync-presence cannot clear it.
- * AVAILABLE → clear the lock (calendar may auto-busy again from blockouts).
+ * Owner dashboard toggle (or Amber text command) — Available, Busy, or Closed.
+ * Every manual set locks so /api/cron/sync-presence leaves it alone until the
+ * owner taps the toggle again or hits "Resume schedule" (syncPresenceFromScheduleNow).
+ * Previously only Busy/Closed locked, so a manual Available tap during a
+ * schedule-off window (e.g. a disabled day) got silently overwritten back to
+ * Busy on the next cron tick — see 087 presence report.
  */
 export async function setAccountPresence(params: {
   ownerUserId: string
@@ -359,8 +365,8 @@ export async function setAccountPresence(params: {
 }): Promise<AccountPresence> {
   // Normalize aliases like "busy" → ON_JOB before writing.
   const status = normalizePresenceStatus(params.presenceStatus)
-  // Lock Busy and Closed so the 5-minute calendar cron cannot wipe them to AVAILABLE.
-  const manualLock = isBusyPresenceStatus(status)
+  // Any manual set locks — see doc comment above.
+  const manualLock = true
   const sql = sqlClient()
   try {
     await sql`
@@ -521,10 +527,10 @@ export async function setAccountPresenceGreetings(
 }
 
 /**
- * Calendar / schedule cron write — never clears a manually locked Busy (ON_JOB) or CLOSED.
- * Caller resolves the desired status (calendar blockout → ON_JOB, outside scheduled
- * hours → CLOSED, otherwise AVAILABLE) — this just applies it under the manual lock.
- * Returns whether a row was updated.
+ * Calendar / schedule cron write — never clears any manually-set status (Available,
+ * Busy, or Closed). Caller resolves the desired status (calendar blockout → ON_JOB,
+ * outside scheduled hours → CLOSED, otherwise AVAILABLE) — this just applies it
+ * under the manual lock. Returns whether a row was updated.
  */
 export async function applyCalendarPresenceAutomation(params: {
   ownerUserId: string
@@ -533,8 +539,8 @@ export async function applyCalendarPresenceAutomation(params: {
   const sql = sqlClient()
   try {
     const current = await getAccountPresence(params.ownerUserId)
-    // Owner tapped Busy or Closed in the dashboard — leave that status alone.
-    if (isManualPresenceLock(current.presenceStatus, current.presenceClosedManual)) {
+    // Owner manually set this status (any of the three) in the dashboard/by text — leave it alone.
+    if (isManualPresenceLock(current.presenceClosedManual)) {
       return {
         updated: false,
         presenceStatus: current.presenceStatus,

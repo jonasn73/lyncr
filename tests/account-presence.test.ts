@@ -39,13 +39,15 @@ describe("account presence", () => {
     expect(isBusyPresenceStatus("AVAILABLE")).toBe(false)
   })
 
-  it("locks manual Busy and Closed against calendar cron clears", () => {
-    // Dashboard Busy must survive sync-presence when not in a blockout.
-    expect(isManualPresenceLock("ON_JOB", true)).toBe(true)
-    expect(isManualPresenceLock("CLOSED", true)).toBe(true)
-    // Calendar-driven ON_JOB (no manual lock) may still be cleared.
-    expect(isManualPresenceLock("ON_JOB", false)).toBe(false)
-    expect(isManualPresenceLock("AVAILABLE", true)).toBe(false)
+  it("locks any manual status — Available, Busy, or Closed — against calendar cron clears", () => {
+    // Regression (087): a manual Available tap used to be unlocked (only Busy/Closed
+    // locked), so the calendar cron could silently flip it back to Busy/Closed on the
+    // next 5-minute tick with no visible cause. Now any manual set locks, regardless
+    // of which status it is — the caller no longer needs to pass the status at all.
+    expect(isManualPresenceLock(true)).toBe(true)
+    // Calendar-driven writes (no manual lock) may still be cleared/overwritten.
+    expect(isManualPresenceLock(false)).toBe(false)
+    expect(isManualPresenceLock(null)).toBe(false)
   })
 
   it("builds presence Busy Gather prompts for Closed and On-Job steps", () => {

@@ -14,6 +14,7 @@ import {
   shortTimezoneLabel,
   summarizeWeeklyHours,
 } from "@/lib/account-weekly-hours"
+import { syncPresenceFromScheduleNow } from "@/lib/presence-schedule-sync"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -35,8 +36,8 @@ export async function GET(req: NextRequest) {
         // Busy-until is no longer set by anything; kept null for the client contract.
         presence_available_at: null,
         presence_timezone: null,
-        // True when a manual Busy/Closed tap is blocking the weekly auto-schedule.
-        presence_locked: isManualPresenceLock(presence.presenceStatus, presence.presenceClosedManual),
+        // True when a manual tap (Available, Busy, or Closed) is blocking the weekly auto-schedule.
+        presence_locked: isManualPresenceLock(presence.presenceClosedManual),
         schedule_enabled: weeklyHours.scheduleEnabled,
         schedule_summary: summarizeWeeklyHours(weeklyHours),
         schedule_timezone_label: shortTimezoneLabel(weeklyHours.timezone),
@@ -70,6 +71,11 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
+  // Hand control back to the weekly auto-schedule right now — clears whatever
+  // manual lock (Available, Busy, or Closed) is currently blocking it, then
+  // applies what the schedule wants this instant, same as saving a new schedule.
+  const resumeSchedule = body.resume_schedule === true || body.resumeSchedule === true
+
   const raw = body.presence_status ?? body.presenceStatus ?? body.status
   const status = normalizePresenceStatus(raw) as PresenceStatus
   if (!["AVAILABLE", "ON_JOB", "CLOSED"].includes(String(raw ?? "").toUpperCase().replace(/-/g, "_")) &&
@@ -80,10 +86,12 @@ export async function PUT(req: NextRequest) {
 
   try {
     const [saved, weeklyHours] = await Promise.all([
-      setAccountPresence({
-        ownerUserId: userId,
-        presenceStatus: status,
-      }),
+      resumeSchedule
+        ? syncPresenceFromScheduleNow(userId)
+        : setAccountPresence({
+            ownerUserId: userId,
+            presenceStatus: status,
+          }),
       getAccountWeeklyHours(userId),
     ])
     return NextResponse.json({
@@ -93,7 +101,7 @@ export async function PUT(req: NextRequest) {
         presence_closed_manual: saved.presenceClosedManual,
         presence_available_at: null,
         presence_timezone: null,
-        presence_locked: isManualPresenceLock(saved.presenceStatus, saved.presenceClosedManual),
+        presence_locked: isManualPresenceLock(saved.presenceClosedManual),
         schedule_enabled: weeklyHours.scheduleEnabled,
         schedule_summary: summarizeWeeklyHours(weeklyHours),
         schedule_timezone_label: shortTimezoneLabel(weeklyHours.timezone),

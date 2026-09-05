@@ -37,6 +37,7 @@ export function PresenceStatusBar({
     loading,
     saving,
     setPresenceStatus,
+    resumeSchedule,
   } = useAccountPresence()
 
   // Available = switch on; Busy (ON_JOB / CLOSED) = switch off.
@@ -168,12 +169,13 @@ export function PresenceStatusBar({
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-warning/60 bg-warning/15 px-3 py-2">
           <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
           <p className="min-w-0 flex-1 text-2xs leading-snug text-foreground">
-            Manually set Busy is blocking your <strong>{scheduleSummary}</strong> schedule — it
-            won&apos;t auto-flip Available until you clear this.
+            A manual {isAvailable ? "Available" : "Busy"} override is blocking your{" "}
+            <strong>{scheduleSummary}</strong> schedule — it won&apos;t auto-update until you
+            clear this.
           </p>
           <button
             type="button"
-            onClick={() => void setPresenceStatus("AVAILABLE")}
+            onClick={() => void resumeSchedule()}
             disabled={busySaving}
             className="shrink-0 rounded-md border border-warning/70 bg-background px-2 py-1 text-2xs font-semibold text-foreground hover:bg-warning/10 disabled:opacity-60"
           >
