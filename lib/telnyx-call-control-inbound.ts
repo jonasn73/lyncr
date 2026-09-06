@@ -1728,15 +1728,28 @@ async function handleMachineDetectionEnded(
         await persistCallControlBridged(inboundCallControlId, state, event.occurredAt)
         return
       }
-      // Leave B-leg ringing / connected — dial timeout or a later hangup owns Hold fallback.
-      console.warn(
-        lyncrLog("telnyx-cc-amd-early-bridge-skip-hold", {
+      // Both bridge attempts failed. This used to just return here on the theory that "a
+      // later hangup owns Hold fallback" — but nothing actually retries or falls back on
+      // hangup, so a human who answered was left connected-but-unbridged indefinitely: her
+      // phone stayed live, the caller heard only injected ringback, and neither leg was ever
+      // told to hang up or reroute. Production call: two legs sat open for 131s until someone
+      // gave up. Treat a fully-failed bridge exactly like the trusted-human path — reroute to
+      // Hold/AI/voicemail rather than abandon the call.
+      console.error(
+        lyncrLog("telnyx-cc-amd-early-bridge-failed-fallback", {
           outboundCallControlId: event.callControlId,
           inboundCallControlId,
           dialAgeMs,
           minMachineAgeMs,
         })
       )
+      await forgetOutboundDialLeg(inboundCallControlId)
+      await telnyxCallControlHangup(event.callControlId).catch(() => undefined)
+      await applyDialMissFallback({
+        inboundCallControlId,
+        state,
+        reason: "amd_machine",
+      })
       return
     }
     // Trusted human path bridge failed — treat like a miss so the caller still reaches hold / VM.

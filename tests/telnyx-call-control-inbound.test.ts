@@ -666,6 +666,96 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(gatherCall).toBeFalsy()
   })
 
+  it("a human pickup whose bridge fails twice falls back to hold instead of abandoning the call", async () => {
+    // Regression: a real answered call (receptionist picked up) whose Bridge API call
+    // failed on both the first attempt and the early-window retry used to just `return`
+    // here, leaving both legs connected-but-unbridged forever — the caller heard only
+    // injected ringback and the cell leg sat open with no cleanup until someone gave up.
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: "Alex Jonas",
+          fallback_type: "hold",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: true,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      updateCallLog: vi.fn(() => Promise.resolve()),
+      getCallLogSnapshotForTelemetry: vi.fn(() => Promise.resolve(null)),
+      recordCallStatusEvent: vi.fn(() => Promise.resolve()),
+      deleteTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+    }))
+
+    fetchMock.mockImplementation(async (url: string) => {
+      if (String(url).includes("/actions/bridge")) {
+        return { ok: false, status: 422, json: async () => ({ errors: [{ detail: "call not active" }] }) }
+      }
+      return { ok: true, json: async () => ({ data: { call_control_id: "cc-outbound-1" } }) }
+    })
+
+    const dialState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_dial_end",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialTargetE164: "+15029995874",
+      inboundCallControlId: "cc-in-amd-failbridge",
+      outboundCallControlId: "cc-out-amd-failbridge",
+      ringTimeoutSec: 30,
+      fallbackType: "hold",
+      dialReason: "day_dial",
+      receptionistId: "77803d63-b9e9-4739-9129-30a9ad641864",
+      amdGuard: true,
+      // Quick real pickup — well inside the early-window retry path.
+      dialStartedAtMs: Date.now() - 4_000,
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.machine.detection.ended",
+        id: "evt-amd-human-bridge-fail",
+        payload: {
+          call_control_id: "cc-out-amd-failbridge",
+          from: "+15025571219",
+          to: "+15029995874",
+          direction: "outgoing",
+          result: "human",
+          client_state: dialState,
+        },
+      },
+    })
+
+    // Both bridge attempts were made (and both failed per the mock above).
+    const bridgeCalls = fetchMock.mock.calls.filter((c) => String(c[0]).includes("/actions/bridge"))
+    expect(bridgeCalls.length).toBe(2)
+    // The cell leg must be hung up rather than left connected-but-silent forever.
+    const outboundHangup = fetchMock.mock.calls.find(
+      (c) =>
+        String(c[0]).includes("cc-out-amd-failbridge") && String(c[0]).includes("/actions/hangup")
+    )
+    expect(outboundHangup).toBeTruthy()
+    // And the caller must be rerouted into the hold flow, not left listening to dead ringback.
+    const gatherCall = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/actions/gather_using_speak")
+    )
+    expect(gatherCall).toBeTruthy()
+    expect(String(gatherCall![0])).toContain("cc-in-amd-failbridge")
+  })
+
   it("owner fallback dial still auto-bridges (no AMD)", async () => {
     vi.doMock("@/lib/db", () => ({
       getIncomingRoutingForVoiceWebhook: vi.fn(() =>

@@ -9,10 +9,12 @@ import type { TelnyxCallControlClientState } from "@/lib/telnyx-call-control-sta
 import { maybeSendAdminOverrideDispatchSms } from "@/lib/admin-override-dispatch-sms"
 import { maybeSendPostCallDispositionSms } from "@/lib/post-call-disposition-sms"
 import { settleCallEarningsInBackground } from "@/lib/compensation/settle-call"
-import { getIncomingRoutingForVoiceWebhook, getCallLogSnapshotForTelemetry, recordCallStatusEvent, updateCallLog } from "@/lib/db"
+import { getIncomingRoutingForVoiceWebhook, getCallLogSnapshotForTelemetry, getUser, recordCallStatusEvent, updateCallLog } from "@/lib/db"
 import type { CallType } from "@/lib/types"
 import { CAPTURE_STATUS_ANSWERED_FROM_QUEUE } from "@/lib/inbound-time-capture"
 import { isHoldAutomationStatus } from "@/lib/inbound-time-capture"
+import { resolveBusinessType } from "@/lib/business-type"
+import { handleCallConnected } from "@/app/actions/call-events"
 
 /** Inbound caller leg SID — the row created on call.initiated. */
 export function resolveInboundCallLogSid(event: TelnyxVoiceWebhookEvent): string {
@@ -135,10 +137,14 @@ export async function persistCallControlBridged(
       : "Owner"
   try {
     // Tag Activity BEFORE call-answered Pusher so the client never sees “Hold Queue” as ANSWERED.
+    // answered_at was never stamped on this path — every Call Control bridge (AMD-guarded
+    // dials especially) left Activities/pay/the receptionist portal's poll fallback reading
+    // an unanswered call even when the two legs were live and talking.
     await updateCallLog(inboundCallSid, {
       status: "in-progress",
       routed_to_name: routedToName,
       call_type: "incoming",
+      answered_at: occurredAtIso || new Date().toISOString(),
     })
     await notifyOwnerInboundCallAnswered({
       providerCallSid: inboundCallSid,
@@ -149,6 +155,23 @@ export async function persistCallControlBridged(
     }).catch((e) => {
       console.warn("[telnyx-cc] call-answered broadcast failed:", e)
     })
+    // The owner broadcast above only reaches the owner's dashboard channel. A call dialed
+    // straight to a receptionist's cell never told her portal (`receptionist-{id}`) anything —
+    // it relied entirely on that portal's slower dashboard poll to notice the bridge.
+    if (state.receptionistId?.trim()) {
+      const owner = routing ? await getUser(routing.user_id).catch(() => null) : null
+      const businessType = resolveBusinessType(owner?.industry ?? null)
+      handleCallConnected({
+        receptionistId: state.receptionistId.trim(),
+        callLogId: inboundCallSid,
+        businessType,
+        callerNumber: state.callerE164 || null,
+        callerName: null,
+        businessName: routing?.business_name ?? null,
+      }).catch((e) => {
+        console.warn("[telnyx-cc] receptionist HUD broadcast failed:", e)
+      })
+    }
     console.log(
       JSON.stringify({
         zing: "telnyx-cc-call-log-bridged",
