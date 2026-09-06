@@ -168,13 +168,22 @@ export function resolveAmdMinMachineAgeForRingSec(ringTimeoutSec: number): numbe
 /**
  * Conservative classic-AMD knobs so short silence / ringback is not treated as a machine.
  * Real carrier VM after ~15–20s of ring still hits timeout or a later machine result.
+ *
+ * The caller hears nothing but injected ringback for this entire window on every AMD-guarded
+ * dial (fallback_type hold/ai/voicemail) — unlike the owner's direct dial, which bridges the
+ * instant the phone is answered. total_analysis_time_millis is the true ceiling: it used to
+ * be smaller than initial_silence_millis (10s vs 15s), which meant total_analysis always won
+ * and initial_silence never actually applied. Both are now 5s — still comfortably above
+ * Telnyx's stock 3.5s default (so a slow "hello" still isn't misread as machine), but caps
+ * the caller's worst-case wait at 5s instead of 10s.
  */
 export function buildHoldFallbackAmdDetectionConfig(): Record<string, number> {
   return {
     // Don't classify brief post-answer silence as machine (default Telnyx is only 3500ms).
-    initial_silence_millis: 15_000,
-    // Give AMD more time before not_sure — avoids rushed machine guesses.
-    total_analysis_time_millis: 10_000,
+    initial_silence_millis: 5_000,
+    // Give AMD a little time before not_sure — avoids rushed machine guesses — but the
+    // caller is waiting on this, so it must stay well under the old 10s ceiling.
+    total_analysis_time_millis: 5_000,
     // Long spoken greetings still look like machines; humans say "hello" briefly.
     greeting_duration_millis: 3500,
   }

@@ -104,8 +104,10 @@ describe("AMD early-machine helpers", () => {
     expect(resolveAmdMinMachineAgeForRingSec(25)).toBe(22_000)
   })
 
-  it("builds conservative classic AMD config", () => {
-    expect(buildHoldFallbackAmdDetectionConfig().initial_silence_millis).toBe(15_000)
+  it("builds conservative classic AMD config, capped so the caller isn't left on ringback too long", () => {
+    const cfg = buildHoldFallbackAmdDetectionConfig()
+    expect(cfg.initial_silence_millis).toBe(5_000)
+    expect(cfg.total_analysis_time_millis).toBe(5_000)
   })
 })
 

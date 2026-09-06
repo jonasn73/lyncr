@@ -332,10 +332,11 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(dialBody.answering_machine_detection).toBe("detect")
     expect(dialBody.timeout_secs).toBe(25)
     expect(dialBody.link_to).toBe("cc-in-hold-amd")
-    // Conservative AMD knobs — must not use Telnyx's aggressive 3500ms silence default alone.
+    // Conservative AMD knobs — must not use Telnyx's aggressive 3500ms silence default alone,
+    // but capped at 5s so a real caller isn't left on injected ringback for 10s+.
     expect(dialBody.answering_machine_detection_config).toMatchObject({
-      initial_silence_millis: 15_000,
-      total_analysis_time_millis: 10_000,
+      initial_silence_millis: 5_000,
+      total_analysis_time_millis: 5_000,
     })
   })
 
