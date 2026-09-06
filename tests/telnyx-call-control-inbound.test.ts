@@ -756,6 +756,82 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(String(gatherCall![0])).toContain("cc-in-amd-failbridge")
   })
 
+  it("receptionist's console HUD opens the instant her cell answers, before AMD/bridge resolve", async () => {
+    // Regression: on an AMD-guarded dial (fallback_type hold/ai/voicemail), the intake HUD
+    // used to only fire once the bridge succeeded — which waits on the full AMD analysis
+    // window. Her console should not have to wait that long to know a call is coming in.
+    const handleCallConnectedMock = vi.fn(() => Promise.resolve({ broadcast: true }))
+    vi.doMock("@/app/actions/call-events", () => ({
+      handleCallConnected: handleCallConnectedMock,
+    }))
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: "Alex Jonas",
+          fallback_type: "hold",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: true,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getActivePhoneNumberByE164: vi.fn(() => Promise.resolve(null)),
+      getUser: vi.fn(() => Promise.resolve({ industry: "locksmith" })),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+    }))
+
+    const dialState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_dial_end",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialTargetE164: "+15029995874",
+      inboundCallControlId: "cc-in-pickup",
+      outboundCallControlId: "cc-out-pickup",
+      ringTimeoutSec: 30,
+      fallbackType: "hold",
+      dialReason: "day_dial",
+      receptionistId: "77803d63-b9e9-4739-9129-30a9ad641864",
+      amdGuard: true,
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.answered",
+        id: "evt-cell-pickup",
+        payload: {
+          call_control_id: "cc-out-pickup",
+          from: "+15025571219",
+          to: "+15029995874",
+          direction: "outgoing",
+          client_state: dialState,
+        },
+      },
+    })
+
+    expect(handleCallConnectedMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        receptionistId: "77803d63-b9e9-4739-9129-30a9ad641864",
+        callLogId: "cc-in-pickup",
+        businessType: "locksmith",
+        callerNumber: "+15025369252",
+      })
+    )
+    // No bridge/gather yet — that still waits on AMD, only the HUD jumps ahead.
+    expect(fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/bridge"))).toBeFalsy()
+  })
+
   it("owner fallback dial still auto-bridges (no AMD)", async () => {
     vi.doMock("@/lib/db", () => ({
       getIncomingRoutingForVoiceWebhook: vi.fn(() =>

@@ -158,7 +158,10 @@ export async function persistCallControlBridged(
     // The owner broadcast above only reaches the owner's dashboard channel. A call dialed
     // straight to a receptionist's cell never told her portal (`receptionist-{id}`) anything —
     // it relied entirely on that portal's slower dashboard poll to notice the bridge.
-    if (state.receptionistId?.trim()) {
+    // AMD-guarded dials already announced this receptionist the instant her cell answered
+    // (notifyReceptionistPickup, well before AMD/bridge resolved) — skip the repeat here so
+    // her HUD timer doesn't reset partway through the call.
+    if (state.receptionistId?.trim() && !state.amdGuard) {
       const owner = routing ? await getUser(routing.user_id).catch(() => null) : null
       const businessType = resolveBusinessType(owner?.industry ?? null)
       handleCallConnected({

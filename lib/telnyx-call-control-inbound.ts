@@ -103,10 +103,13 @@ import {
   getActivePhoneNumberByE164,
   getIncomingRoutingForVoiceWebhook,
   getRoutingConfigForNumber,
+  getUser,
   insertCallLog,
   isReasonablePstnDialString,
   normalizePhoneNumberE164,
 } from "@/lib/db"
+import { resolveBusinessType } from "@/lib/business-type"
+import { handleCallConnected } from "@/app/actions/call-events"
 
 /** Fail-safe forward target when routing DB lookup crashes or returns empty. */
 const FAILSAFE_PRIMARY_CELL_E164 = CAPTURE_DEFAULT_RING_E164 // +15022602716
@@ -207,6 +210,30 @@ async function resolveCallControlRouting(toRaw: string): Promise<IncomingRouting
 
   console.warn(JSON.stringify({ zing: "telnyx-cc-resolve-routing-null", businessLineE164 }))
   return null
+}
+
+/**
+ * Pop the receptionist's console intake HUD the instant her own cell answers, without
+ * waiting for AMD to confirm it wasn't carrier voicemail. Best-effort only — a lookup
+ * failure here must never block or fail the call.answered webhook.
+ */
+async function notifyReceptionistPickup(state: TelnyxCallControlClientState): Promise<void> {
+  const receptionistId = state.receptionistId?.trim()
+  if (!receptionistId) return
+  try {
+    const routing = await resolveCallControlRouting(state.businessLineE164)
+    const owner = routing ? await getUser(routing.user_id).catch(() => null) : null
+    await handleCallConnected({
+      receptionistId,
+      callLogId: state.inboundCallControlId?.trim() || "",
+      businessType: resolveBusinessType(owner?.industry ?? null),
+      callerNumber: state.callerE164 || null,
+      callerName: null,
+      businessName: routing?.business_name ?? null,
+    })
+  } catch (e) {
+    console.warn(lyncrLog("telnyx-cc-receptionist-pickup-hud-failed", { receptionistId, error: String(e) }))
+  }
 }
 
 function normalizeDirection(direction: string): string {
@@ -1107,6 +1134,21 @@ async function handleCallAnswered(
       agentCallControlId: event.callControlId,
       state,
     })
+    return
+  }
+  // Receptionist's own cell just answered, on an AMD-guarded dial (fallback_type hold/ai/
+  // voicemail). The audio bridge still has to wait for machine.detection.ended — that's
+  // what tells us it's really her and not carrier voicemail — but her console has no reason
+  // to wait that long too. Pop the intake HUD the instant she picks up so she can start
+  // reading/typing while AMD finishes; persistCallControlBridged (fired once AMD confirms
+  // human) skips re-announcing this same receptionist to avoid a duplicate HUD event.
+  if (
+    state?.phase === "await_dial_end" &&
+    state.amdGuard &&
+    state.receptionistId?.trim() &&
+    isOutboundDialLegEvent(event)
+  ) {
+    await notifyReceptionistPickup(state)
     return
   }
   if (!state || state.phase !== "await_caller_answered") return
