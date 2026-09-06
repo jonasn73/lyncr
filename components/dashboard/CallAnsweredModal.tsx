@@ -1147,9 +1147,17 @@ function rowFromCompletedPayload(payload: OwnerCallCompletedPayload): ActiveCall
 export type CallAnsweredModalProps = {
   enabled: boolean
   ownerUserId?: string | null
+  /**
+   * Set only when this modal is mounted on a receptionist's own portal (not the owner's
+   * dashboard) — scopes the realtime call-initiated/call-answered gates to her own routed
+   * calls instead of the owner's. The poll endpoints (ringing-recent / answered-recent)
+   * already scope server-side from the session cookie; this only affects the two Pusher
+   * events, which share the same owner-{ownerUserId} channel across both consoles.
+   */
+  receptionistId?: string | null
 }
 
-export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalProps) {
+export function CallAnsweredModal({ enabled, ownerUserId, receptionistId }: CallAnsweredModalProps) {
   const router = useRouter()
   const { toast } = useToast()
   const dismissedRef = useRef<Set<string>>(new Set())
@@ -2247,7 +2255,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
     const onInitiated = (payload: OwnerCallInitiatedPayload) => {
       // Hold / Busy / teammate — dismiss outside oncePerSid so a later tag still closes RINGING.
-      if (!shouldOpenOwnerRingingIntake(payload)) {
+      if (!shouldOpenOwnerRingingIntake(payload, receptionistId)) {
         const routed = String(payload.routed_to_name ?? "").toLowerCase()
         const reason = String(payload.dial_reason ?? "").toLowerCase()
         const dismissed = dismissOpenRingingForAutomation(payload)
@@ -2302,7 +2310,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
     const onAnswered = (payload: OwnerCallAnsweredPayload) => {
       // Soft-hold / Busy waiting — dismiss RINGING outside oncePerSid so Lines Answer can still open later.
-      if (!shouldOpenOwnerAnsweredIntake(payload)) {
+      if (!shouldOpenOwnerAnsweredIntake(payload, receptionistId)) {
         const routed = String(payload.routed_to_name ?? "").toLowerCase()
         if (dismissOpenRingingForAutomation(payload)) {
           toastHoldPath(routed)
@@ -2589,7 +2597,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         pusher.unsubscribe(channel.name)
       }
     }
-  }, [enabled, ownerUserId, patchManualCallRow])
+  }, [enabled, ownerUserId, receptionistId, patchManualCallRow])
 
   // Global Dynamic Island tap — re-open intake for the engine's primary call.
   useEffect(() => {

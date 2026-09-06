@@ -48,6 +48,8 @@ export async function broadcastCallAnswered(params: {
   /** Hold Queue / Busy menu — client suppresses New Intake until real Answer. */
   routedToName?: string | null
   dialReason?: string | null
+  /** Set when a receptionist's cell was the Dial target — lets her own console scope to it. */
+  routedToReceptionistId?: string | null
 }): Promise<void> {
   const payload: OwnerCallAnsweredPayload = {
     call_sid: params.callSid,
@@ -58,6 +60,7 @@ export async function broadcastCallAnswered(params: {
     answered_at: params.answeredAt ?? null,
     routed_to_name: params.routedToName ?? null,
     dial_reason: params.dialReason ?? null,
+    routed_to_receptionist_id: params.routedToReceptionistId ?? null,
   }
   await publishOwnerEvent(params.ownerUserId, "call-answered", payload)
 }

@@ -150,6 +150,7 @@ export async function persistCallControlBridged(
       // So New Intake opens only for a real bridge (including Answer from Lines).
       dialReason: fromQueue ? "queue_answer" : state.dialReason ?? null,
       routedToName,
+      receptionistId: state.receptionistId ?? null,
     }).catch((e) => {
       console.warn("[telnyx-cc] call-answered broadcast failed:", e)
     })

@@ -633,7 +633,11 @@ export function ReceptionistPortalView() {
       ) : null}
 
       {canTakeIntake ? (
-        <CallAnsweredModal enabled ownerUserId={workspaceSession?.companyUserId ?? null} />
+        <CallAnsweredModal
+          enabled
+          ownerUserId={workspaceSession?.companyUserId ?? null}
+          receptionistId={dashboard?.receptionist.id ?? null}
+        />
       ) : null}
 
       {tab === "home" ? (

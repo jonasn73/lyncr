@@ -183,6 +183,68 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(speakCall).toBeFalsy()
   })
 
+  it("call.initiated broadcasts call-initiated for a plain day_dial call, not just busy_automation", async () => {
+    // Regression: this used to only broadcast for busy_automation, so no console (owner's
+    // dashboard or a receptionist's own portal) ever got a realtime signal for the common
+    // case — a plain call routed straight to a person. The client-side gates decide who
+    // actually opens a sheet for it; this only makes sure the signal goes out at all.
+    const broadcastCallInitiatedMock = vi.fn(() => Promise.resolve())
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15552602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "voicemail",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: true,
+          account_status: "active",
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(() => Promise.resolve("call-log-day-dial")),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => {
+        const d = p.replace(/\D/g, "")
+        if (d.length === 10) return `+1${d}`
+        return p.startsWith("+") ? p : `+${d}`
+      },
+    }))
+    vi.doMock("@/lib/call-telemetry-realtime", () => ({
+      broadcastCallInitiated: broadcastCallInitiatedMock,
+    }))
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.initiated",
+        id: "evt-init-day-dial",
+        payload: {
+          call_control_id: "cc-init-day-dial",
+          from: "+15551230000",
+          to: "+15555571219",
+          direction: "incoming",
+        },
+      },
+    })
+    // insertCallLog is fire-and-forget (void) — flush past its .then chain (including the
+    // dynamic import of call-telemetry-realtime) before asserting.
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(broadcastCallInitiatedMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        callSid: "cc-init-day-dial",
+        callLogId: "call-log-day-dial",
+        dialReason: "day_dial",
+      })
+    )
+  })
+
   it("speak.ended dials outbound leg via POST /v2/calls with link_to", async () => {
     vi.doMock("@/lib/db", () => ({
       // The leg map persists the outbound leg and reads it back. Without these two

@@ -40,6 +40,57 @@ describe("shouldOpenOwnerRingingIntake", () => {
       })
     ).toBe(false)
   })
+
+  it("a receptionist's own console opens for her own routed ring", () => {
+    expect(
+      shouldOpenOwnerRingingIntake(
+        {
+          routed_to_receptionist_id: "recv-1",
+          routed_to_name: "Alex",
+          dial_reason: "day_dial",
+        },
+        "recv-1"
+      )
+    ).toBe(true)
+  })
+
+  it("a receptionist's own console ignores a ring routed to someone else", () => {
+    expect(
+      shouldOpenOwnerRingingIntake(
+        {
+          routed_to_receptionist_id: "recv-2",
+          routed_to_name: "Someone Else",
+          dial_reason: "day_dial",
+        },
+        "recv-1"
+      )
+    ).toBe(false)
+  })
+
+  it("a receptionist's own console ignores the owner's own unrouted ring", () => {
+    expect(
+      shouldOpenOwnerRingingIntake(
+        {
+          routed_to_name: "Owner",
+          dial_reason: "day_dial",
+        },
+        "recv-1"
+      )
+    ).toBe(false)
+  })
+
+  it("a receptionist's own console still suppresses Busy → hold automation for her call", () => {
+    expect(
+      shouldOpenOwnerRingingIntake(
+        {
+          routed_to_receptionist_id: "recv-1",
+          routed_to_name: CAPTURE_STATUS_BUSY_MENU,
+          dial_reason: "busy_automation",
+        },
+        "recv-1"
+      )
+    ).toBe(false)
+  })
 })
 
 describe("shouldOpenOwnerAnsweredIntake", () => {
@@ -83,6 +134,56 @@ describe("shouldOpenOwnerAnsweredIntake", () => {
         dial_reason: null,
       })
     ).toBe(true)
+  })
+
+  it("the owner's own console still opens for a call answered by a receptionist", () => {
+    // No viewerReceptionistId (owner's own console) — original account-wide behavior,
+    // unchanged: the owner sees every answered call, whoever it went to.
+    expect(
+      shouldOpenOwnerAnsweredIntake({
+        routed_to_receptionist_id: "recv-1",
+        routed_to_name: "Alex",
+        dial_reason: "day_dial",
+      })
+    ).toBe(true)
+  })
+
+  it("a receptionist's own console opens only for her own answered call", () => {
+    expect(
+      shouldOpenOwnerAnsweredIntake(
+        {
+          routed_to_receptionist_id: "recv-1",
+          routed_to_name: "Alex",
+          dial_reason: "day_dial",
+        },
+        "recv-1"
+      )
+    ).toBe(true)
+  })
+
+  it("a receptionist's own console ignores another receptionist's answered call", () => {
+    expect(
+      shouldOpenOwnerAnsweredIntake(
+        {
+          routed_to_receptionist_id: "recv-2",
+          routed_to_name: "Someone Else",
+          dial_reason: "day_dial",
+        },
+        "recv-1"
+      )
+    ).toBe(false)
+  })
+
+  it("a receptionist's own console ignores the owner's own answered call", () => {
+    expect(
+      shouldOpenOwnerAnsweredIntake(
+        {
+          routed_to_name: "Owner",
+          dial_reason: "day_dial",
+        },
+        "recv-1"
+      )
+    ).toBe(false)
   })
 })
 

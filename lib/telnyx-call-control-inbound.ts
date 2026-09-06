@@ -1012,23 +1012,26 @@ async function handleCallInitiated(
       })
         .then(async (callLogId) => {
           console.log(JSON.stringify({ zing: "telnyx-cc-initiated-call-log-ok", callControlId }))
-          // Still notify the dashboard (toast / Lines) — client suppresses the RINGING sheet.
-          if (isBusyAutomation) {
-            try {
-              const { broadcastCallInitiated } = await import("@/lib/call-telemetry-realtime")
-              await broadcastCallInitiated({
-                ownerUserId,
-                callSid: callControlId,
-                callLogId,
-                fromNumber: callerE164,
-                toNumber: businessLineE164,
-                routedToReceptionistId: dialPlan.receptionistId,
-                routedToName: dialPlan.routedToName,
-                dialReason: "busy_automation",
-              })
-            } catch (e) {
-              console.warn("[telnyx-cc] busy call-initiated broadcast failed:", e)
-            }
+          // Broadcast on every inbound call, not just busy_automation — this is the only
+          // signal that lets a console (owner's dashboard or a receptionist's own portal)
+          // open its live intake before the callee's phone even rings. The client-side
+          // gates (shouldOpenOwnerRingingIntake / a receptionist's own scoping) decide who,
+          // if anyone, actually opens a sheet for it; busy/hold reasons are still filtered
+          // there exactly as before, they just no longer skip broadcasting altogether.
+          try {
+            const { broadcastCallInitiated } = await import("@/lib/call-telemetry-realtime")
+            await broadcastCallInitiated({
+              ownerUserId,
+              callSid: callControlId,
+              callLogId,
+              fromNumber: callerE164,
+              toNumber: businessLineE164,
+              routedToReceptionistId: dialPlan.receptionistId,
+              routedToName: dialPlan.routedToName,
+              dialReason: dialPlan.reason,
+            })
+          } catch (e) {
+            console.warn("[telnyx-cc] call-initiated broadcast failed:", e)
           }
         })
         .catch((e) => console.error("[telnyx-cc] call log insert failed:", e))

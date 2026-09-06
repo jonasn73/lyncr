@@ -25,6 +25,8 @@ export type NotifyOwnerInboundCallAnsweredParams = {
   dialReason?: string | null
   /** Activity label already written (Hold Queue vs Answered from queue). */
   routedToName?: string | null
+  /** Set when a receptionist's cell is the Dial target — lets her own console scope to it. */
+  receptionistId?: string | null
 }
 
 async function broadcastFromSnapshot(
@@ -54,6 +56,7 @@ async function broadcastFromSnapshot(
     answeredAt: snapshot.answered_at,
     routedToName: routed,
     dialReason: opts?.dialReason ?? null,
+    routedToReceptionistId: snapshot.routed_to_receptionist_id,
   })
   return true
 }
@@ -132,6 +135,7 @@ export async function notifyOwnerInboundCallAnswered(
         answeredAt: occurredAt,
         routedToName,
         dialReason,
+        routedToReceptionistId: params.receptionistId ?? null,
       })
       persistAnsweredCallLog({
         providerCallSid: sid,

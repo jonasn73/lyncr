@@ -29,16 +29,29 @@ export type OwnerCallInitiatedPayload = {
 }
 
 /**
- * True when the owner dashboard should open the full RINGING / New Intake sheet.
- * False for Busy→hold, press-1 automation, or teammate Dial (owner is not the ring target).
+ * True when the viewer's console should open the full RINGING / New Intake sheet.
+ * False for Busy→hold, press-1 automation, or (for the owner's own console) a teammate
+ * Dial the owner isn't the ring target for.
+ *
+ * `viewerReceptionistId` set means this is a receptionist's own console, not the owner's —
+ * she should see exactly her own routed calls, the mirror image of the owner's exclusion.
  */
-export function shouldOpenOwnerRingingIntake(payload: {
-  routed_to_receptionist_id?: string | null
-  routed_to_name?: string | null
-  dial_reason?: string | null
-}): boolean {
-  // Teammate cell is the Dial target.
-  if (String(payload.routed_to_receptionist_id ?? "").trim()) return false
+export function shouldOpenOwnerRingingIntake(
+  payload: {
+    routed_to_receptionist_id?: string | null
+    routed_to_name?: string | null
+    dial_reason?: string | null
+  },
+  viewerReceptionistId?: string | null
+): boolean {
+  const routedId = String(payload.routed_to_receptionist_id ?? "").trim()
+  if (viewerReceptionistId?.trim()) {
+    // Receptionist's own console — only her own routed calls.
+    if (routedId !== viewerReceptionistId.trim()) return false
+  } else if (routedId) {
+    // Owner's own console — teammate cell is the Dial target, not the owner's.
+    return false
+  }
   const reason = String(payload.dial_reason ?? "")
     .trim()
     .toLowerCase()
@@ -64,11 +77,23 @@ export function shouldOpenOwnerRingingIntake(payload: {
 /**
  * True when CALL ANSWERED / New Intake should open after a bridge (or Answer from Lines).
  * False while the caller is only waiting on hold / Busy menu (same class as ringing suppress).
+ *
+ * `viewerReceptionistId` set means this is a receptionist's own console — she should only
+ * see her own routed calls. Unset (the owner's own console) keeps the original behavior of
+ * showing every answered call on the account, whoever it went to.
  */
-export function shouldOpenOwnerAnsweredIntake(payload: {
-  routed_to_name?: string | null
-  dial_reason?: string | null
-}): boolean {
+export function shouldOpenOwnerAnsweredIntake(
+  payload: {
+    routed_to_receptionist_id?: string | null
+    routed_to_name?: string | null
+    dial_reason?: string | null
+  },
+  viewerReceptionistId?: string | null
+): boolean {
+  if (viewerReceptionistId?.trim()) {
+    const routedId = String(payload.routed_to_receptionist_id ?? "").trim()
+    if (routedId !== viewerReceptionistId.trim()) return false
+  }
   const reason = String(payload.dial_reason ?? "")
     .trim()
     .toLowerCase()
@@ -93,6 +118,8 @@ export type OwnerCallAnsweredPayload = {
   routed_to_name?: string | null
   /** Call Control dial reason — busy_automation must not open New Intake. */
   dial_reason?: string | null
+  /** Set when a receptionist's cell was the Dial target — lets her own console scope to it. */
+  routed_to_receptionist_id?: string | null
 }
 
 /** Fired when a call reaches a terminal status (hangup / no-answer / etc.). */
