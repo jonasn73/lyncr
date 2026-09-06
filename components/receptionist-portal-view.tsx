@@ -34,8 +34,10 @@ export type LiveCallSession = {
 
 // The one intake form in this product, mounted at the receptionist's desk when the owner
 // has granted `call_intake`. Same component the dashboard shell renders — it resolves the
-// live call itself from /api/calls/ringing-recent + answered-recent, which now return the
-// owner's calls for a linked receptionist, so it needs nothing wired to her HUD.
+// live call itself from /api/calls/ringing-recent + answered-recent. Both routes resolve
+// the caller's session server-side (lib/workspace-actor.ts) and scope to her own routed
+// calls when she's a receptionist, vs. every account call when the caller is the owner —
+// so this needs nothing wired to her HUD.
 //
 // There is no receptionist-flavoured alternative behind this flag any more. Off means she
 // answers and routes calls but writes no intake, which is what "turn her intake off" has

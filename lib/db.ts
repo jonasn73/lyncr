@@ -5410,7 +5410,15 @@ export async function listTodaysCallLogsForCaller(
 
 export async function listRecentlyAnsweredIncomingCalls(
   userId: string,
-  withinMinutes = 12
+  withinMinutes = 12,
+  /**
+   * Null (owner session) keeps the original behavior: every answered call on the
+   * account, whoever it was routed to — the owner's console is meant to see all of it.
+   * A receptionist's own id instead scopes to exactly her own routed-to-her calls; without
+   * this her portal's copy of this same intake sheet showed EVERY answered call on the
+   * whole account, including the owner's own and any other receptionist's.
+   */
+  receptionistId: string | null = null
 ): Promise<CallLog[]> {
   const sql = getSql()
   let rows: Record<string, unknown>[]
@@ -5422,6 +5430,7 @@ export async function listRecentlyAnsweredIncomingCalls(
         AND cl.answered_at IS NOT NULL
         AND cl.answered_at > (now() - (${withinMinutes}::numeric * interval '1 minute'))
         AND cl.owner_intake_dismissed_at IS NULL
+        AND (${receptionistId}::uuid IS NULL OR cl.routed_to_receptionist_id = ${receptionistId}::uuid)
         -- Soft-hold / Busy menu / press-1 — waiting or SMS left; not a live Answer bridge.
         -- “Answered from queue” is a real Lines Answer and must still open intake.
         AND NOT (
@@ -5453,6 +5462,7 @@ export async function listRecentlyAnsweredIncomingCalls(
               AND cl.call_type = 'incoming'
               AND cl.answered_at IS NOT NULL
               AND cl.answered_at > (now() - (${withinMinutes}::numeric * interval '1 minute'))
+              AND (${receptionistId}::uuid IS NULL OR cl.routed_to_receptionist_id = ${receptionistId}::uuid)
               AND NOT (
                 lower(COALESCE(cl.routed_to_name, '')) ~*
                 '(^hold queue$|hold menu|booked from hold|busy · hold)'
@@ -5490,7 +5500,14 @@ export async function listRecentlyAnsweredIncomingCalls(
 /** Inbound calls still ringing — for early intake sheet before answer. */
 export async function listRecentlyRingingIncomingCalls(
   userId: string,
-  withinMinutes = 5
+  withinMinutes = 5,
+  /**
+   * Null (owner session) keeps the original behavior: owner-cell rings only, teammate
+   * Busy backup excluded. A receptionist's own id instead scopes to exactly her own
+   * routed-to-her rings — the receptionist portal's copy of this same intake sheet was
+   * otherwise structurally unable to ever show her own calls at ring time.
+   */
+  receptionistId: string | null = null
 ): Promise<CallLog[]> {
   const sql = getSql()
   try {
@@ -5502,8 +5519,10 @@ export async function listRecentlyRingingIncomingCalls(
         AND cl.answered_at IS NULL
         AND cl.created_at > (now() - (${withinMinutes}::numeric * interval '1 minute'))
         AND cl.owner_intake_dismissed_at IS NULL
-        -- Owner intake is for owner-cell rings only; teammate Busy backup should not open it.
-        AND cl.routed_to_receptionist_id IS NULL
+        AND (
+          (${receptionistId}::uuid IS NULL AND cl.routed_to_receptionist_id IS NULL)
+          OR cl.routed_to_receptionist_id = ${receptionistId}::uuid
+        )
         -- Busy → hold / press-1 / IVR automation — never open Incoming Call as RINGING.
         AND NOT (
           lower(COALESCE(cl.routed_to_name, '')) ~*
@@ -5525,7 +5544,10 @@ export async function listRecentlyRingingIncomingCalls(
               AND lower(status) = 'ringing'
               AND answered_at IS NULL
               AND created_at > (now() - (${withinMinutes}::numeric * interval '1 minute'))
-              AND routed_to_receptionist_id IS NULL
+              AND (
+                (${receptionistId}::uuid IS NULL AND routed_to_receptionist_id IS NULL)
+                OR routed_to_receptionist_id = ${receptionistId}::uuid
+              )
               AND NOT (
                 lower(COALESCE(routed_to_name, '')) ~*
                 '(hold queue|hold menu|booked from hold|presence closed|presence on-job|presence on job|ivr|voicemail|ai receptionist|sent night link|sent day link|sent busy link)'

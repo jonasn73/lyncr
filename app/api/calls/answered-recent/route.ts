@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const userId = actor.ownerUserId
     const mins = Number(req.nextUrl.searchParams.get("withinMinutes") || "12")
     const within = Number.isFinite(mins) ? Math.min(Math.max(mins, 1), 60) : 12
-    const calls = await listRecentlyAnsweredIncomingCalls(userId, within)
+    const calls = await listRecentlyAnsweredIncomingCalls(userId, within, actor.receptionistId)
     return NextResponse.json({ calls })
   } catch (e) {
     console.error("[GET /api/calls/answered-recent]", e)
