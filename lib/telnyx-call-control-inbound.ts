@@ -107,7 +107,7 @@ import {
   normalizePhoneNumberE164,
 } from "@/lib/db"
 import { resolveBusinessType } from "@/lib/business-type"
-import { handleCallConnected } from "@/app/actions/call-events"
+import { handleCallConnected, handleCallRinging } from "@/app/actions/call-events"
 
 /** Fail-safe forward target when routing DB lookup crashes or returns empty. */
 const FAILSAFE_PRIMARY_CELL_E164 = CAPTURE_DEFAULT_RING_E164 // +15022602716
@@ -208,6 +208,35 @@ async function resolveCallControlRouting(toRaw: string): Promise<IncomingRouting
 
   console.warn(JSON.stringify({ zing: "telnyx-cc-resolve-routing-null", businessLineE164 }))
   return null
+}
+
+/**
+ * Tell the receptionist's console a call is routing to her before her phone has even
+ * started ringing — fired the instant the dial plan resolves, ahead of the caller's
+ * branded greeting and the outbound Dial. `routing` is already in hand at the call site,
+ * so this never re-queries it. Best-effort only — must never block or fail the
+ * call.answered webhook the caller is waiting on.
+ */
+async function notifyReceptionistRinging(
+  callLogId: string,
+  state: TelnyxCallControlClientState,
+  routing: IncomingRoutingRow
+): Promise<void> {
+  const receptionistId = state.receptionistId?.trim()
+  if (!receptionistId || !callLogId.trim()) return
+  try {
+    const owner = await getUser(routing.user_id).catch(() => null)
+    await handleCallRinging({
+      receptionistId,
+      callLogId,
+      businessType: resolveBusinessType(owner?.industry ?? null),
+      callerNumber: state.callerE164 || null,
+      callerName: null,
+      businessName: routing.business_name ?? null,
+    })
+  } catch (e) {
+    console.warn(lyncrLog("telnyx-cc-receptionist-ringing-hud-failed", { receptionistId, error: String(e) }))
+  }
 }
 
 /**
@@ -1194,6 +1223,13 @@ async function handleCallAnswered(
     fallbackType: routing.fallback_type ?? state.fallbackType,
     dialReason: dialPlan.reason,
     receptionistId: dialPlan.receptionistId || undefined,
+  }
+
+  // Tell her console the instant the dial plan names her — before the caller's branded
+  // greeting plays and before dialTechnicianLeg ever places the outbound Dial, i.e. before
+  // her phone makes a sound. Fire-and-forget: must not add latency to the caller's own path.
+  if (dialPlan.reason !== "busy_automation" && dialPlan.receptionistId) {
+    void notifyReceptionistRinging(event.callControlId, enrichedState, routing)
   }
 
   const greetingEnabled = isInboundCallerGreetingEnabled(routing)

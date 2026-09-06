@@ -7,6 +7,47 @@
 import { publishReceptionistEvent } from "@/lib/realtime/pusher-server"
 import type { ReceptionistBusinessType } from "@/lib/business-type"
 
+export type CallRingingPayload = {
+  status: "ringing"
+  callLogId: string
+  businessType: ReceptionistBusinessType
+  callerNumber?: string | null
+  callerName?: string | null
+  businessName?: string | null
+  startedAt: string
+}
+
+/**
+ * Notify a receptionist's channel that a call is routing to her, before her phone has
+ * even started ringing (fired the instant the dial plan resolves, ahead of the caller
+ * greeting and the outbound Dial). Fires `call-ringing` on `receptionist-{receptionistId}`.
+ * Safe no-op when realtime is not configured (the HUD still catches up on its next poll).
+ */
+export async function handleCallRinging(params: {
+  receptionistId: string
+  callLogId: string
+  businessType: ReceptionistBusinessType
+  callerNumber?: string | null
+  callerName?: string | null
+  businessName?: string | null
+}): Promise<{ broadcast: boolean }> {
+  const receptionistId = params.receptionistId?.trim()
+  if (!receptionistId) return { broadcast: false }
+
+  const payload: CallRingingPayload = {
+    status: "ringing",
+    callLogId: params.callLogId,
+    businessType: params.businessType,
+    callerNumber: params.callerNumber ?? null,
+    callerName: params.callerName ?? null,
+    businessName: params.businessName ?? null,
+    startedAt: new Date().toISOString(),
+  }
+
+  const broadcast = await publishReceptionistEvent(receptionistId, "call-ringing", payload)
+  return { broadcast }
+}
+
 export type CallConnectedPayload = {
   status: "active_call"
   callLogId: string

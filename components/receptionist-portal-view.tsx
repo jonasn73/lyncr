@@ -47,7 +47,7 @@ const CallAnsweredModal = dynamic(
   () => import("@/components/dashboard/CallAnsweredModal").then((m) => m.CallAnsweredModal),
   { ssr: false }
 )
-import type { CallConnectedPayload } from "@/app/actions/call-events"
+import type { CallConnectedPayload, CallRingingPayload } from "@/app/actions/call-events"
 import { ReceptionistEndpointToggle } from "@/components/receptionist-endpoint-toggle"
 import { ReceptionistAvailabilityToggle } from "@/components/receptionist-availability-toggle"
 import { ReceptionistSimpleIntake } from "@/components/receptionist-simple-intake"
@@ -460,22 +460,18 @@ export function ReceptionistPortalView() {
     // switches from counting ring time to counting talk time.
     setActiveCall({ ...activeCall, answeredAt: polledLive.started_at ?? new Date().toISOString() })
     if (answeredCallGoneStreak !== 0) setAnsweredCallGoneStreak(0)
-  } else if (dashboard && !polledLive && activeCall && !activeCall.answeredAt) {
-    // The caller hung up before anyone picked up. There is nothing to write up about a
-    // call that never happened, so the HUD closes itself rather than sitting there with
-    // a running clock.
-    setActiveCall(null)
   } else if (
     dashboard &&
     !polledLive &&
     activeCall &&
-    activeCall.answeredAt &&
     dashboard !== answeredCallGoneCheckedDashboard
   ) {
-    // The call has ended after being answered — normally call-ended (realtime) closes
-    // this. Confirm across two separate polls before acting, so a single stale read
-    // can't cut a receptionist off mid-sentence, but still self-heal when realtime
-    // never fires.
+    // The call ended, or was never real to begin with (caller hung up before anyone
+    // picked up) — either way the poll no longer sees it live. Confirm across two
+    // separate polls before acting: a single stale read can't cut a receptionist off
+    // mid-sentence, and — just as important — can't be a poll that simply started
+    // before call-ringing/call-connected fired and hasn't caught up yet. Still
+    // self-heals when realtime never fires at all.
     setAnsweredCallGoneCheckedDashboard(dashboard)
     const nextStreak = answeredCallGoneStreak + 1
     if (nextStreak >= 2) {
@@ -498,20 +494,40 @@ export function ReceptionistPortalView() {
     const channelName = `receptionist-${receptionistId}`
     const channel = pusher.subscribe(channelName)
 
+    // Fires the instant the dial plan names her — before her phone has even started
+    // ringing. Opens the HUD in ringing state (answeredAt null) so she sees who's calling
+    // before the first ring, same as onConnected does once she actually picks up.
+    const onRinging = (payload: CallRingingPayload) => {
+      const ringStart = payload.startedAt ?? new Date().toISOString()
+      setHandledCallSid(payload.callLogId)
+      setActiveCall({
+        answeredAt: null,
+        callLogId: payload.callLogId,
+        businessType: payload.businessType ?? "generic",
+        callerNumber: payload.callerNumber ?? null,
+        callerName: payload.callerName ?? null,
+        businessName: payload.businessName ?? dashboardRef.current?.business_name ?? null,
+        startedAt: ringStart,
+      })
+      setAnsweredCallGoneStreak(0)
+      load({ silent: true })
+    }
     const onConnected = (payload: CallConnectedPayload) => {
       // This event fires the instant the callee leg answers — payload.startedAt IS the
       // answer moment, not the ring start, so both fields below are the same timestamp.
       const answerTime = payload.startedAt ?? new Date().toISOString()
       setHandledCallSid(payload.callLogId)
-      setActiveCall({
+      setActiveCall((prev) => ({
         answeredAt: answerTime,
         callLogId: payload.callLogId,
         businessType: payload.businessType ?? "generic",
         callerNumber: payload.callerNumber ?? null,
         callerName: payload.callerName ?? null,
         businessName: payload.businessName ?? dashboardRef.current?.business_name ?? null,
-        startedAt: answerTime,
-      })
+        // onRinging already stamped when the call started routing to her — keep that,
+        // rather than resetting the clock to this later answer moment.
+        startedAt: prev?.callLogId === payload.callLogId ? prev.startedAt : answerTime,
+      }))
       setAnsweredCallGoneStreak(0)
       load({ silent: true })
     }
@@ -521,9 +537,11 @@ export function ReceptionistPortalView() {
       load({ silent: true })
     }
 
+    channel.bind("call-ringing", onRinging)
     channel.bind("call-connected", onConnected)
     channel.bind("call-ended", onEnded)
     return () => {
+      channel.unbind("call-ringing", onRinging)
       channel.unbind("call-connected", onConnected)
       channel.unbind("call-ended", onEnded)
       pusher.unsubscribe(channelName)

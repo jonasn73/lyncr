@@ -1291,6 +1291,91 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(dialCall).toBeFalsy()
   })
 
+  it("tells the receptionist's console she's getting a call before the greeting plays or her phone ever rings", async () => {
+    // The dial plan naming her is known here, on the caller's own call.answered — well
+    // before the branded greeting speaks and long before dialTechnicianLeg places the
+    // outbound Dial that actually rings her phone.
+    resolveInboundCapturePlanMock.mockResolvedValue({ kind: "presence_on_job" })
+    getFirstAvailableOwnerReceptionistMock.mockResolvedValue({
+      receptionistId: "recv-alex",
+      name: "Alex Jonas",
+      phoneE164: "+15029995874",
+    })
+
+    const handleCallRingingMock = vi.fn(() => Promise.resolve({ broadcast: true }))
+    vi.doMock("@/app/actions/call-events", () => ({
+      handleCallRinging: handleCallRingingMock,
+      handleCallConnected: vi.fn(() => Promise.resolve({ broadcast: true })),
+    }))
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "voicemail",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: true,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getUser: vi.fn(() => Promise.resolve({ industry: "locksmith" })),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+    }))
+
+    const answeredState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_caller_answered",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialTargetE164: "+15022602716",
+      ringTimeoutSec: 30,
+      fallbackType: "voicemail",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.answered",
+        id: "evt-answered-ringing-hud",
+        payload: {
+          call_control_id: "cc-inbound-ringing-hud",
+          from: "+15025369252",
+          to: "+15025571219",
+          direction: "incoming",
+          client_state: answeredState,
+        },
+      },
+    })
+
+    expect(handleCallRingingMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        receptionistId: "recv-alex",
+        callLogId: "cc-inbound-ringing-hud",
+        businessType: "locksmith",
+        callerNumber: "+15025369252",
+      })
+    )
+    // Confirm this really did fire ahead of anything that touches her phone or the caller's ear.
+    const speakCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/speak"))
+    expect(speakCall).toBeTruthy()
+    const dialCall = fetchMock.mock.calls.find(
+      (c) => String(c[0]).includes("/v2/calls") && !String(c[0]).includes("/actions/")
+    )
+    expect(dialCall).toBeFalsy()
+  })
+
   it("call.initiated still answers when routing DB throws", async () => {
     vi.doMock("@/lib/db", () => ({
       getIncomingRoutingForVoiceWebhook: vi.fn(() =>

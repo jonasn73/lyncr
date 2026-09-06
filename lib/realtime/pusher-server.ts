@@ -25,6 +25,7 @@ function getPusherServer(): Pusher | null {
 }
 
 export type ReceptionistChannelEvent =
+  | "call-ringing"
   | "call-connected"
   | "call-ended"
 
