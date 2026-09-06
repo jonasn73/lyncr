@@ -1126,19 +1126,25 @@ async function handleCallAnswered(
     })
     return
   }
-  // Receptionist's own cell just answered, on an AMD-guarded dial (fallback_type hold/ai/
-  // voicemail). The audio bridge still has to wait for machine.detection.ended — that's
-  // what tells us it's really her and not carrier voicemail — but her console has no reason
-  // to wait that long too. Pop the intake HUD the instant she picks up so she can start
-  // reading/typing while AMD finishes; persistCallControlBridged (fired once AMD confirms
-  // human) skips re-announcing this same receptionist to avoid a duplicate HUD event.
-  if (
-    state?.phase === "await_dial_end" &&
-    state.amdGuard &&
-    state.receptionistId?.trim() &&
-    isOutboundDialLegEvent(event)
-  ) {
-    await notifyReceptionistPickup(state)
+  // The technician/receptionist leg just answered (bridge_on_answer: true dials the instant
+  // she picks up) — but our own injected ringback on the caller's leg only stops when the
+  // separate call.bridged webhook round-trips back to us, which was the last source of a
+  // perceptible gap between her hearing dial tone stop and the caller actually being
+  // connected. Kill the ringback right here instead of waiting for that second webhook.
+  // persistCallControlBridged (still fired from call.bridged, the authoritative signal) does
+  // the DB/Activities stamping and the owner/receptionist Pusher broadcasts unchanged.
+  //
+  // amdGuard-gated calls dialed before this change ships still fall through here too — for
+  // those, ringback is stopped again (harmless no-op) inside handleMachineDetectionEnded once
+  // AMD actually confirms a human, and the early HUD pop below still applies to them.
+  if (state?.phase === "await_dial_end" && isOutboundDialLegEvent(event)) {
+    const inboundId = state.inboundCallControlId?.trim()
+    if (inboundId && !state.amdGuard) {
+      await stopCallerDialRingback(inboundId)
+    }
+    if (state.receptionistId?.trim()) {
+      await notifyReceptionistPickup(state)
+    }
     return
   }
   if (!state || state.phase !== "await_caller_answered") return

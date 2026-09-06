@@ -827,6 +827,97 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/bridge"))).toBeFalsy()
   })
 
+  it("default (non-AMD) pickup stops caller ringback immediately and does not re-announce the HUD on call.bridged", async () => {
+    // Regression: with AMD dropped from the primary dial, bridge_on_answer:true makes Telnyx
+    // bridge natively the instant she answers — but our own injected ringback on the caller's
+    // leg used to only stop once the separate call.bridged webhook round-tripped back to us,
+    // which was the last perceptible gap between her answering and the caller hearing her.
+    // Also: her HUD must fire exactly once (on call.answered), not again on call.bridged.
+    const handleCallConnectedMock = vi.fn(() => Promise.resolve({ broadcast: true }))
+    vi.doMock("@/app/actions/call-events", () => ({
+      handleCallConnected: handleCallConnectedMock,
+    }))
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: "Alex Jonas",
+          fallback_type: "hold",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: true,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getActivePhoneNumberByE164: vi.fn(() => Promise.resolve(null)),
+      getUser: vi.fn(() => Promise.resolve({ industry: "locksmith" })),
+      updateCallLog: vi.fn(() => Promise.resolve()),
+      getCallLogSnapshotForTelemetry: vi.fn(() => Promise.resolve(null)),
+      recordCallStatusEvent: vi.fn(() => Promise.resolve()),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+    }))
+
+    const dialState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_dial_end",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialTargetE164: "+15029995874",
+      inboundCallControlId: "cc-in-instant",
+      outboundCallControlId: "cc-out-instant",
+      ringTimeoutSec: 30,
+      fallbackType: "hold",
+      dialReason: "day_dial",
+      receptionistId: "77803d63-b9e9-4739-9129-30a9ad641864",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.answered",
+        id: "evt-cell-pickup-instant",
+        payload: {
+          call_control_id: "cc-out-instant",
+          from: "+15025571219",
+          to: "+15029995874",
+          direction: "outgoing",
+          client_state: dialState,
+        },
+      },
+    })
+
+    expect(handleCallConnectedMock).toHaveBeenCalledTimes(1)
+    const stopCall = fetchMock.mock.calls.find(
+      (c) => String(c[0]).includes("cc-in-instant") && String(c[0]).includes("/actions/playback_stop")
+    )
+    expect(stopCall).toBeTruthy()
+
+    // The later call.bridged confirmation must not re-announce the same receptionist.
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.bridged",
+        id: "evt-bridged",
+        payload: {
+          call_control_id: "cc-out-instant",
+          from: "+15025571219",
+          to: "+15029995874",
+          direction: "outgoing",
+          client_state: dialState,
+        },
+      },
+    })
+    expect(handleCallConnectedMock).toHaveBeenCalledTimes(1)
+  })
+
   it("owner fallback dial still auto-bridges (no AMD)", async () => {
     vi.doMock("@/lib/db", () => ({
       getIncomingRoutingForVoiceWebhook: vi.fn(() =>

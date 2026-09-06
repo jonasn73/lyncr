@@ -9,12 +9,10 @@ import type { TelnyxCallControlClientState } from "@/lib/telnyx-call-control-sta
 import { maybeSendAdminOverrideDispatchSms } from "@/lib/admin-override-dispatch-sms"
 import { maybeSendPostCallDispositionSms } from "@/lib/post-call-disposition-sms"
 import { settleCallEarningsInBackground } from "@/lib/compensation/settle-call"
-import { getIncomingRoutingForVoiceWebhook, getCallLogSnapshotForTelemetry, getUser, recordCallStatusEvent, updateCallLog } from "@/lib/db"
+import { getIncomingRoutingForVoiceWebhook, getCallLogSnapshotForTelemetry, recordCallStatusEvent, updateCallLog } from "@/lib/db"
 import type { CallType } from "@/lib/types"
 import { CAPTURE_STATUS_ANSWERED_FROM_QUEUE } from "@/lib/inbound-time-capture"
 import { isHoldAutomationStatus } from "@/lib/inbound-time-capture"
-import { resolveBusinessType } from "@/lib/business-type"
-import { handleCallConnected } from "@/app/actions/call-events"
 
 /** Inbound caller leg SID — the row created on call.initiated. */
 export function resolveInboundCallLogSid(event: TelnyxVoiceWebhookEvent): string {
@@ -155,26 +153,12 @@ export async function persistCallControlBridged(
     }).catch((e) => {
       console.warn("[telnyx-cc] call-answered broadcast failed:", e)
     })
-    // The owner broadcast above only reaches the owner's dashboard channel. A call dialed
-    // straight to a receptionist's cell never told her portal (`receptionist-{id}`) anything —
-    // it relied entirely on that portal's slower dashboard poll to notice the bridge.
-    // AMD-guarded dials already announced this receptionist the instant her cell answered
-    // (notifyReceptionistPickup, well before AMD/bridge resolved) — skip the repeat here so
-    // her HUD timer doesn't reset partway through the call.
-    if (state.receptionistId?.trim() && !state.amdGuard) {
-      const owner = routing ? await getUser(routing.user_id).catch(() => null) : null
-      const businessType = resolveBusinessType(owner?.industry ?? null)
-      handleCallConnected({
-        receptionistId: state.receptionistId.trim(),
-        callLogId: inboundCallSid,
-        businessType,
-        callerNumber: state.callerE164 || null,
-        callerName: null,
-        businessName: routing?.business_name ?? null,
-      }).catch((e) => {
-        console.warn("[telnyx-cc] receptionist HUD broadcast failed:", e)
-      })
-    }
+    // The owner broadcast above only reaches the owner's dashboard channel, but
+    // `state.receptionistId` is only ever set on the primary technician/receptionist dial
+    // (never the hold-queue Lines Answer path), and that dial's own call.answered event
+    // already announced this receptionist immediately via notifyReceptionistPickup in
+    // telnyx-call-control-inbound.ts — well before this bridge confirmation lands. Do not
+    // repeat it here; a second `call-connected` would just reset her HUD's timer mid-call.
     console.log(
       JSON.stringify({
         zing: "telnyx-cc-call-log-bridged",
