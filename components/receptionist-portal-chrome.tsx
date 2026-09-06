@@ -75,6 +75,9 @@ export function ReceptionistPortalChrome({
   const pathname = usePathname() || "/receptionist"
   // A hidden tab is courtesy, not protection — each route re-checks server-side.
   const NAV = RECEPTIONIST_NAV_ITEMS.filter((item) => !item.requires || capabilities?.[item.requires] === true)
+  // Scheduler stays desktop-only on the receptionist side too — the bottom bar is
+  // already tight with Home/Calls/Customers/Dispatch/Earnings on a phone screen.
+  const MOBILE_NAV = NAV.filter((item) => item.href !== "/receptionist/scheduler")
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" })
@@ -158,7 +161,7 @@ export function ReceptionistPortalChrome({
         aria-label="Receptionist sections"
       >
         <div className="mx-auto flex max-w-6xl items-stretch justify-around px-2 pt-1">
-          {NAV.map((item) => {
+          {MOBILE_NAV.map((item) => {
             const active = item.match(pathname)
             const Icon = item.icon
             return (
