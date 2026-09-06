@@ -252,9 +252,9 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(dialBody.connection_id).toBe("cc-app-99")
     expect(dialBody.to).toBe("+15552602716")
     expect(dialBody.link_to).toBe("cc-inbound-1")
-    // Company voicemail fallback: AMD on, no auto-bridge into personal cell VM.
-    expect(dialBody.bridge_on_answer).toBe(false)
-    expect(dialBody.answering_machine_detection).toBe("detect")
+    // Always bridges the instant the cell answers now — matches the owner's number, no AMD wait.
+    expect(dialBody.bridge_on_answer).toBe(true)
+    expect(dialBody.answering_machine_detection).toBeUndefined()
     // A-leg must get US ringback while the cell rings (Call Control Dial has no ringTone).
     const ringbackCall = fetchMock.mock.calls.find((c) =>
       String(c[0]).includes("/actions/playback_start")
@@ -267,7 +267,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     ).toBe(true)
   })
 
-  it("Hold fallback dial uses AMD with conservative config and full ring timeout", async () => {
+  it("Hold fallback dial still bridges instantly on answer (no AMD wait) with full ring timeout", async () => {
     vi.doMock("@/lib/db", () => ({
       getIncomingRoutingForVoiceWebhook: vi.fn(() =>
         Promise.resolve({
@@ -328,16 +328,10 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     )
     expect(dialCall).toBeTruthy()
     const dialBody = JSON.parse(String(dialCall![1].body))
-    expect(dialBody.bridge_on_answer).toBe(false)
-    expect(dialBody.answering_machine_detection).toBe("detect")
+    expect(dialBody.bridge_on_answer).toBe(true)
+    expect(dialBody.answering_machine_detection).toBeUndefined()
     expect(dialBody.timeout_secs).toBe(25)
     expect(dialBody.link_to).toBe("cc-in-hold-amd")
-    // Conservative AMD knobs — must not use Telnyx's aggressive 3500ms silence default alone,
-    // but capped at 5s so a real caller isn't left on injected ringback for 10s+.
-    expect(dialBody.answering_machine_detection_config).toMatchObject({
-      initial_silence_millis: 5_000,
-      total_analysis_time_millis: 5_000,
-    })
   })
 
   it("AMD machine on hold dial hangs up B-leg and starts Busy soft-hold", async () => {

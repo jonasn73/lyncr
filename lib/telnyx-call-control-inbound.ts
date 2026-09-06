@@ -62,8 +62,6 @@ import {
   resolveInboundCallLogSid,
 } from "@/lib/telnyx-call-control-call-log"
 import {
-  buildHoldFallbackAmdDetectionConfig,
-  fallbackNeedsCarrierVmGuard,
   readInboundDialRingbackAudioUrl,
   resolveAmdMinMachineAgeForRingSec,
   resolveInboundForwardDialTimeoutSeconds,
@@ -714,18 +712,22 @@ async function dialTechnicianLeg(
     return
   }
 
-  // Hold / AI / company VM: do NOT auto-bridge into personal cell carrier voicemail.
-  // Telnyx treats carrier VM as "answered", so no-answer hangup never runs without AMD.
   const fallbackRaw = String(state.fallbackType ?? routing.fallback_type ?? "").toLowerCase()
-  const useAmdGuard = fallbackNeedsCarrierVmGuard(fallbackRaw)
-  // Stamp dial start so AMD early-false-positive guards + hangup logs can measure ring age.
+  // AMD used to gate every primary dial with fallback_type hold/ai/voicemail, holding both
+  // legs unbridged (dead air on her end, injected ringback on the caller's) for the entire
+  // detection window before connecting — unlike the owner's own number, which always bridges
+  // the instant the phone is answered. Product decision (2026-09-06): match the owner's
+  // instant-connect behavior here too, for every fallback type. Known accepted cost: a
+  // genuine no-answer whose carrier voicemail intercepts before ring_timeout_seconds elapses
+  // now bridges the caller into her personal voicemail greeting instead of reaching the Hold
+  // queue — the exact failure AMD existed to prevent. `amdGuard` / `call.machine.*.detection.ended`
+  // handling is kept alive downstream only for calls dialed before this change ships.
   const dialStartedAtMs = Date.now()
 
   const nextStatePayload: TelnyxCallControlClientState = {
     ...state,
     phase: "await_dial_end",
     inboundCallControlId,
-    amdGuard: useAmdGuard || undefined,
     dialStartedAtMs,
   }
   const nextState = encodeTelnyxCallControlState(nextStatePayload)
@@ -738,15 +740,7 @@ async function dialTechnicianLeg(
     fromE164: dialFrom,
     timeoutSecs: state.ringTimeoutSec ?? 30,
     clientState: nextState,
-    // AMD path: wait for human/machine webhook before bridging.
-    bridgeOnAnswer: !useAmdGuard,
-    ...(useAmdGuard
-      ? {
-          answeringMachineDetection: "detect",
-          // Longer silence window — default Telnyx 3.5s silence→machine was killing rings early.
-          answeringMachineDetectionConfig: buildHoldFallbackAmdDetectionConfig(),
-        }
-      : {}),
+    bridgeOnAnswer: true,
   })
   if (!dialRes.ok) {
     console.error(JSON.stringify({ zing: "telnyx-cc-dial-failed", error: dialRes.error, to: target, from: dialFrom }))
@@ -767,15 +761,11 @@ async function dialTechnicianLeg(
       outboundCallControlId: outboundCallControlId || null,
       toTail4: target.replace(/\D/g, "").slice(-4),
       fromTail4: dialFrom.replace(/\D/g, "").slice(-4),
-      // Honest dial plan for ops: timeout + whether AMD is guarding carrier VM.
+      // Honest dial plan for ops: timeout + confirmation this always bridges on answer now.
       timeoutSecs: state.ringTimeoutSec ?? 30,
       dialStartedAtMs,
-      amdGuard: useAmdGuard,
-      bridgeOnAnswer: !useAmdGuard,
+      bridgeOnAnswer: true,
       fallbackType: fallbackRaw || null,
-      amdMinMachineAgeMs: useAmdGuard
-        ? resolveAmdMinMachineAgeForRingSec(state.ringTimeoutSec ?? 20)
-        : null,
     })
   )
 
