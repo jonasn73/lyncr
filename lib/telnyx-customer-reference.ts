@@ -8,9 +8,6 @@ export type ParsedLyncrCustomerReference = {
   organizationId: string | null
 }
 
-/** @deprecated Use ParsedLyncrCustomerReference */
-export type ParsedZingCustomerReference = ParsedLyncrCustomerReference
-
 function parsePrefixedCustomerReference(
   ref: string,
   prefix: string
@@ -30,29 +27,19 @@ function parsePrefixedCustomerReference(
 }
 
 /** Build Telnyx customer_reference — optionally scoped to one organization workspace. */
-function buildLyncrCustomerReference(userId: string, organizationId?: string | null): string {
+export function buildLyncrCustomerReference(userId: string, organizationId?: string | null): string {
   const uid = userId.trim()
   const org = organizationId?.trim()
   if (org && !org.startsWith("legacy-")) return `${CURRENT_PREFIX}${uid}--${org}`
   return `${CURRENT_PREFIX}${uid}`
 }
 
-/** @deprecated Use buildLyncrCustomerReference */
-export function buildZingCustomerReference(userId: string, organizationId?: string | null): string {
-  return buildLyncrCustomerReference(userId, organizationId)
-}
-
 /** Parse `lyncr-…` or legacy `zing-<userId>` / `zing-<userId>--<organizationId>`. */
-function parseLyncrCustomerReference(ref: string): ParsedLyncrCustomerReference | null {
+export function parseLyncrCustomerReference(ref: string): ParsedLyncrCustomerReference | null {
   return (
     parsePrefixedCustomerReference(ref, CURRENT_PREFIX) ??
     parsePrefixedCustomerReference(ref, LEGACY_PREFIX)
   )
-}
-
-/** @deprecated Use parseLyncrCustomerReference */
-export function parseZingCustomerReference(ref: string): ParsedLyncrCustomerReference | null {
-  return parseLyncrCustomerReference(ref)
 }
 
 function isCustomerReferenceString(value: string): boolean {
@@ -60,7 +47,7 @@ function isCustomerReferenceString(value: string): boolean {
 }
 
 /** Walk webhook JSON for a lyncr/zing customer_reference string. */
-function findLyncrCustomerReferenceInPayload(obj: unknown): string | null {
+export function findLyncrCustomerReferenceInPayload(obj: unknown): string | null {
   if (obj == null) return null
   if (typeof obj === "string") return null
   if (Array.isArray(obj)) {
@@ -80,9 +67,4 @@ function findLyncrCustomerReferenceInPayload(obj: unknown): string | null {
     }
   }
   return null
-}
-
-/** @deprecated Use findLyncrCustomerReferenceInPayload */
-export function findZingCustomerReferenceInPayload(obj: unknown): string | null {
-  return findLyncrCustomerReferenceInPayload(obj)
 }

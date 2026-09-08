@@ -16,7 +16,7 @@ Your `.env.local` is still using the local Postgres URL. Replace the `DATABASE_U
 
 2. **Create a project**
    - Click **New Project**.
-   - Pick a name (e.g. `zing`) and region, then create.
+   - Pick a name (e.g. `lyncr`) and region, then create.
 
 3. **Copy the connection string**
    - On the project dashboard you’ll see **Connection string**.
@@ -60,7 +60,7 @@ Your `.env.local` is still using the local Postgres URL. Replace the `DATABASE_U
 
 ## If you already have a `.env.local` with Postgres
 
-- Replace the old `DATABASE_URL=postgresql://.../zing` line with the new cloud connection string.
+- Replace the old `DATABASE_URL=postgresql://.../lyncr` line with the new cloud connection string.
 - Run `npm run db:schema` once, then `npm run dev`.
 
 You do **not** need Postgres installed on your computer when using Neon or Supabase.

@@ -39,21 +39,21 @@ Legacy routes under `/api/voice/*` are adapters and should not be used for new i
 - **Parallel DB on `/incoming`:** `getIncomingRoutingByNumber` + `isTelnyxInboundDialCallerLegDone`; then `getRoutingConfigForNumber` + `getPhoneNumbers` together before building TeXML.
 - **Parallel DB on `/fallback`:** `getRoutingConfigForNumber` (or default) + default routing + `getUser` in one `Promise.all`.
 - **JSON webhooks:** nested `data.payload` fields are flattened so we resolve the correct DID on the first hop (avoids wrong routing + retries).
-- **`answerOnBridge`:** defaults to **on** for every outbound routing `<Dial>` so the inbound caller hears US ringback in sync with the teammate's PSTN ring (no dead air / tone change before the B-leg answers). Set `ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE=0` to answer the inbound leg immediately instead.
-- **Production logs:** large structured `console.log(JSON.stringify(...))` lines on the hot path are **skipped** unless `ZING_VOICE_DEBUG_LOGS=1` (reduces CPU and log pipeline delay on every ring). **Errors** (`console.error`) are always emitted.
+- **`answerOnBridge`:** defaults to **on** for every outbound routing `<Dial>` so the inbound caller hears US ringback in sync with the teammate's PSTN ring (no dead air / tone change before the B-leg answers). Set `LYNCR_INBOUND_DIAL_ANSWER_ON_BRIDGE=0` to answer the inbound leg immediately instead.
+- **Production logs:** large structured `console.log(JSON.stringify(...))` lines on the hot path are **skipped** unless `LYNCR_VOICE_DEBUG_LOGS=1` (reduces CPU and log pipeline delay on every ring). **Errors** (`console.error`) are always emitted.
 - Voice routes use `nodejs` runtime and **`preferredRegion = iad1`** to stay close to Telnyx US-East voice.
 
 ## Call quality & latency checklist (operator / Telnyx)
 
 | Goal | What to check |
 |------|-----------------|
-| Fastest first ring | Keep **line whisper** off unless needed: `ZING_INBOUND_RECEPTIONIST_WHISPER=no` (or disable per user in Settings). Owner leg uses `<Number url=…>` only when whisper is on — that adds an extra HTTP round trip before audio. |
-| Clear TTS | Call Control Speak uses **`AWS.Polly.Joanna-Neural`** by default (override `ZING_CALL_CONTROL_SPEAK_VOICE`). TeXML `<Say>` uses **`Polly.Joanna-Neural`** (`ZING_TEXML_SAY_VOICE`). Optional faster TeXML speech: `ZING_TEXML_SAY_RATE` (see `lib/texml-say-voice.ts`). Human WAV/MP3 greet: `ZING_INBOUND_INSTANT_GREETING_AUDIO_URL`. |
-| AI without extra spoken steps | Avoid `ZING_AI_HANDOFF_TWO_STEP` (default off). Prefer silent redirect to `/ai-bridge`. |
+| Fastest first ring | Keep **line whisper** off unless needed: `LYNCR_INBOUND_RECEPTIONIST_WHISPER=no` (or disable per user in Settings). Owner leg uses `<Number url=…>` only when whisper is on — that adds an extra HTTP round trip before audio. |
+| Clear TTS | Call Control Speak uses **`AWS.Polly.Joanna-Neural`** by default (override `LYNCR_CALL_CONTROL_SPEAK_VOICE`). TeXML `<Say>` uses **`Polly.Joanna-Neural`** (`LYNCR_TEXML_SAY_VOICE`). Optional faster TeXML speech: `LYNCR_TEXML_SAY_RATE` (see `lib/texml-say-voice.ts`). Human WAV/MP3 greet: `LYNCR_INBOUND_INSTANT_GREETING_AUDIO_URL`. |
+| AI without extra spoken steps | Avoid `LYNCR_AI_HANDOFF_TWO_STEP` (default off). Prefer silent redirect to `/ai-bridge`. |
 | Second DID outbound | Multi-line accounts may use primary DID as PSTN `callerId` when the dialed line is not on the outbound voice profile yet (auto). All numbers should be on the **same Telnyx outbound voice profile** for best attestation. |
-| Callee sees real CLI | Default PSTN `callerId` = inbound caller; `ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE=1` shows business line on teammate phone instead. |
-| Deep trace in prod | Set `ZING_VOICE_DEBUG_LOGS=1` on Vercel to restore full `telnyx-incoming-routing-flags`, `telnyx-fallback`, and related JSON logs. |
-| Fallback forensics | `ZING_TELNYX_FALLBACK_DIAGNOSTIC=1` adds redacted entry diagnostics (see `lib/telnyx-fallback-diagnostics.ts`). |
+| Callee sees real CLI | Default PSTN `callerId` = inbound caller; `LYNCR_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE=1` shows business line on teammate phone instead. |
+| Deep trace in prod | Set `LYNCR_VOICE_DEBUG_LOGS=1` on Vercel to restore full `telnyx-incoming-routing-flags`, `telnyx-fallback`, and related JSON logs. |
+| Fallback forensics | `LYNCR_TELNYX_FALLBACK_DIAGNOSTIC=1` adds redacted entry diagnostics (see `lib/telnyx-fallback-diagnostics.ts`). |
 
 **Outside the app (biggest wins):** Telnyx Mission Control — same region as app (`iad1`), low-latency PSTN, outbound voice profile on every purchased DID, stable public URL for TeXML (`NEXT_PUBLIC_APP_URL`), and minimal middleware between Telnyx and Vercel.
 
@@ -107,7 +107,7 @@ When Presence is **Busy** (and no Available teammate answers first):
 4. Press **1** anytime → `leave_queue` + booking SMS + confirm.
 5. Max wait (~10 min) or hold cap → one SMS + hangup.
 
-Neon: run **`scripts/129-call-queue.sql`**. Env: **`LYNCR_HOLD_MUSIC_URL`**, **`LYNCR_INBOUND_CALL_CONTROL`** (legacy `ZING_*` still dual-read via `lib/lyncr-env.ts`).
+Neon: run **`scripts/129-call-queue.sql`**. Env: **`LYNCR_HOLD_MUSIC_URL`**, **`LYNCR_INBOUND_CALL_CONTROL`**.
 
 ## Rules for future changes
 

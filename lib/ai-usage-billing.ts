@@ -37,7 +37,7 @@ export async function reportAiAssistantMinutesUsage(
     })
     console.log(
       JSON.stringify({
-        zing: "ai-assistant-minutes-reported",
+        lyncr: "ai-assistant-minutes-reported",
         userId,
         minutes,
         seconds,

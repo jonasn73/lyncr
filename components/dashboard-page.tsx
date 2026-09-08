@@ -621,7 +621,7 @@ export function DashboardPage() {
             })
           }
         }
-        window.dispatchEvent(new Event("zing-business-numbers-changed"))
+        window.dispatchEvent(new Event("lyncr-business-numbers-changed"))
         window.dispatchEvent(new Event("lyncr-routing-config-changed"))
       })
       .catch(() => {

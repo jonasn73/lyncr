@@ -436,11 +436,11 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
     const onRoutingSaved = () => void refreshBaseline()
     window.addEventListener("lyncr-routing-config-changed", onRoutingSaved)
     window.addEventListener("lyncr-workspace-data-changed", onRoutingSaved)
-    window.addEventListener("zing-porting-orders-changed", onRoutingSaved)
+    window.addEventListener("lyncr-porting-orders-changed", onRoutingSaved)
     return () => {
       window.removeEventListener("lyncr-routing-config-changed", onRoutingSaved)
       window.removeEventListener("lyncr-workspace-data-changed", onRoutingSaved)
-      window.removeEventListener("zing-porting-orders-changed", onRoutingSaved)
+      window.removeEventListener("lyncr-porting-orders-changed", onRoutingSaved)
     }
   }, [refreshBaseline])
 

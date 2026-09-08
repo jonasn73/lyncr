@@ -14,6 +14,7 @@ import {
 } from "@/lib/admin-impersonation"
 import { getUser } from "@/lib/db"
 import { isLyncrAdminUser } from "@/lib/lyncr-admin"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export async function POST(req: NextRequest) {
   const ctx = await requireLyncrAdmin(req)
@@ -53,6 +54,16 @@ export async function POST(req: NextRequest) {
       createImpersonationAdminCookie(ctx.userId),
       getImpersonationAdminCookieOptions()
     )
+
+    void recordAuditEvent({
+      ownerUserId: targetUserId,
+      actorUserId: ctx.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.impersonate_start",
+      entityType: "user",
+      entityId: targetUserId,
+      detail: { target_email: target.email },
+    })
 
     return res
   } catch (e) {

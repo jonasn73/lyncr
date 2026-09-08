@@ -366,7 +366,7 @@ export async function sweepStaleShifts(params?: {
   }
 
   if (closed > 0) {
-    console.log(JSON.stringify({ zing: "compensation-shifts-swept", closed, earningsInserted }))
+    console.log(JSON.stringify({ lyncr: "compensation-shifts-swept", closed, earningsInserted }))
   }
   return { closed, earningsInserted }
 }

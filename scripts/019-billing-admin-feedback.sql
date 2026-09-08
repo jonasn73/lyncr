@@ -14,7 +14,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS is_platform_admin BOOLEAN NOT NULL DE
 
 COMMENT ON COLUMN users.credit_balance_cents IS 'Prepaid balance in USD cents; decremented by usage jobs (future) or adjusted via billing_ledger.';
 COMMENT ON COLUMN users.billing_plan IS 'Marketing / entitlements key: trial | starter | growth | enterprise (app validates).';
-COMMENT ON COLUMN users.is_platform_admin IS 'When true, user may access /admin (also allow-list via ZING_ADMIN_EMAILS).';
+COMMENT ON COLUMN users.is_platform_admin IS 'When true, user may access /admin (also allow-list via LYNCR_ADMIN_EMAILS).';
 
 CREATE TABLE IF NOT EXISTS billing_ledger (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -10,8 +10,8 @@ import {
   hasPortingCarrierExceptions,
 } from "@/lib/porting-carrier-exceptions"
 import {
-  findZingCustomerReferenceInPayload,
-  parseZingCustomerReference,
+  findLyncrCustomerReferenceInPayload,
+  parseLyncrCustomerReference,
 } from "@/lib/telnyx-customer-reference"
 import { collectPortingStatuses, pickBestPortingStatus } from "@/lib/telnyx-porting-status"
 
@@ -30,12 +30,12 @@ export function isTelnyxPortingWebhookEvent(eventType: string): boolean {
 }
 
 /** Find `customer_reference` like `lyncr-<uuid>` (or legacy `zing-<uuid>`) anywhere in the payload. */
-export function findZingCustomerReference(obj: unknown): string | null {
-  return findZingCustomerReferenceInPayload(obj)
+export function findLyncrCustomerReference(obj: unknown): string | null {
+  return findLyncrCustomerReferenceInPayload(obj)
 }
 
 export function customerRefToUserId(ref: string): string | null {
-  return parseZingCustomerReference(ref)?.userId ?? null
+  return parseLyncrCustomerReference(ref)?.userId ?? null
 }
 
 /** Best-effort porting order id from nested objects. */
@@ -85,8 +85,8 @@ export function extractTelnyxEventId(body: Record<string, unknown>): string {
   const et = extractEventType(body)
   const oid = findPortingOrderId(body) || ""
   const ts = typeof meta?.occurred_at === "string" ? meta.occurred_at : ""
-  const fallback = `zing-fallback-${et}-${oid}-${ts}`
-  return fallback.length > 12 ? fallback.slice(0, 200) : `zing-fallback-${Date.now()}`
+  const fallback = `lyncr-fallback-${et}-${oid}-${ts}`
+  return fallback.length > 12 ? fallback.slice(0, 200) : `lyncr-fallback-${Date.now()}`
 }
 
 export function extractEventType(body: Record<string, unknown>): string {

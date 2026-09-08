@@ -117,7 +117,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     getCustomRoutingPhoneForDidMock.mockResolvedValue(null)
     getTeamReceptionistForDidMock.mockResolvedValue(null)
     resolveInboundCapturePlanMock.mockResolvedValue({ kind: "day_dial" })
-    vi.stubEnv("ZING_INBOUND_CALL_CONTROL", "1")
+    vi.stubEnv("LYNCR_INBOUND_CALL_CONTROL", "1")
     vi.stubEnv("TELNYX_API_KEY", "test-key")
   })
 

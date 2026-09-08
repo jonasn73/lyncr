@@ -2,7 +2,7 @@
 
 import { getAppUrl } from "@/lib/telnyx"
 import { mapTelnyxStatusToPortingOrderStatus } from "@/lib/db"
-import { buildZingCustomerReference } from "@/lib/telnyx-customer-reference"
+import { buildLyncrCustomerReference } from "@/lib/telnyx-customer-reference"
 import type { PortingOrderStatus } from "@/lib/types"
 
 const TELNYX_BASE = "https://api.telnyx.com/v2"
@@ -174,7 +174,7 @@ export async function submitTelnyxLnpPort(input: TelnyxLnpSubmitInput): Promise<
           country_code: "US",
         },
       },
-      customer_reference: buildZingCustomerReference(input.userId, input.organizationId),
+      customer_reference: buildLyncrCustomerReference(input.userId, input.organizationId),
     }),
   })
 

@@ -311,7 +311,7 @@ export function OrganizationSwitcher({
       if (rows) applyOrganizations(rows, wasActive ? fallbackId : activeId)
       else load({ silent: true, preferredActiveId: wasActive ? fallbackId : activeId })
 
-      window.dispatchEvent(new CustomEvent("zing-business-numbers-changed"))
+      window.dispatchEvent(new CustomEvent("lyncr-business-numbers-changed"))
       window.dispatchEvent(new CustomEvent("lyncr-workspace-data-changed"))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not delete business")

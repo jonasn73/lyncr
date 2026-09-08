@@ -23,6 +23,7 @@ import {
   type StructuredAddress,
 } from "@/lib/structured-address"
 import type { SchedulerEvent } from "@/lib/types"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export const dynamic = "force-dynamic"
 
@@ -207,6 +208,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    void recordAuditEvent({
+      ownerUserId: userId,
+      actorUserId: actor.actingUserId,
+      actorRole: actor.actorRole,
+      eventType: "scheduler.job_scheduled",
+      entityType: "job",
+      entityId: event.id,
+      detail: { scheduled_at: scheduledAtIso, job_type: jobType },
+    })
     return NextResponse.json({ data: { event } })
   } catch (e) {
     console.error("[POST /api/owner/scheduler]", e)

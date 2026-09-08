@@ -258,7 +258,7 @@ export function settleCallEarningsInBackground(providerCallSid: string): void {
       if (result.inserted > 0) {
         console.log(
           JSON.stringify({
-            zing: "compensation-call-settled",
+            lyncr: "compensation-call-settled",
             providerCallSid,
             rows: result.inserted,
           })

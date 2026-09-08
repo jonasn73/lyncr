@@ -14,7 +14,7 @@ export function resolveInboundOutboundCallerId(
   businessLineE164: string
 ): string {
   const preferPrimaryCallerId = ["1", "true", "yes", "on"].includes(
-    (process.env.ZING_INBOUND_PSTN_CALLER_ID_PRIMARY || "").trim().toLowerCase()
+    (process.env.LYNCR_INBOUND_PSTN_CALLER_ID_PRIMARY || "").trim().toLowerCase()
   )
   const primaryE164 = routing.primary_phone_number?.trim()
     ? normalizePhoneNumberE164(routing.primary_phone_number)
@@ -45,7 +45,7 @@ export function resolveInboundOutboundCallerId(
  * Outbound PSTN `<Dial callerId>` for forwarding inbound calls.
  * Default / `forwardOriginalCallerId=false`: show the **Lyncr business DID** on the cell.
  * `forwardOriginalCallerId=true`: show the **original customer** number.
- * Env `ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE=1` always forces the business DID (escape hatch).
+ * Env `LYNCR_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE=1` always forces the business DID (escape hatch).
  */
 export function resolvePstnDialCallerIdForInboundForward(opts: {
   inboundFromRaw: string
@@ -54,7 +54,7 @@ export function resolvePstnDialCallerIdForInboundForward(opts: {
   forwardOriginalCallerId?: boolean | null
 }): string {
   const forceBusinessEnv = ["1", "true", "yes", "on"].includes(
-    (process.env.ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE || "").trim().toLowerCase()
+    (process.env.LYNCR_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE || "").trim().toLowerCase()
   )
   const biz = opts.businessOutboundE164.trim() ? normalizePhoneNumberE164(opts.businessOutboundE164) : ""
   const from = opts.inboundFromRaw.trim() ? normalizePhoneNumberE164(opts.inboundFromRaw) : ""
@@ -96,10 +96,10 @@ export function origFromQuerySuffixFromRaw(inboundFromRaw: string): string {
 /**
  * Telnyx TeXML `<Dial answerOnBridge>`.
  * **Default `true`:** US `ringTone` stays in sync with the receptionist PSTN ring (consistent caller audio).
- * Set `ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE=0` to answer inbound immediately (can sound like a tone change when B-leg starts).
+ * Set `LYNCR_INBOUND_DIAL_ANSWER_ON_BRIDGE=0` to answer inbound immediately (can sound like a tone change when B-leg starts).
  */
 export function readTelnyxDialAnswerOnBridge(): boolean {
-  const raw = (process.env.ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE || "").trim().toLowerCase()
+  const raw = (process.env.LYNCR_INBOUND_DIAL_ANSWER_ON_BRIDGE || "").trim().toLowerCase()
   if (raw === "0" || raw === "false" || raw === "no" || raw === "off") return false
   if (raw === "1" || raw === "true" || raw === "yes" || raw === "on") return true
   return true

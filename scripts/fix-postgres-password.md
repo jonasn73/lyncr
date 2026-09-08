@@ -1,6 +1,6 @@
 # Fix "password authentication failed for user postgres"
 
-Your app uses `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/zing`.  
+Your app uses `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lyncr`.  
 Postgres is rejecting the password. Use one of these fixes:
 
 ---
@@ -39,9 +39,9 @@ If you know the postgres user’s password, put it in `.env.local`:
 
 1. Open `.env.local` in the project root.
 2. Find the line:  
-   `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/zing`
+   `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lyncr`
 3. Replace the **second** `postgres` (the one after the colon) with your actual password, e.g.:  
-   `DATABASE_URL=postgresql://postgres:YOUR_REAL_PASSWORD@localhost:5432/zing`
+   `DATABASE_URL=postgresql://postgres:YOUR_REAL_PASSWORD@localhost:5432/lyncr`
 4. Save the file and restart the app (`npm run dev`).
 
 ---
@@ -59,4 +59,4 @@ If you know the postgres user’s password, put it in `.env.local`:
 
 ---
 
-After any option, try signing up again. If it still fails, the error message on the signup form should give a clue (e.g. "database does not exist" → create it with `createdb zing`).
+After any option, try signing up again. If it still fails, the error message on the signup form should give a clue (e.g. "database does not exist" → create it with `createdb lyncr`).

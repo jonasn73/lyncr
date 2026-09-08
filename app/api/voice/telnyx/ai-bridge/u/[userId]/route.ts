@@ -38,7 +38,7 @@ async function handleAiBridge(req: NextRequest, userId: string): Promise<NextRes
 
   console.log(
     JSON.stringify({
-      zing: "telnyx-ai-bridge",
+      lyncr: "telnyx-ai-bridge",
       userId,
       method: req.method,
     })
@@ -77,13 +77,13 @@ async function handleAiBridge(req: NextRequest, userId: string): Promise<NextRes
       vr,
       "Our voice assistant is not set up on this line yet. Please leave your name and number after the tone."
     )
-    const sid = callSid || `zing-${userId.slice(0, 8)}`
+    const sid = callSid || `lyncr-${userId.slice(0, 8)}`
     vr.record({
       maxLength: 120,
       recordingStatusCallback: `${appUrl}/api/voice/telnyx/recording-status`,
       action: `${appUrl}/api/voice/telnyx/voicemail-complete?userId=${encodeURIComponent(userId)}&callSid=${encodeURIComponent(sid)}`,
     })
-    console.log(JSON.stringify({ zing: "telnyx-ai-bridge-no-assistant", userId }))
+    console.log(JSON.stringify({ lyncr: "telnyx-ai-bridge-no-assistant", userId }))
     return new NextResponse(vr.toString(), {
       headers: { "Content-Type": "text/xml" },
     })
@@ -99,7 +99,7 @@ async function handleAiBridge(req: NextRequest, userId: string): Promise<NextRes
   }
   console.log(
     JSON.stringify({
-      zing: "telnyx-ai-bridge-connect",
+      lyncr: "telnyx-ai-bridge-connect",
       userId,
       assistantIdLen: forTexml.length,
       texmlIdStartsWithAssistant: forTexml.toLowerCase().startsWith("assistant-"),

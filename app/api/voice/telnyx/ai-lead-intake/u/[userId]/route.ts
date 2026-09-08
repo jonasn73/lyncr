@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic"
 type RouteCtx = { params: Promise<{ userId: string }> }
 
 function readWebhookSecret(): string {
-  return (process.env.ZING_AI_LEAD_INTAKE_SECRET || process.env.TELNYX_WEBHOOK_SECRET || "").trim()
+  return (process.env.LYNCR_AI_LEAD_INTAKE_SECRET || process.env.TELNYX_WEBHOOK_SECRET || "").trim()
 }
 
 export async function POST(req: NextRequest, ctx: RouteCtx) {
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
   }
   if (secret) {
     const provided =
-      req.headers.get("x-zing-ai-lead-secret")?.trim() ||
+      req.headers.get("x-lyncr-ai-lead-secret")?.trim() ||
       req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ||
       ""
     if (provided !== secret) {

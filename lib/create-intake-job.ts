@@ -12,6 +12,7 @@ import {
   upsertCustomerForUser,
 } from "@/lib/db"
 import { geocodeAddress } from "@/lib/geocode"
+import { recordAuditEvent } from "@/lib/audit-log"
 import { UNASSIGNED_POOL_STATUS, UNASSIGNED_CALLBACK_STATUS, PENDING_CALLBACK_ADDRESS, CRM_LEAD_STATUS, LOST_LEAD_STATUS } from "@/lib/job-pool"
 import {
   buildIntakeBookingCustomerSmsText,
@@ -34,6 +35,9 @@ import { neon } from "@neondatabase/serverless"
 
 export type CreateIntakeJobInput = {
   ownerUserId: string
+  /** Who's actually creating this intake — omit for unauthenticated/automated paths (public book, AI booking, retell). */
+  actorUserId?: string | null
+  actorRole?: "platform_admin" | "owner" | "receptionist" | "field_tech" | "system"
   organizationId?: string | null
   callLogId?: string | null
   callerE164: string
@@ -770,6 +774,29 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
   ).catch((e) => console.warn("[create-intake-job] intake publish failed:", e))
 
   void getUser(input.ownerUserId)
+
+  void recordAuditEvent({
+    ownerUserId: input.ownerUserId,
+    actorUserId: input.actorUserId ?? null,
+    actorRole: input.actorRole ?? "system",
+    eventType: "intake.job_created",
+    entityType: "job",
+    entityId: id,
+    detail: {
+      call_log_id: input.callLogId ?? null,
+      source: intakeSourceTag || null,
+      customer_name: customerName || null,
+      customer_phone: phone || null,
+      job_type: jobType,
+      dispatch_status: dispatchStatus,
+      job_status: jobStatusColumn,
+      is_asap: collected.is_asap === true,
+      scheduled_at: scheduledAtIso,
+      quoted_price_cents: quotedPriceCents > 0 ? quotedPriceCents : null,
+      confirmation_sms_sent: sms.sent,
+      confirmation_sms_error: sms.error,
+    },
+  })
 
   const bookedCents = quotedPriceCents > 0 ? quotedPriceCents : null
   return {

@@ -1,8 +1,8 @@
 // Cross-tab + persistent dismiss state for the owner answered-call intake sheet.
 
-const STORAGE_PREFIX = "zing_answered_intake_dismissed_v2"
+const STORAGE_PREFIX = "lyncr_answered_intake_dismissed_v2"
 const LEGACY_SESSION_KEY = "zing_answered_customer_popup_seen_v1"
-const BROADCAST_PREFIX = "zing-answered-intake"
+const BROADCAST_PREFIX = "lyncr-answered-intake"
 const MAX_IDS = 200
 
 function storageKey(ownerUserId: string): string {

@@ -15,7 +15,7 @@ import { defaultTemplate, renderTemplate } from "@/lib/sms-pipeline"
 import { SITE_NAME } from "@/lib/brand"
 import { isAutomatedCallHandler } from "@/lib/missed-call-telemetry"
 
-const REVIEW_GATE_MIN = Math.max(1, Number(process.env.ZING_CALL_REVIEW_DELAY_MIN ?? 15) || 15)
+const REVIEW_GATE_MIN = Math.max(1, Number(process.env.LYNCR_CALL_REVIEW_DELAY_MIN ?? 15) || 15)
 const MIN_TALK_SECONDS = 60
 
 function sql() {

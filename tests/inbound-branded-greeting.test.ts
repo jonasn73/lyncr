@@ -19,12 +19,12 @@ describe("readInboundGreetingFirstPassEnabled", () => {
   })
 
   it("is on by default", () => {
-    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "")
+    vi.stubEnv("LYNCR_INBOUND_GREETING_FIRST", "")
     expect(readInboundGreetingFirstPassEnabled()).toBe(true)
   })
 
-  it("can be disabled with ZING_INBOUND_GREETING_FIRST=0", () => {
-    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "0")
+  it("can be disabled with LYNCR_INBOUND_GREETING_FIRST=0", () => {
+    vi.stubEnv("LYNCR_INBOUND_GREETING_FIRST", "0")
     expect(readInboundGreetingFirstPassEnabled()).toBe(false)
   })
 })
@@ -75,12 +75,12 @@ describe("isInboundCallerGreetingEnabled", () => {
   })
 
   it("defaults to true when routing is null", () => {
-    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
+    vi.stubEnv("LYNCR_INBOUND_GREETING_FIRST", "1")
     expect(isInboundCallerGreetingEnabled(null)).toBe(true)
   })
 
   it("respects per-line false", () => {
-    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
+    vi.stubEnv("LYNCR_INBOUND_GREETING_FIRST", "1")
     expect(isInboundCallerGreetingEnabled({ inbound_caller_greeting_enabled: false })).toBe(false)
   })
 })
@@ -91,22 +91,22 @@ describe("resolveCallerGreetingForDialPass", () => {
   })
 
   it("plays branded greeting on pass 2 after instant edge redirect", () => {
-    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
+    vi.stubEnv("LYNCR_INBOUND_GREETING_FIRST", "1")
     expect(resolveCallerGreetingForDialPass("Key Squad 502", true)).toContain("Key Squad 502")
   })
 
   it("omits dial greeting on pass 1 (edge redirect only)", () => {
-    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
+    vi.stubEnv("LYNCR_INBOUND_GREETING_FIRST", "1")
     expect(resolveCallerGreetingForDialPass("Key Squad 502", false)).toBeUndefined()
   })
 
   it("includes dial greeting when two-pass mode is disabled", () => {
-    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "0")
+    vi.stubEnv("LYNCR_INBOUND_GREETING_FIRST", "0")
     expect(resolveCallerGreetingForDialPass("Key Squad 502", false)).toContain("Key Squad 502")
   })
 
   it("skips greeting when per-line toggle is off", () => {
-    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "0")
+    vi.stubEnv("LYNCR_INBOUND_GREETING_FIRST", "0")
     expect(resolveCallerGreetingForDialPass("Key Squad 502", false, false)).toBeUndefined()
   })
 })
@@ -117,18 +117,18 @@ describe("resolveInboundPstnForwardAnswerOnBridge", () => {
   })
 
   it("keeps answerOnBridge after greeting so US ringback can play", () => {
-    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
+    vi.stubEnv("LYNCR_INBOUND_GREETING_FIRST", "1")
     expect(resolveInboundPstnForwardAnswerOnBridge(true, true)).toBe(true)
     expect(resolveInboundPstnForwardAnswerOnBridge(false, true)).toBe(true)
   })
 
   it("follows env when two-pass greeting is disabled", () => {
-    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "0")
+    vi.stubEnv("LYNCR_INBOUND_GREETING_FIRST", "0")
     expect(resolveInboundPstnForwardAnswerOnBridge(false)).toBe(true)
   })
 
   it("uses ringback when per-line greeting is disabled", () => {
-    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
+    vi.stubEnv("LYNCR_INBOUND_GREETING_FIRST", "1")
     expect(resolveInboundPstnForwardAnswerOnBridge(false, false)).toBe(true)
   })
 })

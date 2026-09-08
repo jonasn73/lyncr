@@ -130,7 +130,7 @@ export const PlatformNotificationSettings = memo(function PlatformNotificationSe
         toast({ title: "Setting saved" })
         if (typeof window !== "undefined") {
           window.dispatchEvent(
-            new CustomEvent("zing-admin-notification-preferences-changed", {
+            new CustomEvent("lyncr-admin-notification-preferences-changed", {
               detail: { preferences: json.data?.preferences ?? { ...prefs, [key]: enabled } },
             })
           )

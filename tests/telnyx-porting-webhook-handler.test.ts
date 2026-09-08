@@ -6,7 +6,7 @@ import {
 import {
   buildPortingWebhookFeedBody,
 } from "@/lib/telnyx-porting-webhook-handler"
-import { parseZingCustomerReference } from "@/lib/telnyx-customer-reference"
+import { parseLyncrCustomerReference } from "@/lib/telnyx-customer-reference"
 import {
   extractBillingTelephoneNumber,
   isTelnyxPortingWebhookEvent,
@@ -102,7 +102,7 @@ describe("resolvePortingWebhookOwner", () => {
       },
     }
     const ref = body.data.record.customer_reference
-    const parsed = parseZingCustomerReference(ref)
+    const parsed = parseLyncrCustomerReference(ref)
     expect(parsed?.userId).toBe("aaaaaaaa-bbbb-cccc-dddddddddddd")
     expect(parsed?.organizationId).toBe("org-key-squad-502")
   })

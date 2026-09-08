@@ -73,7 +73,7 @@ async function sendInboundBookingSms(opts: {
     if (recently) {
       console.log(
         JSON.stringify({
-          zing: "inbound-booking-sms-deduped",
+          lyncr: "inbound-booking-sms-deduped",
           source: opts.source,
           cooldownMinutes: BOOKING_SMS_COOLDOWN_MINUTES,
         })

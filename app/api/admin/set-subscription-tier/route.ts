@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireLyncrAdmin } from "@/lib/admin-api-guard"
 import { adminSetUserSubscriptionTier } from "@/lib/db"
 import { normalizeSubscriptionTier } from "@/lib/subscription-tier"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export async function POST(req: NextRequest) {
   const ctx = await requireLyncrAdmin(req)
@@ -20,6 +21,15 @@ export async function POST(req: NextRequest) {
     const tier = normalizeSubscriptionTier(String(body.tier ?? ""))
 
     const result = await adminSetUserSubscriptionTier(userId, tier)
+    void recordAuditEvent({
+      ownerUserId: userId,
+      actorUserId: ctx.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.subscription_tier_changed",
+      entityType: "user",
+      entityId: userId,
+      detail: { to: result.subscription_tier, has_active_subscription: result.has_active_subscription },
+    })
     return NextResponse.json({ success: true, data: result })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to set subscription tier"

@@ -224,7 +224,7 @@ export async function markOperatorDeviceTesting(token: string): Promise<boolean>
   return true
 }
 
-/** Send (or refresh) SMS OTP for backup phone binding. Returns dev code when ZING_OPERATOR_OTP_DEV=1. */
+/** Send (or refresh) SMS OTP for backup phone binding. Returns dev code when LYNCR_OPERATOR_OTP_DEV=1. */
 export async function sendOperatorOnboardingOtp(params: {
   token: string
   backupPhone: string
@@ -245,7 +245,7 @@ export async function sendOperatorOnboardingOtp(params: {
     WHERE id = ${userId}
   `
 
-  const devMode = (process.env.ZING_OPERATOR_OTP_DEV || "").trim() === "1"
+  const devMode = (process.env.LYNCR_OPERATOR_OTP_DEV || "").trim() === "1"
   if (devMode) {
     return { sent: true, devCode: code, normalizedPhone: phone }
   }

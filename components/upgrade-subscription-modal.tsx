@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { requestOpenBuyNumberModal } from "@/components/dashboard-numbers-modal-context"
 
-export const UPGRADE_SUBSCRIPTION_MODAL_EVENT = "zing-show-upgrade-modal"
+export const UPGRADE_SUBSCRIPTION_MODAL_EVENT = "lyncr-show-upgrade-modal"
 
 export type UpgradeModalDetail = {
   message?: string

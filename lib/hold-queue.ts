@@ -2,9 +2,9 @@
 // Hold queue config — Busy “stay on the line” Call Control
 // ============================================
 // Phase A: soft hold (music + re-prompt). Phase B: Telnyx enqueue + Lines Answer.
-// Naming is Lyncr-only — never introduce ZING_HOLD_* vars.
+// Naming is Lyncr-only — never introduce LYNCR_HOLD_* vars.
 
-import { envLyncrOrZing } from "@/lib/lyncr-env"
+import { envLyncr } from "@/lib/lyncr-env"
 import { getAppUrl } from "@/lib/telnyx"
 
 /** Telnyx queue name per account — bridge { queue } takes the head of this queue. */
@@ -22,7 +22,7 @@ export function holdRePromptIntervalMs(accountOverrideSecs?: number | null): num
   const raw =
     fromAccount != null
       ? fromAccount
-      : Number(envLyncrOrZing("HOLD_REPROMPT_MS") || "60000")
+      : Number(envLyncr("HOLD_REPROMPT_MS") || "60000")
   if (!Number.isFinite(raw)) return 60_000
   // Call-center feel: 45–90s between short reminders (not constant talking).
   return Math.min(90_000, Math.max(45_000, Math.floor(raw)))
@@ -37,7 +37,7 @@ export function holdMaxWaitSecs(accountOverrideSecs?: number | null): number {
   const raw =
     fromAccount != null
       ? fromAccount
-      : Number(envLyncrOrZing("HOLD_MAX_WAIT_SECS") || "600")
+      : Number(envLyncr("HOLD_MAX_WAIT_SECS") || "600")
   if (!Number.isFinite(raw)) return 600
   // 2–15 minutes — long enough for Answer from Lines, short enough for carrier spend.
   return Math.min(900, Math.max(120, Math.floor(raw)))
@@ -55,7 +55,7 @@ export function holdLongWaitAlertMs(accountOverrideSecs?: number | null): number
 
 /** Cap concurrent waiting holds per account (orphan / minute protection). */
 export function holdMaxConcurrent(): number {
-  const raw = Number(envLyncrOrZing("HOLD_MAX_CONCURRENT") || "3")
+  const raw = Number(envLyncr("HOLD_MAX_CONCURRENT") || "3")
   if (!Number.isFinite(raw)) return 3
   return Math.min(10, Math.max(1, Math.floor(raw)))
 }
@@ -87,13 +87,13 @@ export const HOLD_MUSIC_DEFAULT_PATH = "/audio/hold-calm.wav"
  * When set, Call Control plays by `media_name` (no URL fetch from Telnyx → lyncr.app).
  */
 export function holdMusicMediaName(): string | null {
-  const raw = (envLyncrOrZing("HOLD_MUSIC_MEDIA_NAME") || "").trim()
+  const raw = (envLyncr("HOLD_MUSIC_MEDIA_NAME") || "").trim()
   return raw || null
 }
 
 /**
  * Public HTTPS URL for hold music (WAV preferred).
- * Order: per-account override → env LYNCR_/ZING_HOLD_MUSIC_URL → bundled Calm WAV.
+ * Order: per-account override → env LYNCR_/LYNCR_HOLD_MUSIC_URL → bundled Calm WAV.
  */
 export function resolveHoldMusicUrl(accountOverride?: string | null): string | null {
   const candidates = resolveHoldMusicUrlCandidates(accountOverride)
@@ -119,7 +119,7 @@ export function resolveHoldMusicUrlCandidates(accountOverride?: string | null): 
     if (abs?.endsWith(".wav")) push(abs.replace(/\.wav$/i, ".mp3"))
   }
 
-  const fromEnv = envLyncrOrZing("HOLD_MUSIC_URL")
+  const fromEnv = envLyncr("HOLD_MUSIC_URL")
   if (fromEnv) {
     push(absoluteHoldMusicUrl(fromEnv))
     const envAbs = absoluteHoldMusicUrl(fromEnv)

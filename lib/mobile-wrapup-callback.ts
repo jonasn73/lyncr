@@ -47,7 +47,7 @@ export async function maybePlaceMobileWrapupCallback(params: {
   const res = await placeTexmlOutboundCall({ toE164: cell, fromE164: from, url })
   if (res.ok) {
     console.log(
-      JSON.stringify({ zing: "mobile-wrapup-callback-placed", userId: params.userId, callSid: params.callSid })
+      JSON.stringify({ lyncr: "mobile-wrapup-callback-placed", userId: params.userId, callSid: params.callSid })
     )
   } else if (!res.skipped) {
     console.error(`[wrapup-callback] failed to place callback: ${res.error}`)

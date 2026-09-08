@@ -137,7 +137,7 @@ export async function syncMissingTelnyxNumbersForUser(userId: string): Promise<{
     void syncInboundDialSnapshotForUser(userId).catch(() => {})
     console.log(
       JSON.stringify({
-        zing: "telnyx-number-sync",
+        lyncr: "telnyx-number-sync",
         userId,
         added,
       })

@@ -154,7 +154,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 
 After migrations **31** then **32**, sign in at **`/login`** with **admin@lyncr.app** / **admin** and open **`/admin`**. Only that email may access the operator dashboard and `/api/admin/*` routes.
 
-If login says **Invalid email or password**, run **`033-fix-lyncr-admin-password.sql`** in Neon (or re-run **032**). Alternatively set **`LYNCR_BOOTSTRAP_ADMIN_SECRET`** (legacy **`ZING_BOOTSTRAP_ADMIN_SECRET`** still works) in Vercel and `POST /api/auth/repair-bootstrap-admin` with `{ "secret": "…" }` (defaults to **admin@lyncr.app** / **admin**).
+If login says **Invalid email or password**, run **`033-fix-lyncr-admin-password.sql`** in Neon (or re-run **032**). Alternatively set **`LYNCR_BOOTSTRAP_ADMIN_SECRET`** (legacy **`LYNCR_BOOTSTRAP_ADMIN_SECRET`** still works) in Vercel and `POST /api/auth/repair-bootstrap-admin` with `{ "secret": "…" }` (defaults to **admin@lyncr.app** / **admin**).
 
 The old **admin@getzingapp.com** bootstrap (**`020-bootstrap-admin-getzingapp.sql`**) is deprecated — run **031** to remove it.
 

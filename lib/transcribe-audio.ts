@@ -6,7 +6,7 @@
 // Returns null (and logs) when OPENAI_API_KEY is missing or any step fails — callers fall back to
 // storing the raw recording link.
 
-const TRANSCRIBE_MODEL = process.env.ZING_TRANSCRIBE_MODEL?.trim() || "whisper-1"
+const TRANSCRIBE_MODEL = process.env.LYNCR_TRANSCRIBE_MODEL?.trim() || "whisper-1"
 
 /** Telnyx recording URLs sometimes need `.mp3`; normalize to a fetchable audio URL. */
 function normalizeRecordingUrl(url: string): string {

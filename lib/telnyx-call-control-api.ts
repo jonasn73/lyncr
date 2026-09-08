@@ -394,6 +394,13 @@ export async function telnyxCallControlDial(
      * Use longer initial_silence / analysis windows so false "machine" does not cut rings short.
      */
     answeringMachineDetectionConfig?: Record<string, number>
+    /**
+     * Comma-separated codec preference order (Telnyx Dial `preferred_codecs`, e.g. "PCMU").
+     * The legacy TeXML dial path already sets this (lib/telnyx-inbound-media-quality.ts); Call
+     * Control's own Dial command supports the same field but previously left it unset here,
+     * silently falling back to Telnyx connection defaults instead of our tuned preference.
+     */
+    preferredCodecs?: string | null
   }
 ): Promise<TelnyxCallControlActionResult> {
   const connectionId = params.connectionId.trim()
@@ -404,6 +411,7 @@ export async function telnyxCallControlDial(
   // Default: auto-bridge on answer (Answer from Lines + owner fallback that allows cell VM).
   const bridgeOnAnswer = params.bridgeOnAnswer !== false
   const amd = String(params.answeringMachineDetection ?? "").trim()
+  const preferredCodecs = String(params.preferredCodecs ?? "").trim()
 
   const body: Record<string, unknown> = {
     connection_id: connectionId,
@@ -413,6 +421,7 @@ export async function telnyxCallControlDial(
     bridge_on_answer: bridgeOnAnswer,
     timeout_secs: Math.min(Math.max(params.timeoutSecs, 8), 120),
     client_state: params.clientState,
+    ...(preferredCodecs ? { preferred_codecs: preferredCodecs } : {}),
   }
   // Carrier VM answers as "answered" — AMD tells us human vs machine before we bridge.
   if (amd) {

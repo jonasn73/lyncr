@@ -31,8 +31,8 @@ import {
   isTelnyxPortingWebhookEvent,
 } from "@/lib/telnyx-porting-webhook"
 import {
-  findZingCustomerReferenceInPayload,
-  parseZingCustomerReference,
+  findLyncrCustomerReferenceInPayload,
+  parseLyncrCustomerReference,
 } from "@/lib/telnyx-customer-reference"
 import type { PortingOrder } from "@/lib/types"
 
@@ -82,9 +82,9 @@ async function resolvePortingWebhookOwner(
   const telnyxOrderId = findPortingOrderId(body)
   const billingPhone = extractBillingTelephoneNumber(body)
 
-  const customerRef = findZingCustomerReferenceInPayload(body)
+  const customerRef = findLyncrCustomerReferenceInPayload(body)
   if (customerRef) {
-    const parsed = parseZingCustomerReference(customerRef)
+    const parsed = parseLyncrCustomerReference(customerRef)
     if (parsed?.userId) {
       const portingOrder = await resolvePortingOrderForWebhook({
         ownerUserId: parsed.userId,
@@ -175,7 +175,7 @@ export async function processTelnyxPortingWebhook(body: Record<string, unknown>)
   if (!resolved) {
     console.log(
       JSON.stringify({
-        zing: "telnyx-porting-webhook-no-owner",
+        lyncr: "telnyx-porting-webhook-no-owner",
         eventType,
         hint: `Set customer_reference lyncr-<userId>--<orgId> (legacy zing-… still accepted) on port orders (${SITE_NAME} does this automatically).`,
       })
@@ -248,7 +248,7 @@ export async function processTelnyxPortingWebhook(body: Record<string, unknown>)
 
   console.log(
     JSON.stringify({
-      zing: "telnyx-porting-webhook",
+      lyncr: "telnyx-porting-webhook",
       userId,
       organizationId,
       portingOrderId: portingOrder?.id ?? null,

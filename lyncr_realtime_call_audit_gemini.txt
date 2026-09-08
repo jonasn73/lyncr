@@ -9,7 +9,7 @@ INSTRUCTIONS FOR GEMINI:
 - Treat this as the authoritative operational audit for Lyncr real-time call architecture.
 - Focus areas: Call Quality Tracking, Call Flow Control, four consoles (Platform Admin, Business Owner, Receptionist, Field Technician).
 - Answer questions about telephony webhooks, Pusher events, call_logs state, JSONB handoffs, and cross-console gaps using this document.
-- Production uses Telnyx; inbound may run TeXML (default) or Call Control when ZING_INBOUND_CALL_CONTROL=1.
+- Production uses Telnyx; inbound may run TeXML (default) or Call Control when LYNCR_INBOUND_CALL_CONTROL=1.
 - When recommending changes, cite file paths from this document and preserve existing Next.js / Neon patterns.
 
 ================================================================================
@@ -17,7 +17,7 @@ INSTRUCTIONS FOR GEMINI:
 # Lyncr Real-Time Call Architecture — Operational Audit
 
 Scope: Call Quality Tracking + Call Flow Control across Platform Admin, Business Owner, Receptionist, and Field Technician consoles.
-Production mode: Telnyx-first; tenants on Call Control when ZING_INBOUND_CALL_CONTROL=1.
+Production mode: Telnyx-first; tenants on Call Control when LYNCR_INBOUND_CALL_CONTROL=1.
 
 --------------------------------------------------------------------------------
 
@@ -50,7 +50,7 @@ Production mode: Telnyx-first; tenants on Call Control when ZING_INBOUND_CALL_CO
 | Number provisioning | app/api/numbers/configure/route.ts | Points DID at TeXML app OR Call Control connection |
 
 Mode switch (lib/telnyx-call-control-inbound.ts):
-  ZING_INBOUND_CALL_CONTROL = 1 | true | yes | on → Call Control app + /api/webhooks/telnyx/voice
+  LYNCR_INBOUND_CALL_CONTROL = 1 | true | yes | on → Call Control app + /api/webhooks/telnyx/voice
   Otherwise → TeXML app (voice_url → /greet, voice_fallback_url → /incoming)
 
 TeXML app wiring (lib/telnyx-config.ts):
@@ -75,7 +75,7 @@ FLOW (TeXML default):
       → recordCallStatusEvent (answered_at, ended_at, setup_duration_ms)
       → updateCallLog + Pusher call-completed + SMS disposition
 
-FLOW (Call Control, ZING_INBOUND_CALL_CONTROL=1):
+FLOW (Call Control, LYNCR_INBOUND_CALL_CONTROL=1):
   Caller PSTN → Telnyx DID → Call Control app
     → POST /api/webhooks/telnyx/voice (JSON Voice API v2)
   call.initiated → getIncomingRoutingForVoiceWebhook(to) → insertCallLog(ringing) → REST answer
@@ -144,13 +144,13 @@ Key env flags (telephony / quality):
 
 | Env var | Effect |
 |---------|--------|
-| ZING_INBOUND_CALL_CONTROL | 1/true → Call Control; else TeXML |
+| LYNCR_INBOUND_CALL_CONTROL | 1/true → Call Control; else TeXML |
 | TELNYX_API_KEY | REST (dial, credentials, number config) |
 | TELNYX_CREDENTIAL_CONNECTION_ID | SIP credential connection for WebRTC agents |
 | NEXT_PUBLIC_APP_URL | Webhook base URLs |
-| ZING_INBOUND_JITTER_BUFFER (+ _MIN_MS, _MAX_MS) | Adaptive jitter buffer on Dial/Number (TeXML only) |
-| ZING_INBOUND_DIAL_PREFERRED_CODECS | Default PCMU |
-| ZING_VOICE_DEBUG_LOGS | Verbose routing JSON logs |
+| LYNCR_INBOUND_JITTER_BUFFER (+ _MIN_MS, _MAX_MS) | Adaptive jitter buffer on Dial/Number (TeXML only) |
+| LYNCR_INBOUND_DIAL_PREFERRED_CODECS | Default PCMU |
+| LYNCR_VOICE_DEBUG_LOGS | Verbose routing JSON logs |
 
 DB tables for call logs:
 

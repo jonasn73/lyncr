@@ -24,7 +24,7 @@ RELATED PRIOR REPORTS (read for full context):
 Scope: Second-wave release after dispatch intake modernization — fixes stalling talk-time HUD counters, adds inline call recording playback, unifies salvage queues, loads owner-configurable pricing, and replaces mobile drag-and-drop with double-tap technician assignment.
 
 Production URL: https://lyncr.app (Vercel, alias lyncr.app)
-Telephony: Telnyx (TeXML primary; Call Control optional via ZING_INBOUND_CALL_CONTROL)
+Telephony: Telnyx (TeXML primary; Call Control optional via LYNCR_INBOUND_CALL_CONTROL)
 Realtime: Pusher Channels on owner-{userId}
 Database: Neon Postgres (migrations 083–085 documented; not auto-applied)
 
@@ -431,7 +431,7 @@ CRON_SECRET — protects /api/cron/recover-leads (NOT in vercel.json yet)
 OPENAI_API_KEY — optional recovery SMS personalization
 NEXT_PUBLIC_APP_URL — webhooks + tracking
 Pusher keys — call events, job-booked, salvage-recovery-blocked
-ZING_INBOUND_CALL_CONTROL — optional Call Control pipeline
+LYNCR_INBOUND_CALL_CONTROL — optional Call Control pipeline
 
 --------------------------------------------------------------------------------
 

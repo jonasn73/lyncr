@@ -189,8 +189,8 @@ export function DashboardShell({
 
   useEffect(() => {
     const onUpdated = () => void refreshSession()
-    window.addEventListener("zing-account-preferences-updated", onUpdated)
-    return () => window.removeEventListener("zing-account-preferences-updated", onUpdated)
+    window.addEventListener("lyncr-account-preferences-updated", onUpdated)
+    return () => window.removeEventListener("lyncr-account-preferences-updated", onUpdated)
   }, [refreshSession])
 
   const pathname = useMemo(() => {

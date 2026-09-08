@@ -17,7 +17,7 @@ describe("resolveInboundPstnForwardAnswerOnBridge (cell PSTN forward)", () => {
   })
 
   it("keeps answerOnBridge after greeting pass but omits ringTone when ringback is off", () => {
-    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
+    vi.stubEnv("LYNCR_INBOUND_GREETING_FIRST", "1")
     const xml = buildFastReceptionistDialTexml({
       answerOnBridge: resolveInboundPstnForwardAnswerOnBridge(true),
       timeout: 30,
@@ -36,12 +36,12 @@ describe("resolveInboundFastDialTimeoutSeconds", () => {
   })
 
   it("uses routing snapshot when env is unset", () => {
-    vi.stubEnv("ZING_INBOUND_FAST_DIAL_TIMEOUT", "")
+    vi.stubEnv("LYNCR_INBOUND_FAST_DIAL_TIMEOUT", "")
     expect(resolveInboundFastDialTimeoutSeconds(30)).toBe(30)
   })
 
-  it("honors ZING_INBOUND_FAST_DIAL_TIMEOUT=20", () => {
-    vi.stubEnv("ZING_INBOUND_FAST_DIAL_TIMEOUT", "20")
+  it("honors LYNCR_INBOUND_FAST_DIAL_TIMEOUT=20", () => {
+    vi.stubEnv("LYNCR_INBOUND_FAST_DIAL_TIMEOUT", "20")
     expect(resolveInboundFastDialTimeoutSeconds(30)).toBe(20)
   })
 })
@@ -52,7 +52,7 @@ describe("resolveInboundForwardDialTimeoutSeconds", () => {
   })
 
   it("caps at 20s when AI fallback is enabled", () => {
-    vi.stubEnv("ZING_INBOUND_AI_DIAL_TIMEOUT", "20")
+    vi.stubEnv("LYNCR_INBOUND_AI_DIAL_TIMEOUT", "20")
     expect(resolveInboundForwardDialTimeoutSeconds(30, true)).toBe(20)
   })
 
@@ -61,22 +61,22 @@ describe("resolveInboundForwardDialTimeoutSeconds", () => {
   })
 
   it("caps at 25s when Hold queue fallback is enabled", () => {
-    vi.stubEnv("ZING_INBOUND_HOLD_DIAL_TIMEOUT", "25")
+    vi.stubEnv("LYNCR_INBOUND_HOLD_DIAL_TIMEOUT", "25")
     expect(resolveInboundForwardDialTimeoutSeconds(30, false, true)).toBe(25)
   })
 
   it("keeps shorter ring when Hold cap is higher than routing timeout", () => {
-    vi.stubEnv("ZING_INBOUND_HOLD_DIAL_TIMEOUT", "25")
+    vi.stubEnv("LYNCR_INBOUND_HOLD_DIAL_TIMEOUT", "25")
     expect(resolveInboundForwardDialTimeoutSeconds(15, false, true)).toBe(15)
   })
 
   it("defaults Hold cap to 25s when env unset", () => {
-    vi.stubEnv("ZING_INBOUND_HOLD_DIAL_TIMEOUT", "")
+    vi.stubEnv("LYNCR_INBOUND_HOLD_DIAL_TIMEOUT", "")
     expect(resolveInboundForwardDialTimeoutSeconds(30, false, true)).toBe(25)
   })
 
   it("honors UI 20s under the Hold cap", () => {
-    vi.stubEnv("ZING_INBOUND_HOLD_DIAL_TIMEOUT", "")
+    vi.stubEnv("LYNCR_INBOUND_HOLD_DIAL_TIMEOUT", "")
     expect(resolveInboundForwardDialTimeoutSeconds(20, false, true)).toBe(20)
   })
 })
@@ -87,7 +87,7 @@ describe("AMD early-machine helpers", () => {
   })
 
   it("defaults min machine age to 18s (full Hold ring window)", () => {
-    vi.stubEnv("ZING_INBOUND_AMD_MIN_MACHINE_AGE_MS", "")
+    vi.stubEnv("LYNCR_INBOUND_AMD_MIN_MACHINE_AGE_MS", "")
     vi.stubEnv("LYNCR_INBOUND_AMD_MIN_MACHINE_AGE_MS", "")
     expect(resolveAmdMinMachineAgeMs()).toBe(18_000)
   })
@@ -117,13 +117,13 @@ describe("buildInboundDialRingbackAttributes", () => {
   })
 
   it("defaults to native US ringTone", () => {
-    vi.stubEnv("ZING_INBOUND_DIAL_RINGBACK_AUDIO_URL", "")
+    vi.stubEnv("LYNCR_INBOUND_DIAL_RINGBACK_AUDIO_URL", "")
     expect(buildInboundDialRingbackAttributes()).toEqual({ ringTone: "us" })
   })
 
-  it("uses audioUrl when ZING_INBOUND_DIAL_RINGBACK_AUDIO_URL is set", () => {
+  it("uses audioUrl when LYNCR_INBOUND_DIAL_RINGBACK_AUDIO_URL is set", () => {
     vi.stubEnv(
-      "ZING_INBOUND_DIAL_RINGBACK_AUDIO_URL",
+      "LYNCR_INBOUND_DIAL_RINGBACK_AUDIO_URL",
       "https://lyncr.app/audio/us-ringback.wav"
     )
     expect(buildInboundDialRingbackAttributes()).toEqual({

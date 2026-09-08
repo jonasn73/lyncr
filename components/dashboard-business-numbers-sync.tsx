@@ -81,8 +81,8 @@ export function DashboardBusinessNumbersSync() {
     const onChanged = () => {
       void mutate()
     }
-    window.addEventListener("zing-business-numbers-changed", onChanged)
-    return () => window.removeEventListener("zing-business-numbers-changed", onChanged)
+    window.addEventListener("lyncr-business-numbers-changed", onChanged)
+    return () => window.removeEventListener("lyncr-business-numbers-changed", onChanged)
   }, [mutate])
 
   return null

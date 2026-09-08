@@ -9,7 +9,7 @@ import { createHmac, timingSafeEqual } from "crypto"
 import { env } from "@/lib/env" // Type-safe, validated env manager (replaces raw process.env).
 
 const COOKIE_NAME = "lyncr_session"
-/** Legacy cookie from the Zing rename — still accepted so logins survive deploy. */
+/** Legacy cookie from the pre-rebrand product name — still accepted so logins survive deploy. */
 const LEGACY_COOKIE_NAME = "zing_session"
 const MAX_AGE_SEC = 60 * 60 * 24 * 30 // 30 days so session survives refreshes and long gaps
 
@@ -61,7 +61,7 @@ export function getSessionCookieName(): string {
   return COOKIE_NAME
 }
 
-/** Legacy Zing cookie — clear on logout so both names die. */
+/** Legacy pre-rebrand cookie — clear on logout so both names die. */
 export function getLegacySessionCookieName(): string {
   return LEGACY_COOKIE_NAME
 }

@@ -62,6 +62,7 @@ import {
   resolveInboundCallLogSid,
 } from "@/lib/telnyx-call-control-call-log"
 import {
+  readInboundDialPreferredCodecs,
   readInboundDialRingbackAudioUrl,
   resolveAmdMinMachineAgeForRingSec,
   resolveInboundForwardDialTimeoutSeconds,
@@ -164,7 +165,7 @@ async function resolveCallControlRouting(toRaw: string): Promise<IncomingRouting
   const businessLineE164 = normalizePhoneNumberE164(toRaw) || toRaw
   console.log(
     JSON.stringify({
-      zing: "telnyx-cc-resolve-routing-start",
+      lyncr: "telnyx-cc-resolve-routing-start",
       toRaw,
       businessLineE164,
     })
@@ -174,14 +175,14 @@ async function resolveCallControlRouting(toRaw: string): Promise<IncomingRouting
     if (routing) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-cc-resolve-routing-hit",
+          lyncr: "telnyx-cc-resolve-routing-hit",
           userId: routing.user_id,
           organizationName: routing.organization_name,
         })
       )
       return routing
     }
-    console.log(JSON.stringify({ zing: "telnyx-cc-resolve-routing-miss", businessLineE164 }))
+    console.log(JSON.stringify({ lyncr: "telnyx-cc-resolve-routing-miss", businessLineE164 }))
   } catch (error) {
     console.error("Telnyx call.initiated routing lookup failed:", error)
   }
@@ -192,7 +193,7 @@ async function resolveCallControlRouting(toRaw: string): Promise<IncomingRouting
     if (line?.user_id) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-cc-resolve-routing-line-fallback",
+          lyncr: "telnyx-cc-resolve-routing-line-fallback",
           userId: line.user_id,
         })
       )
@@ -206,7 +207,7 @@ async function resolveCallControlRouting(toRaw: string): Promise<IncomingRouting
     console.error("Telnyx call.initiated line lookup failed:", error)
   }
 
-  console.warn(JSON.stringify({ zing: "telnyx-cc-resolve-routing-null", businessLineE164 }))
+  console.warn(JSON.stringify({ lyncr: "telnyx-cc-resolve-routing-null", businessLineE164 }))
   return null
 }
 
@@ -558,6 +559,22 @@ async function continueAfterInboundGreeting(
   }
   greetingContinueStarted.add(inboundId)
 
+  // The connect greeting just finished — the caller hears nothing while the routing / dial-plan
+  // re-resolution below round-trips to the DB (this is already the plan's *second* resolution;
+  // the first ran in handleCallAnswered right before the greeting played). When that first pass
+  // already pointed at a real PSTN dial, start ringback immediately instead of leaving the caller
+  // in dead air through this lookup — a presence flip in the ~1-3s the greeting took to speak is
+  // rare, and if re-resolution does land on busy_automation this time, the ringback is stopped
+  // again right before the Busy prompt speaks (same brief overlap window already accepted for the
+  // ringback/bridge race in handleCallAnswered).
+  const likelyDialing = Boolean(state.dialReason) && state.dialReason !== "busy_automation"
+  const earlyRingbackPromise = likelyDialing
+    ? startCallerDialRingback(
+        inboundId,
+        encodeTelnyxCallControlState({ ...state, phase: "await_dial_end", inboundCallControlId: inboundId })
+      )
+    : null
+
   let routing = await resolveCallControlRouting(state.businessLineE164)
   if (!routing) {
     routing = buildFailsafeRouting({
@@ -589,7 +606,7 @@ async function continueAfterInboundGreeting(
 
   console.log(
     JSON.stringify({
-      zing: "telnyx-cc-speak-ended-dial-plan",
+      lyncr: "telnyx-cc-speak-ended-dial-plan",
       callControlId: event.callControlId,
       planReason: dialPlan.reason,
       dialTargetTail4: dialTargetE164
@@ -600,11 +617,20 @@ async function continueAfterInboundGreeting(
   )
 
   if (dialPlan.reason === "busy_automation" || !isReasonablePstnDialString(dialTargetE164 || "")) {
+    if (earlyRingbackPromise) {
+      // Re-resolution flipped busy after all — pull the ringback we optimistically started
+      // before the Busy prompt speaks, so the two don't play over each other.
+      await earlyRingbackPromise
+      await stopCallerDialRingback(inboundId)
+    }
     await startBusyAutomationFlow(event.callControlId, nextState, routing)
     return
   }
 
-  await dialTechnicianLeg(event.callControlId, nextState, routing)
+  if (earlyRingbackPromise) await earlyRingbackPromise
+  await dialTechnicianLeg(event.callControlId, nextState, routing, {
+    ringbackAlreadyStarted: Boolean(earlyRingbackPromise),
+  })
 }
 
 /** After booking SMS — confirm and hang up (avoid double Busy greeting). */
@@ -619,7 +645,7 @@ async function confirmBusySmsAndHangup(
   })
   const speakRes = await telnyxCallControlSpeak(callControlId, TIED_UP_BOOKING_PROMPT, nextState)
   if (!speakRes.ok) {
-    console.error(JSON.stringify({ zing: "telnyx-cc-busy-sms-confirm-failed", error: speakRes.error }))
+    console.error(JSON.stringify({ lyncr: "telnyx-cc-busy-sms-confirm-failed", error: speakRes.error }))
     await telnyxCallControlHangup(callControlId)
   }
 }
@@ -662,7 +688,7 @@ async function startVoicemailFlow(
   })
   const speakRes = await telnyxCallControlSpeak(callControlId, greeting, nextState)
   if (!speakRes.ok) {
-    console.error(JSON.stringify({ zing: "telnyx-cc-voicemail-speak-failed", error: speakRes.error }))
+    console.error(JSON.stringify({ lyncr: "telnyx-cc-voicemail-speak-failed", error: speakRes.error }))
     await telnyxCallControlHangup(callControlId)
   }
 }
@@ -718,7 +744,8 @@ async function stopCallerDialRingback(inboundCallControlId: string): Promise<voi
 async function dialTechnicianLeg(
   inboundCallControlId: string,
   state: TelnyxCallControlClientState,
-  routing: NonNullable<Awaited<ReturnType<typeof getIncomingRoutingForVoiceWebhook>>>
+  routing: NonNullable<Awaited<ReturnType<typeof getIncomingRoutingForVoiceWebhook>>>,
+  opts?: { ringbackAlreadyStarted?: boolean }
 ): Promise<void> {
   // TODO(cc-sip-browser): When receptionist endpoint=WEB + sip_username, Dial `sip:user@domain`
   // via telnyxCallControlDial (Telnyx `to` accepts SIP URIs) and fall back to PSTN on failure.
@@ -726,7 +753,7 @@ async function dialTechnicianLeg(
   // until that lands. Portal honesty uses browser_inbound_live=false while CC is enabled.
   const target = state.dialTargetE164?.trim() || ""
   if (!isReasonablePstnDialString(target)) {
-    console.error(JSON.stringify({ zing: "telnyx-cc-dial-missing-target", inboundCallControlId }))
+    console.error(JSON.stringify({ lyncr: "telnyx-cc-dial-missing-target", inboundCallControlId }))
     await telnyxCallControlHangup(inboundCallControlId)
     return
   }
@@ -760,19 +787,31 @@ async function dialTechnicianLeg(
     dialStartedAtMs,
   }
   const nextState = encodeTelnyxCallControlState(nextStatePayload)
-  // Answered A-leg gets silence unless we inject ringback while B-leg rings.
-  await startCallerDialRingback(inboundCallControlId, nextState)
-  const dialRes = await telnyxCallControlDial({
-    connectionId,
-    inboundCallControlId,
-    toE164: target,
-    fromE164: dialFrom,
-    timeoutSecs: state.ringTimeoutSec ?? 30,
-    clientState: nextState,
-    bridgeOnAnswer: true,
-  })
+  // Answered A-leg gets silence unless we inject ringback while B-leg rings. Ringback and Dial
+  // are independent Telnyx API calls — fire them concurrently instead of serially so the callee's
+  // phone starts ringing one round-trip sooner (skip re-starting if a caller already kicked
+  // ringback off early, e.g. continueAfterInboundGreeting starting it before the dial-plan
+  // re-resolution below it settles).
+  const ringbackPromise = opts?.ringbackAlreadyStarted
+    ? Promise.resolve()
+    : startCallerDialRingback(inboundCallControlId, nextState)
+  const [, dialRes] = await Promise.all([
+    ringbackPromise,
+    telnyxCallControlDial({
+      connectionId,
+      inboundCallControlId,
+      toE164: target,
+      fromE164: dialFrom,
+      timeoutSecs: state.ringTimeoutSec ?? 30,
+      clientState: nextState,
+      bridgeOnAnswer: true,
+      // Same codec preference the legacy TeXML path already sends — Call Control's Dial
+      // previously left this unset and silently fell back to connection defaults.
+      preferredCodecs: readInboundDialPreferredCodecs(),
+    }),
+  ])
   if (!dialRes.ok) {
-    console.error(JSON.stringify({ zing: "telnyx-cc-dial-failed", error: dialRes.error, to: target, from: dialFrom }))
+    console.error(JSON.stringify({ lyncr: "telnyx-cc-dial-failed", error: dialRes.error, to: target, from: dialFrom }))
     if (isTelnyxAuthFailureMessage(dialRes.error)) {
       console.error(
         "[telnyx-cc] CRITICAL: TELNYX_API_KEY auth failure on Dial — update the key in Vercel and redeploy."
@@ -811,7 +850,7 @@ async function dialTechnicianLeg(
     if (!inboundRes.ok) {
       console.warn(
         JSON.stringify({
-          zing: "telnyx-cc-inbound-client-state-update-failed",
+          lyncr: "telnyx-cc-inbound-client-state-update-failed",
           inboundCallControlId,
           error: inboundRes.error,
         })
@@ -821,7 +860,7 @@ async function dialTechnicianLeg(
       if (!outboundRes.ok) {
         console.warn(
           JSON.stringify({
-            zing: "telnyx-cc-outbound-client-state-update-failed",
+            lyncr: "telnyx-cc-outbound-client-state-update-failed",
             outboundCallControlId,
             error: outboundRes.error,
           })
@@ -838,7 +877,7 @@ async function handleCallInitiated(
   console.log("Inbound call initiated event received for ID:", callControlId)
   console.log(
     JSON.stringify({
-      zing: "telnyx-cc-initiated-start",
+      lyncr: "telnyx-cc-initiated-start",
       callControlId,
       direction: event.direction || "(empty)",
       from: event.from,
@@ -851,7 +890,7 @@ async function handleCallInitiated(
     if (isClearlyOutboundDirection(event.direction)) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-cc-initiated-skip-outbound",
+          lyncr: "telnyx-cc-initiated-skip-outbound",
           callControlId,
           direction: event.direction,
         })
@@ -862,7 +901,7 @@ async function handleCallInitiated(
       // Unknown non-empty direction — log and CONTINUE (do not silent-exit).
       console.warn(
         JSON.stringify({
-          zing: "telnyx-cc-initiated-unknown-direction-continuing",
+          lyncr: "telnyx-cc-initiated-unknown-direction-continuing",
           callControlId,
           direction: event.direction,
         })
@@ -873,7 +912,7 @@ async function handleCallInitiated(
     const callerE164 = event.from.trim() ? normalizePhoneNumberE164(event.from) : "Unknown"
     console.log(
       JSON.stringify({
-        zing: "telnyx-cc-initiated-normalized",
+        lyncr: "telnyx-cc-initiated-normalized",
         callControlId,
         businessLineE164,
         callerE164,
@@ -908,7 +947,7 @@ async function handleCallInitiated(
     if (!routing) {
       console.warn(
         JSON.stringify({
-          zing: "telnyx-cc-no-routing-failsafe",
+          lyncr: "telnyx-cc-no-routing-failsafe",
           to: event.to,
           failsafe: FAILSAFE_PRIMARY_CELL_E164,
         })
@@ -935,7 +974,7 @@ async function handleCallInitiated(
     if (accountStatus && isAccountRoutingBlocked(accountStatus)) {
       console.warn(
         JSON.stringify({
-          zing: "telnyx-cc-initiated-account-blocked",
+          lyncr: "telnyx-cc-initiated-account-blocked",
           callControlId,
           accountStatus,
         })
@@ -952,7 +991,7 @@ async function handleCallInitiated(
     if (dialPlan.reason !== "busy_automation" && !isReasonablePstnDialString(dialTargetE164 || "")) {
       console.warn(
         JSON.stringify({
-          zing: "telnyx-cc-initiated-empty-dial-target-using-failsafe",
+          lyncr: "telnyx-cc-initiated-empty-dial-target-using-failsafe",
           callControlId,
           failsafe: FAILSAFE_PRIMARY_CELL_E164,
           planReason: dialPlan.reason,
@@ -979,7 +1018,7 @@ async function handleCallInitiated(
 
     console.log(
       JSON.stringify({
-        zing: "telnyx-cc-initiated-dial-plan",
+        lyncr: "telnyx-cc-initiated-dial-plan",
         callControlId,
         dialTargetTail4: dialTargetE164
           ? dialTargetE164.replace(/\D/g, "").slice(-4)
@@ -1011,7 +1050,7 @@ async function handleCallInitiated(
         recording_duration_seconds: null,
       })
         .then(async (callLogId) => {
-          console.log(JSON.stringify({ zing: "telnyx-cc-initiated-call-log-ok", callControlId }))
+          console.log(JSON.stringify({ lyncr: "telnyx-cc-initiated-call-log-ok", callControlId }))
           // Broadcast on every inbound call, not just busy_automation — this is the only
           // signal that lets a console (owner's dashboard or a receptionist's own portal)
           // open its live intake before the callee's phone even rings. The client-side
@@ -1038,7 +1077,7 @@ async function handleCallInitiated(
     } else {
       console.warn(
         JSON.stringify({
-          zing: "telnyx-cc-initiated-skip-call-log-no-user",
+          lyncr: "telnyx-cc-initiated-skip-call-log-no-user",
           callControlId,
         })
       )
@@ -1050,7 +1089,7 @@ async function handleCallInitiated(
     if (answerRes.ok) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-cc-answer-ok",
+          lyncr: "telnyx-cc-answer-ok",
           callControlId,
           dialTargetTail4: dialTargetE164
             ? dialTargetE164.replace(/\D/g, "").slice(-4)
@@ -1063,7 +1102,7 @@ async function handleCallInitiated(
       return
     }
 
-    console.error(JSON.stringify({ zing: "telnyx-cc-answer-failed", error: answerRes.error }))
+    console.error(JSON.stringify({ lyncr: "telnyx-cc-answer-failed", error: answerRes.error }))
     if (isTelnyxAuthFailureMessage(answerRes.error)) {
       console.error(
         "[telnyx-cc] CRITICAL: TELNYX_API_KEY on Vercel is invalid or revoked. " +
@@ -1078,7 +1117,7 @@ async function handleCallInitiated(
     if (dialPlan.reason === "busy_automation" || !isReasonablePstnDialString(dialTargetE164 || "")) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-cc-initiated-skip-failsafe-dial-busy",
+          lyncr: "telnyx-cc-initiated-skip-failsafe-dial-busy",
           callControlId,
           planReason: dialPlan.reason,
         })
@@ -1130,7 +1169,7 @@ async function handleCallInitiated(
       if (!answerRes.ok) {
         console.error(
           JSON.stringify({
-            zing: "telnyx-cc-ultimate-failsafe-answer-failed",
+            lyncr: "telnyx-cc-ultimate-failsafe-answer-failed",
             error: answerRes.error,
           })
         )
@@ -1268,7 +1307,7 @@ async function handleCallAnswered(
       { voice: greetVoice }
     )
     if (!speakRes.ok) {
-      console.error(JSON.stringify({ zing: "telnyx-cc-greeting-speak-failed", error: speakRes.error }))
+      console.error(JSON.stringify({ lyncr: "telnyx-cc-greeting-speak-failed", error: speakRes.error }))
       // No "busy_automation" test here: the earlier guard already returned for that reason,
       // so by this point it is not reachable. Only the missing-dial-target case remains.
       if (!isReasonablePstnDialString(dialTargetE164 || "")) {
@@ -1306,7 +1345,7 @@ async function handleSpeakEnded(
   if (state.phase === "await_busy_sms_confirm_end") {
     console.log(
       JSON.stringify({
-        zing: "telnyx-cc-busy-sms-confirm-hangup",
+        lyncr: "telnyx-cc-busy-sms-confirm-hangup",
         callControlId: event.callControlId,
       })
     )
@@ -1318,7 +1357,7 @@ async function handleSpeakEnded(
   if (state.dialReason === "busy_automation" && state.phase === "await_voicemail_prompt_end") {
     console.log(
       JSON.stringify({
-        zing: "telnyx-cc-busy-automation-hangup",
+        lyncr: "telnyx-cc-busy-automation-hangup",
         callControlId: event.callControlId,
       })
     )
@@ -1336,7 +1375,7 @@ async function handleSpeakEnded(
     if (state.phase === "await_caller_answered") {
       console.warn(
         JSON.stringify({
-          zing: "telnyx-cc-speak-ended-stale-phase-recover-dial",
+          lyncr: "telnyx-cc-speak-ended-stale-phase-recover-dial",
           callControlId: event.callControlId,
           phase: state.phase,
           dialTargetTail4: String(state.dialTargetE164 || "")
@@ -1355,7 +1394,7 @@ async function handleSpeakEnded(
     const nextState = encodeTelnyxCallControlState({ ...state, phase: "recording" })
     const recordRes = await telnyxCallControlRecordStart(event.callControlId, nextState, recordWebhook)
     if (!recordRes.ok) {
-      console.error(JSON.stringify({ zing: "telnyx-cc-record-start-failed", error: recordRes.error }))
+      console.error(JSON.stringify({ lyncr: "telnyx-cc-record-start-failed", error: recordRes.error }))
       await telnyxCallControlHangup(event.callControlId)
     }
   }
@@ -1878,7 +1917,7 @@ async function hangupCompanionOutboundLeg(
       )
       console.log(
         JSON.stringify({
-          zing: "telnyx-cc-hangup-session-siblings",
+          lyncr: "telnyx-cc-hangup-session-siblings",
           inboundCallControlId: inbound,
           callSessionId: callSessionId.trim(),
           siblingCount: siblings.length,
@@ -1889,7 +1928,7 @@ async function hangupCompanionOutboundLeg(
         if (!hangupRes.ok) {
           console.error(
             JSON.stringify({
-              zing: "telnyx-cc-hangup-session-sibling-failed",
+              lyncr: "telnyx-cc-hangup-session-sibling-failed",
               outboundCallControlId: leg.callControlId,
               error: hangupRes.error,
             })
@@ -1905,7 +1944,7 @@ async function hangupCompanionOutboundLeg(
   if (!outbound || outbound === inbound) {
     console.log(
       JSON.stringify({
-        zing: "telnyx-cc-hangup-no-outbound-companion",
+        lyncr: "telnyx-cc-hangup-no-outbound-companion",
         inboundCallControlId: inbound,
         hadStateOutbound: Boolean(state?.outboundCallControlId),
         callSessionId: callSessionId || null,
@@ -1916,7 +1955,7 @@ async function hangupCompanionOutboundLeg(
 
   console.log(
     JSON.stringify({
-      zing: "telnyx-cc-hangup-companion-outbound",
+      lyncr: "telnyx-cc-hangup-companion-outbound",
       inboundCallControlId: inbound,
       outboundCallControlId: outbound,
     })
@@ -1927,7 +1966,7 @@ async function hangupCompanionOutboundLeg(
   if (!hangupRes.ok) {
     console.error(
       JSON.stringify({
-        zing: "telnyx-cc-hangup-companion-failed",
+        lyncr: "telnyx-cc-hangup-companion-failed",
         outboundCallControlId: outbound,
         error: hangupRes.error,
       })
@@ -1943,7 +1982,7 @@ async function handleCallHangup(
 
   console.log(
     JSON.stringify({
-      zing: "telnyx-cc-hangup-received",
+      lyncr: "telnyx-cc-hangup-received",
       callControlId: event.callControlId,
       inboundSid,
       phase: state?.phase ?? null,
@@ -1973,7 +2012,7 @@ async function handleCallHangup(
   ) {
     const inboundCallControlId = state.inboundCallControlId?.trim() || ""
     if (!inboundCallControlId) {
-      console.error(JSON.stringify({ zing: "telnyx-cc-hangup-missing-inbound-leg", callControlId: event.callControlId }))
+      console.error(JSON.stringify({ lyncr: "telnyx-cc-hangup-missing-inbound-leg", callControlId: event.callControlId }))
       return
     }
 
@@ -2009,7 +2048,7 @@ async function handleCallHangup(
     await forgetOutboundDialLeg(inboundCallControlId)
     console.log(
       JSON.stringify({
-        zing: "telnyx-cc-hangup-outbound-leg-done",
+        lyncr: "telnyx-cc-hangup-outbound-leg-done",
         callControlId: event.callControlId,
         inboundCallControlId,
       })
@@ -2125,6 +2164,6 @@ export async function handleTelnyxCallControlVoiceWebhook(body: Record<string, u
 }
 
 export function readInboundCallControlEnabled(): boolean {
-  // Prefer LYNCR_INBOUND_CALL_CONTROL; still accept legacy ZING_* until Vercel is renamed.
+  // Reads LYNCR_INBOUND_CALL_CONTROL.
   return envFlagOn("INBOUND_CALL_CONTROL")
 }

@@ -12,13 +12,13 @@ describe("shouldEdgeInstantGreetingIntercept", () => {
   })
 
   it("intercepts pass-1 /incoming before Node cold start", () => {
-    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
+    vi.stubEnv("LYNCR_INBOUND_GREETING_FIRST", "1")
     const url = new URL("https://lyncr.app/api/voice/telnyx/incoming")
     expect(shouldEdgeInstantGreetingIntercept(url.pathname, url, "POST")).toBe(true)
   })
 
   it("passes through when lyncrGreet=1 (pass 2 routing)", () => {
-    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
+    vi.stubEnv("LYNCR_INBOUND_GREETING_FIRST", "1")
     const url = new URL("https://lyncr.app/api/voice/telnyx/incoming?lyncrGreet=1")
     expect(shouldEdgeInstantGreetingIntercept(url.pathname, url, "POST")).toBe(false)
   })

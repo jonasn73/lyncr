@@ -5,16 +5,16 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: zing-db
+    container_name: lyncr-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: zing
+      POSTGRES_DB: lyncr
     ports:
       - "5432:5432"
     volumes:
-      - zing_pg_data:/var/lib/postgresql/data
+      - lyncr_pg_data:/var/lib/postgresql/data
 
 volumes:
-  zing_pg_data:
+  lyncr_pg_data:

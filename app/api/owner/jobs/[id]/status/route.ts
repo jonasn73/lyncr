@@ -16,6 +16,10 @@ import {
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
 import { onJobStateChange, sendManualThanksReviewSms } from "@/lib/sms-pipeline"
 import { resolveCapabilityActor } from "@/lib/receptionist-capability-auth"
+import { recordAuditEvent } from "@/lib/audit-log"
+
+/** Terminal close-outs — the "did this job actually get done, or did it get lost" signal. */
+const TERMINAL_STATUSES = new Set(["completed", "cancelled", "unresolved", "referred"])
 
 export const dynamic = "force-dynamic"
 
@@ -84,6 +88,19 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     )
 
     const prevStatus = (previous.job_status ?? "").trim().toLowerCase()
+
+    if (TERMINAL_STATUSES.has(status) && prevStatus !== status) {
+      void recordAuditEvent({
+        ownerUserId: userId,
+        actorUserId: actor.actingUserId,
+        actorRole: actor.actorRole,
+        eventType: "job.outcome_recorded",
+        entityType: "job",
+        entityId: leadId.trim(),
+        detail: { status, previous_status: prevStatus || null },
+      })
+    }
+
     if (status === "en_route" && prevStatus !== "en_route") {
       after(async () => {
         try {

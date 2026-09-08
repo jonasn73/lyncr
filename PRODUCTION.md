@@ -32,7 +32,7 @@ In your Vercel project: **Settings → Environment Variables**. Add:
 | `SANDBOX_SMS_DISPATCH_E164` | Optional: your **real cell** (E.164) for **Admin → Dev sandbox** lead-alert SMS tests. If unset, sandbox uses the first real phone on your platform account. |
 | `PUSHER_APP_ID` / `PUSHER_KEY` / `PUSHER_SECRET` / `PUSHER_CLUSTER` | Optional **realtime** for the receptionist HUD. When set, the moment a receptionist's cell **answers**, their HUD instantly pops the **live intake form** (no 15s wait). Create a free app at **dashboard.pusher.com → Channels**. When unset, the HUD silently falls back to 15s polling. |
 | `NEXT_PUBLIC_PUSHER_KEY` / `NEXT_PUBLIC_PUSHER_CLUSTER` | **Build-time** copies of `PUSHER_KEY` / `PUSHER_CLUSTER` for the browser. Must be set **before** the Vercel build so they're inlined into the client bundle. |
-| `LYNCR_INBOUND_CALL_CONTROL` | Prefer this over legacy `ZING_INBOUND_CALL_CONTROL` (still dual-read). `1` / `true` → Call Control inbound. |
+| `LYNCR_INBOUND_CALL_CONTROL` | `1` / `true` → Call Control inbound. |
 | `LYNCR_HOLD_MUSIC_URL` | Public HTTPS WAV/MP3 for Busy hold music. Or leave unset and use Greetings presets (`/audio/hold-calm.wav` etc.). |
 | `LYNCR_HOLD_MUSIC_MEDIA_NAME` | Optional Telnyx Media Storage name (Mission Control → Media). Skips URL fetch — most reliable for hold music. |
 | `LYNCR_HOLD_MAX_WAIT_SECS` | Optional. Max hold wait before one SMS + hangup (default **600**). Per-account override in Greetings (migration **130**). |
@@ -48,36 +48,28 @@ In your Vercel project: **Settings → Environment Variables**. Add:
 | `LYNCR_TEXML_SAY_VOICE` | Optional. TeXML `<Say>` voice. Default **`Polly.Joanna-Neural`**. |
 | `LYNCR_VOICE_DEBUG_LOGS` | Optional. `1` restores verbose voice JSON logs in production. |
 
-### Deprecated `ZING_*` names
+### Voice / Call Control env vars
 
-The app was renamed from **Zing**. Runtime still **dual-reads** `ZING_*` when `LYNCR_*` is unset (`lib/lyncr-env.ts`). Prefer renaming Vercel env vars to `LYNCR_*`. Session cookie is now **`lyncr_session`** (legacy `zing_session` still accepted).
+The app was renamed from **Zing**. All voice/Call Control env vars now read `LYNCR_*` only — set these in Vercel (the old `ZING_*` fallback has been removed from the runtime). Session cookie is now **`lyncr_session`** (legacy `zing_session` still accepted so existing logins survive the rename).
 
-| Legacy | Prefer |
-|--------|--------|
-| `ZING_INBOUND_CALL_CONTROL` | `LYNCR_INBOUND_CALL_CONTROL` |
-| `ZING_CALL_CONTROL_SPEAK_VOICE` | `LYNCR_CALL_CONTROL_SPEAK_VOICE` |
-| `ZING_TEXML_SAY_VOICE` | `LYNCR_TEXML_SAY_VOICE` |
-| `ZING_VOICE_DEBUG_LOGS` | `LYNCR_VOICE_DEBUG_LOGS` |
-| `ZING_AI_*` / other `ZING_*` | Matching `LYNCR_*` where dual-read is wired; otherwise still `ZING_*` until migrated |
-
-| `ZING_AI_RING_OWNER_FIRST` | Optional global override (same as dashboard **Ring my phone first**). Stored on the **default** `routing_config` row (`business_number` null) so it applies even when you use **per-number** routing. Run **`015`**. **Default:** straight to Voice AI when off. |
-| `ZING_AI_HANDOFF_TWO_STEP` | Optional. If `true` / `1`: **Say + Pause + Redirect** to **`/ai-bridge`** from `/incoming`. Default is a **silent** Redirect (no Say) to **`/ai-bridge`** — avoids **dead air** from `<Connect>` on the first `/incoming` response and avoids a **repeating hold line** if Telnyx re-requests `/incoming`. |
-| `ZING_AI_FALLBACK_SPOKEN_HANDOFF` | Optional. If `true` / `1`: after a **no-answer Dial**, play the spoken “please hold…” line before redirecting to Voice AI. **Default is off** (silent Redirect only) — avoids **garbled / noisy audio** some Telnyx builds play when TTS runs right before `<Connect><AIAssistant>`. |
-| `ZING_AI_CONNECT_DIRECT` | Optional. If `true` / `1`: return **`<Connect><AIAssistant>`** on **`/incoming`** (skip silent redirect). **Experimental** — Telnyx may go **quiet**; prefer unset (default). |
-| `ZING_AI_LAST_RESORT_CONNECT_HIT` | Optional. **Default: unset (= off).** If set to e.g. **`5`**, on that **`/incoming`** POST count lyncr returns **`<Connect><AIAssistant>`** on `/incoming` (experimental — Telnyx often plays **“application error, goodbye”** instead of attaching AI). **`0`** / **`false`** explicitly disables. When off, when **`incomingHitCount` > 8** (9th POST onward) lyncr plays its **own** give-up message (not Telnyx’s error). |
-| `ZING_AI_DIRECT_NO_RECEPTIONIST` | Legacy no-op (still accepted). Direct-to-AI is now the **default** when AI fallback + no receptionist; use **`ZING_AI_RING_OWNER_FIRST`** if you need the old ring-first behavior. |
-| `ZING_TELNYX_FALLBACK_DIAGNOSTIC` | Optional. If `true` / `1`: log **`zing: telnyx-fallback-diagnostic`** per Dial `action` request (PII-redacted form fields + routing snapshot). Use when debugging; turn off after. See **`tests/fixtures/telnyx-fallback/README.md`**. |
-| `ZING_INBOUND_RECEPTIONIST_WHISPER` | Optional **global** kill switch. Set to **`0`**, **`false`**, or **`no`** to disable the short callee-only whisper for **all** accounts on this deployment. Per-user default is **on** in Settings unless turned off there. Whisper text is **account business name** (from Settings) **then** the line label / friendly number / last four digits. |
-| `ZING_TEXML_SAY_VOICE` | Optional. **Polly / Google neural** voice id for TeXML `<Say>` (whisper, voicemail prompts, IVR). Default **`Polly.Joanna-Neural`**. Set e.g. `Polly.Matthew-Neural` or `Google.en-US-Neural2-F` if Telnyx accepts it on your account. |
-| `ZING_CALL_CONTROL_SPEAK_VOICE` | Optional. Voice for **Call Control** `speak` / Busy menus (Key Squad production). Prefer **`LYNCR_CALL_CONTROL_SPEAK_VOICE`**. When unset, Greetings **AI Voice Persona** drives the voice (Reassuring Female → **`Telnyx.NaturalHD.astra`**). Must use Telnyx Call Control format (`AWS.Polly.*`, `Azure.*`, `Telnyx.NaturalHD.astra`, or `ElevenLabs.…`). Bare `Polly.*` is auto-upgraded to `AWS.Polly.*`. |
-| `ZING_INBOUND_INSTANT_GREETING_AUDIO_URL` | Optional. Public **HTTPS URL** to a WAV/MP3 human greeting for TeXML inbound pass-1 (`<Play>` instead of TTS). Host the file (e.g. Vercel public folder or CDN). |
-| `ZING_TEXML_SAY_LANGUAGE` | Optional. BCP-47 language for `<Say>` (default **`en-US`**). |
-| `ZING_TEXML_SAY_RATE` | Optional. When set to a number **≠ 1** (e.g. **`1.08`**), `<Say>` wraps text in SSML `<prosody rate="…">`. **Default is off (plain text):** omit this variable. Telnyx often **reads SSML tags as words** (“prosody…”) — use plain default or set `ZING_TEXML_SAY_SSML` to **`false`**. |
-| `ZING_TEXML_SAY_SSML` | Optional. Set **`0`** / **`false`** to send **plain text only** (no `<prosody>`), recommended if a carrier speaks tag names aloud. |
-| `ZING_ADMIN_EMAILS` | Optional. Comma-separated owner emails that may open **`/admin`** even when `users.is_platform_admin` is false (bootstrap / support). Example: `you@company.com,ops@company.com`. |
-| `ZING_BOOTSTRAP_ADMIN_SECRET` | **Optional emergency only.** If set (24+ random characters), `POST /api/auth/repair-bootstrap-admin` with JSON body `{ "secret": "<same value>" }` re-hashes the bootstrap admin password on the **live** `DATABASE_URL` (fixes “Invalid email or password” without Neon). Defaults: email `admin@lyncr.app`, password `admin`. Override with `ZING_BOOTSTRAP_ADMIN_EMAIL` / `ZING_BOOTSTRAP_ADMIN_TEMP_PASSWORD`. **Remove this env var after one successful call.** |
-| `ZING_BOOTSTRAP_ADMIN_EMAIL` | Optional. With `ZING_BOOTSTRAP_ADMIN_SECRET`, which `users.email` to repair (default `admin@lyncr.app`). |
-| `ZING_BOOTSTRAP_ADMIN_TEMP_PASSWORD` | Optional. Plain password used by the repair endpoint (default `admin`). |
+| `LYNCR_AI_RING_OWNER_FIRST` | Optional global override (same as dashboard **Ring my phone first**). Stored on the **default** `routing_config` row (`business_number` null) so it applies even when you use **per-number** routing. Run **`015`**. **Default:** straight to Voice AI when off. |
+| `LYNCR_AI_HANDOFF_TWO_STEP` | Optional. If `true` / `1`: **Say + Pause + Redirect** to **`/ai-bridge`** from `/incoming`. Default is a **silent** Redirect (no Say) to **`/ai-bridge`** — avoids **dead air** from `<Connect>` on the first `/incoming` response and avoids a **repeating hold line** if Telnyx re-requests `/incoming`. |
+| `LYNCR_AI_FALLBACK_SPOKEN_HANDOFF` | Optional. If `true` / `1`: after a **no-answer Dial**, play the spoken “please hold…” line before redirecting to Voice AI. **Default is off** (silent Redirect only) — avoids **garbled / noisy audio** some Telnyx builds play when TTS runs right before `<Connect><AIAssistant>`. |
+| `LYNCR_AI_CONNECT_DIRECT` | Optional. If `true` / `1`: return **`<Connect><AIAssistant>`** on **`/incoming`** (skip silent redirect). **Experimental** — Telnyx may go **quiet**; prefer unset (default). |
+| `LYNCR_AI_LAST_RESORT_CONNECT_HIT` | Optional. **Default: unset (= off).** If set to e.g. **`5`**, on that **`/incoming`** POST count lyncr returns **`<Connect><AIAssistant>`** on `/incoming` (experimental — Telnyx often plays **“application error, goodbye”** instead of attaching AI). **`0`** / **`false`** explicitly disables. When off, when **`incomingHitCount` > 8** (9th POST onward) lyncr plays its **own** give-up message (not Telnyx’s error). |
+| `LYNCR_AI_DIRECT_NO_RECEPTIONIST` | Legacy no-op (still accepted). Direct-to-AI is now the **default** when AI fallback + no receptionist; use **`LYNCR_AI_RING_OWNER_FIRST`** if you need the old ring-first behavior. |
+| `LYNCR_TELNYX_FALLBACK_DIAGNOSTIC` | Optional. If `true` / `1`: log **`lyncr: telnyx-fallback-diagnostic`** per Dial `action` request (PII-redacted form fields + routing snapshot). Use when debugging; turn off after. See **`tests/fixtures/telnyx-fallback/README.md`**. |
+| `LYNCR_INBOUND_RECEPTIONIST_WHISPER` | Optional **global** kill switch. Set to **`0`**, **`false`**, or **`no`** to disable the short callee-only whisper for **all** accounts on this deployment. Per-user default is **on** in Settings unless turned off there. Whisper text is **account business name** (from Settings) **then** the line label / friendly number / last four digits. |
+| `LYNCR_TEXML_SAY_VOICE` | Optional. **Polly / Google neural** voice id for TeXML `<Say>` (whisper, voicemail prompts, IVR). Default **`Polly.Joanna-Neural`**. Set e.g. `Polly.Matthew-Neural` or `Google.en-US-Neural2-F` if Telnyx accepts it on your account. |
+| `LYNCR_CALL_CONTROL_SPEAK_VOICE` | Optional. Voice for **Call Control** `speak` / Busy menus (Key Squad production). Prefer **`LYNCR_CALL_CONTROL_SPEAK_VOICE`**. When unset, Greetings **AI Voice Persona** drives the voice (Reassuring Female → **`Telnyx.NaturalHD.astra`**). Must use Telnyx Call Control format (`AWS.Polly.*`, `Azure.*`, `Telnyx.NaturalHD.astra`, or `ElevenLabs.…`). Bare `Polly.*` is auto-upgraded to `AWS.Polly.*`. |
+| `LYNCR_INBOUND_INSTANT_GREETING_AUDIO_URL` | Optional. Public **HTTPS URL** to a WAV/MP3 human greeting for TeXML inbound pass-1 (`<Play>` instead of TTS). Host the file (e.g. Vercel public folder or CDN). |
+| `LYNCR_TEXML_SAY_LANGUAGE` | Optional. BCP-47 language for `<Say>` (default **`en-US`**). |
+| `LYNCR_TEXML_SAY_RATE` | Optional. When set to a number **≠ 1** (e.g. **`1.08`**), `<Say>` wraps text in SSML `<prosody rate="…">`. **Default is off (plain text):** omit this variable. Telnyx often **reads SSML tags as words** (“prosody…”) — use plain default or set `LYNCR_TEXML_SAY_SSML` to **`false`**. |
+| `LYNCR_TEXML_SAY_SSML` | Optional. Set **`0`** / **`false`** to send **plain text only** (no `<prosody>`), recommended if a carrier speaks tag names aloud. |
+| `LYNCR_ADMIN_EMAILS` | Optional. Comma-separated owner emails that may open **`/admin`** even when `users.is_platform_admin` is false (bootstrap / support). Example: `you@company.com,ops@company.com`. |
+| `LYNCR_BOOTSTRAP_ADMIN_SECRET` | **Optional emergency only.** If set (24+ random characters), `POST /api/auth/repair-bootstrap-admin` with JSON body `{ "secret": "<same value>" }` re-hashes the bootstrap admin password on the **live** `DATABASE_URL` (fixes “Invalid email or password” without Neon). Defaults: email `admin@lyncr.app`, password `admin`. Override with `LYNCR_BOOTSTRAP_ADMIN_EMAIL` / `LYNCR_BOOTSTRAP_ADMIN_TEMP_PASSWORD`. **Remove this env var after one successful call.** |
+| `LYNCR_BOOTSTRAP_ADMIN_EMAIL` | Optional. With `LYNCR_BOOTSTRAP_ADMIN_SECRET`, which `users.email` to repair (default `admin@lyncr.app`). |
+| `LYNCR_BOOTSTRAP_ADMIN_TEMP_PASSWORD` | Optional. Plain password used by the repair endpoint (default `admin`). |
 | `TELNYX_AI_VOICE_SPEED` | Optional. Assistant **`voice_speed`** for Telnyx Natural / NaturalHD / Kokoro voices (default **`1.08`**, range about **0.9–1.25**). |
 | `TELNYX_AI_EXPRESSIVE` | Optional. Set **`0`** / **`false`** to skip **`expressive_mode`** when using **`Telnyx.Ultra.*`** voices. Default enables expressive for Ultra. |
 

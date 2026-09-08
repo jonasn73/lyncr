@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import {
   customerRefToUserId,
-  findZingCustomerReference,
+  findLyncrCustomerReference,
   extractEventType,
   extractTelnyxEventId,
   extractPortingOrderRecord,
@@ -14,7 +14,7 @@ import {
 
 describe("telnyx-porting-webhook", () => {
   it("finds zing customer_reference in nested payload", () => {
-    const ref = findZingCustomerReference({
+    const ref = findLyncrCustomerReference({
       data: {
         record: {
           customer_reference: "zing-aaaaaaaa-bbbb-cccc-dddddddddddd",

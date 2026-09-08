@@ -102,10 +102,10 @@ void warmDatabasePool()
 /**
  * After this many `/incoming` POSTs, optionally emit `<Connect><AIAssistant>` once on `/incoming`.
  * **Default is off (0):** production logs show Telnyx plays “application error, goodbye” when we return
- * `<Connect>` on `/incoming` — only enable by setting e.g. `ZING_AI_LAST_RESORT_CONNECT_HIT=5` if Telnyx confirms it’s valid for your app.
+ * `<Connect>` on `/incoming` — only enable by setting e.g. `LYNCR_AI_LAST_RESORT_CONNECT_HIT=5` if Telnyx confirms it’s valid for your app.
  */
 function parseAiLastResortConnectHit(): number {
-  const raw = (process.env.ZING_AI_LAST_RESORT_CONNECT_HIT || "").trim() // Read env; empty = use safe default below
+  const raw = (process.env.LYNCR_AI_LAST_RESORT_CONNECT_HIT || "").trim() // Read env; empty = use safe default below
   if (raw === "" || raw === "0" || raw === "false") return 0 // **Default off** — avoids Telnyx generic application error on many setups
   const n = parseInt(raw, 10) // Parse explicit number like "5"
   if (!Number.isFinite(n) || n < 1) return 0 // Bad or negative env → treat as disabled (safe)
@@ -346,7 +346,7 @@ async function tryAdminRoutingOverrideDial(params: {
   console.log(
     JSON.stringify({
       ...(params.perfStartMs != null ? { execMs: +(performance.now() - params.perfStartMs).toFixed(2) } : {}),
-      zing: "telnyx-incoming-admin-routing-override",
+      lyncr: "telnyx-incoming-admin-routing-override",
       userId: params.routing.user_id,
       callSid: params.callSid,
       overrideTail4: params.routing.admin_routing_override_phone?.replace(/\D/g, "").slice(-4) ?? null,
@@ -361,8 +361,8 @@ function inboundWantsAiFallback(routing: IncomingRoutingRowNonNull): boolean {
 
 function inboundRingOwnerFirst(routing: IncomingRoutingRowNonNull): boolean {
   return (
-    process.env.ZING_AI_RING_OWNER_FIRST === "1" ||
-    process.env.ZING_AI_RING_OWNER_FIRST === "true" ||
+    process.env.LYNCR_AI_RING_OWNER_FIRST === "1" ||
+    process.env.LYNCR_AI_RING_OWNER_FIRST === "true" ||
     routing.ai_ring_owner_first === true
   )
 }
@@ -393,7 +393,7 @@ function resolveInboundOutboundCallerId(
   businessLineE164: string
 ): string {
   const preferPrimaryCallerId = ["1", "true", "yes", "on"].includes(
-    (process.env.ZING_INBOUND_PSTN_CALLER_ID_PRIMARY || "").trim().toLowerCase()
+    (process.env.LYNCR_INBOUND_PSTN_CALLER_ID_PRIMARY || "").trim().toLowerCase()
   )
   const primaryE164 = routing.primary_phone_number?.trim()
     ? normalizePhoneNumberE164(routing.primary_phone_number)
@@ -422,7 +422,7 @@ function resolveInboundOutboundCallerId(
 
 /**
  * Hot path: return `<Dial>` immediately when routing row already has a PSTN target (receptionist or owner).
- * Ringback during setup: Telnyx `ringTone="us"` (or `audioUrl` via ZING_INBOUND_DIAL_RINGBACK_AUDIO_URL) + answerOnBridge.
+ * Ringback during setup: Telnyx `ringTone="us"` (or `audioUrl` via LYNCR_INBOUND_DIAL_RINGBACK_AUDIO_URL) + answerOnBridge.
  */
 async function tryFastInboundPstnDial(params: {
   routing: IncomingRoutingRowNonNull
@@ -461,7 +461,7 @@ async function tryFastInboundPstnDial(params: {
     didDigits.length >= 10
       ? `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(routing.user_id)}/n/${didDigits}/${fallbackMode}`
       : `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(routing.user_id)}`
-  const modeQuery = didDigits.length < 10 ? `&zingFbMode=${encodeURIComponent(fallbackMode)}` : ""
+  const modeQuery = didDigits.length < 10 ? `&lyncrFbMode=${encodeURIComponent(fallbackMode)}` : ""
   const fbQuery = wantsAiAfterNoAnswer ? "&fb=ai" : ""
   const bnQuery = `&bn=${encodeURIComponent(businessLineE164)}`
   const origFromQuery = origFromQuerySuffixFromRaw(callerNumber)
@@ -550,7 +550,7 @@ async function tryFastInboundPstnDial(params: {
     JSON.stringify({
       // execMs first so the value survives log-viewer truncation (MCP shows the leading chars).
       ...(perfStartMs != null ? { execMs: +(performance.now() - perfStartMs).toFixed(2) } : {}),
-      zing: hasReceptionist ? "telnyx-incoming-fast-recv-dial" : "telnyx-incoming-fast-owner-dial",
+      lyncr: hasReceptionist ? "telnyx-incoming-fast-recv-dial" : "telnyx-incoming-fast-owner-dial",
       userId: routing.user_id,
       callSid,
       answerOnBridge,
@@ -596,7 +596,7 @@ async function tryRoutingPoolInboundDial(params: {
     didDigits.length >= 10
       ? `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(routing.user_id)}/n/${didDigits}/${fallbackMode}`
       : `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(routing.user_id)}`
-  const modeQuery = didDigits.length < 10 ? `&zingFbMode=${encodeURIComponent(fallbackMode)}` : ""
+  const modeQuery = didDigits.length < 10 ? `&lyncrFbMode=${encodeURIComponent(fallbackMode)}` : ""
   const fbQuery = wantsAiAfterNoAnswer ? "&fb=ai" : ""
   const bnQuery = `&bn=${encodeURIComponent(businessLineE164)}`
   const origFromQuery = origFromQuerySuffixFromRaw(callerNumber)
@@ -658,7 +658,7 @@ async function tryRoutingPoolInboundDial(params: {
     JSON.stringify({
       // execMs first so the value survives log-viewer truncation (MCP shows the leading chars).
       ...(perfStartMs != null ? { execMs: +(performance.now() - perfStartMs).toFixed(2) } : {}),
-      zing: "telnyx-incoming-routing-pool-dial",
+      lyncr: "telnyx-incoming-routing-pool-dial",
       userId: routing.user_id,
       callSid,
       industryTag: match.industry_tag,
@@ -735,7 +735,7 @@ async function tryFastInboundDirectAiHandoff(params: {
     JSON.stringify({
       // execMs first so the value survives log-viewer truncation (MCP shows the leading chars).
       ...(perfStartMs != null ? { execMs: +(performance.now() - perfStartMs).toFixed(2) } : {}),
-      zing: "telnyx-incoming-fast-ai-direct",
+      lyncr: "telnyx-incoming-fast-ai-direct",
       userId: routing.user_id,
       callSid,
       handoff,
@@ -793,7 +793,7 @@ async function handleIncomingCall(
     if (statusFromJoin && isAccountRoutingBlocked(statusFromJoin)) {
       console.warn(
         JSON.stringify({
-          zing: "telnyx-incoming-account-suspended",
+          lyncr: "telnyx-incoming-account-suspended",
           userId: routing.user_id,
           accountStatus: statusFromJoin,
           callSid,
@@ -880,7 +880,7 @@ async function handleIncomingCall(
     if (isAccountRoutingBlocked(accountStatus)) {
       console.warn(
         JSON.stringify({
-          zing: "telnyx-incoming-account-suspended",
+          lyncr: "telnyx-incoming-account-suspended",
           userId: routing.user_id,
           accountStatus,
           callSid,
@@ -895,7 +895,7 @@ async function handleIncomingCall(
     if (firstLegDone) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-incoming-skip-repeat-texml",
+          lyncr: "telnyx-incoming-skip-repeat-texml",
           callSid,
           userId: routing.user_id,
           reason: "first-dial-leg-ended",
@@ -927,7 +927,7 @@ async function handleIncomingCall(
     ) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-incoming-dial-completed-on-voice-url",
+          lyncr: "telnyx-incoming-dial-completed-on-voice-url",
           callSid,
           userId: routing.user_id,
           dialOutcomeOnVoiceUrl,
@@ -945,7 +945,7 @@ async function handleIncomingCall(
     ) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-incoming-dial-completed-ignored-no-evidence",
+          lyncr: "telnyx-incoming-dial-completed-ignored-no-evidence",
           callSid,
           userId: routing.user_id,
           dialOutcomeOnVoiceUrl,
@@ -967,7 +967,7 @@ async function handleIncomingCall(
       if (fromCfg !== selectedReceptionistId) {
         console.log(
           JSON.stringify({
-            zing: "telnyx-incoming-recv-id-overlay",
+            lyncr: "telnyx-incoming-recv-id-overlay",
             sqlSelectedId: selectedReceptionistId || null,
             cfgSelectedId: fromCfg || null,
             callSid,
@@ -1002,7 +1002,7 @@ async function handleIncomingCall(
         // Unavailable: do not dial this receptionist — owner fallback / AI path below.
         console.log(
           JSON.stringify({
-            zing: "telnyx-incoming-receptionist-unavailable-skip",
+            lyncr: "telnyx-incoming-receptionist-unavailable-skip",
             userId: routing.user_id,
             receptionistId: selectedReceptionistId,
             callSid,
@@ -1018,7 +1018,7 @@ async function handleIncomingCall(
           if (receptionistDialE164 && !routingStillMatches) {
             console.log(
               JSON.stringify({
-                zing: "telnyx-incoming-receptionist-phone-from-db",
+                lyncr: "telnyx-incoming-receptionist-phone-from-db",
                 userId: routing.user_id,
                 receptionistId: selectedReceptionistId,
                 callSid,
@@ -1031,7 +1031,7 @@ async function handleIncomingCall(
         if (selectedReceptionistId && !receptionistDialE164) {
           console.error(
             JSON.stringify({
-              zing: "telnyx-incoming-receptionist-phone-missing",
+              lyncr: "telnyx-incoming-receptionist-phone-missing",
               userId: routing.user_id,
               receptionistId: selectedReceptionistId,
               callSid,
@@ -1070,9 +1070,9 @@ async function handleIncomingCall(
     /**
      * **Default (AI + no receptionist):** silent **`<Redirect>`** to `/ai-bridge` → `<Connect><AIAssistant>`.
      * Putting `<Connect>` on the first `/incoming` response often goes **dead-air** on Telnyx.
-     * **`ZING_AI_HANDOFF_TWO_STEP`:** Say + Redirect (repeats if Telnyx re-fetches `/incoming` — avoid unless needed).
-     * **`ZING_AI_CONNECT_DIRECT`:** `<Connect>` on `/incoming` only (experimental).
-     * **`ZING_AI_RING_OWNER_FIRST` or dashboard “Ring my phone first”:** when there is **no** receptionist to `<Dial>`,
+     * **`LYNCR_AI_HANDOFF_TWO_STEP`:** Say + Redirect (repeats if Telnyx re-fetches `/incoming` — avoid unless needed).
+     * **`LYNCR_AI_CONNECT_DIRECT`:** `<Connect>` on `/incoming` only (experimental).
+     * **`LYNCR_AI_RING_OWNER_FIRST` or dashboard “Ring my phone first”:** when there is **no** receptionist to `<Dial>`,
      * affects whether we send Voice AI straight to `/ai-bridge` vs your cell first (`useDirectAiWhenNoReceptionist`).
      * A configured receptionist is **always** the first PSTN ring.
      *
@@ -1081,13 +1081,13 @@ async function handleIncomingCall(
      * response often goes **dead-air** (one ring, then silence).
      */
     const ringOwnerFirst =
-      process.env.ZING_AI_RING_OWNER_FIRST === "1" ||
-      process.env.ZING_AI_RING_OWNER_FIRST === "true" ||
+      process.env.LYNCR_AI_RING_OWNER_FIRST === "1" ||
+      process.env.LYNCR_AI_RING_OWNER_FIRST === "true" ||
       aiRingFirstEffective === true
     const twoStepAiHandoff =
-      process.env.ZING_AI_HANDOFF_TWO_STEP === "1" || process.env.ZING_AI_HANDOFF_TWO_STEP === "true" // true = play “please hold” then redirect
+      process.env.LYNCR_AI_HANDOFF_TWO_STEP === "1" || process.env.LYNCR_AI_HANDOFF_TWO_STEP === "true" // true = play “please hold” then redirect
     const connectDirectIncoming =
-      process.env.ZING_AI_CONNECT_DIRECT === "1" || process.env.ZING_AI_CONNECT_DIRECT === "true" // true = skip redirect; <Connect> on /incoming (can be quiet)
+      process.env.LYNCR_AI_CONNECT_DIRECT === "1" || process.env.LYNCR_AI_CONNECT_DIRECT === "true" // true = skip redirect; <Connect> on /incoming (can be quiet)
     const useDirectAiWhenNoReceptionist =
       wantsAiAfterNoAnswer && !hasReceptionist && !ringOwnerFirst // AI fallback with nobody to Dial first
 
@@ -1099,7 +1099,7 @@ async function handleIncomingCall(
     if (shouldEmitVoiceHotPathDebugLogs()) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-incoming-routing-flags",
+          lyncr: "telnyx-incoming-routing-flags",
           userId: routing.user_id,
           cfgDid: businessLineE164 || normalizePhoneNumberE164(calledNumber) || calledNumber.trim(),
           calledLen: calledNumber.trim().length,
@@ -1117,7 +1117,7 @@ async function handleIncomingCall(
           useDirectAiWhenNoReceptionist,
           effectiveRingTimeout,
           envRingFirst:
-            process.env.ZING_AI_RING_OWNER_FIRST === "1" || process.env.ZING_AI_RING_OWNER_FIRST === "true",
+            process.env.LYNCR_AI_RING_OWNER_FIRST === "1" || process.env.LYNCR_AI_RING_OWNER_FIRST === "true",
         })
       )
     }
@@ -1186,7 +1186,7 @@ async function handleIncomingCall(
         if (shouldEmitVoiceHotPathDebugLogs()) {
           console.log(
             JSON.stringify({
-              zing: "telnyx-incoming-ai-direct", // Fixed key: search Vercel logs for this
+              lyncr: "telnyx-incoming-ai-direct", // Fixed key: search Vercel logs for this
               userId: routing.user_id, // Which business user this call belongs to
               handoff, // Which branch above ran
               callStatus: callStatus || null, // Raw normalized status from webhook (empty on first ring sometimes)
@@ -1194,7 +1194,7 @@ async function handleIncomingCall(
               lastResortConnectHit: useLastResortConnect ? lastResortHit : null, // null = disabled (default)
               note: useLastResortConnect
                 ? "Experimental: <Connect> on /incoming at lastResortConnectHit; next hit = give up. Telnyx may error — unset env to use silent cap only."
-                : `Last-resort <Connect> on /incoming is off. When incomingHitCount > ${SILENT_INCOMING_LOOP_CAP} we play ${SITE_NAME} give-up (not Telnyx error). Set ZING_AI_LAST_RESORT_CONNECT_HIT=N to try Connect on hit N.`,
+                : `Last-resort <Connect> on /incoming is off. When incomingHitCount > ${SILENT_INCOMING_LOOP_CAP} we play ${SITE_NAME} give-up (not Telnyx error). Set LYNCR_AI_LAST_RESORT_CONNECT_HIT=N to try Connect on hit N.`,
             })
           )
         }
@@ -1227,16 +1227,16 @@ async function handleIncomingCall(
       didDigits.length >= 10
         ? `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(routing.user_id)}/n/${didDigits}/${fallbackMode}`
         : `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(routing.user_id)}`
-    const modeQuery = didDigits.length < 10 ? `&zingFbMode=${encodeURIComponent(fallbackMode)}` : ""
+    const modeQuery = didDigits.length < 10 ? `&lyncrFbMode=${encodeURIComponent(fallbackMode)}` : ""
     const fbQuery = wantsAiAfterNoAnswer ? "&fb=ai" : ""
     const bnQuery = `&bn=${encodeURIComponent(businessLineE164)}`
 
     // PSTN `<Dial callerId>` must be a Telnyx-owned E.164 on your outbound voice profile. A newly purchased second DID
     // often is not yet usable as outbound caller ID on the same TeXML app; using the account’s first active DID for
     // PSTN legs when multiple lines exist avoids failed/fake rings on the non-primary number. Optional override:
-    // `ZING_INBOUND_PSTN_CALLER_ID_PRIMARY=1` forces primary caller ID even on the primary line’s inbound leg.
+    // `LYNCR_INBOUND_PSTN_CALLER_ID_PRIMARY=1` forces primary caller ID even on the primary line’s inbound leg.
     const preferPrimaryCallerId = ["1", "true", "yes", "on"].includes(
-      (process.env.ZING_INBOUND_PSTN_CALLER_ID_PRIMARY || "").trim().toLowerCase()
+      (process.env.LYNCR_INBOUND_PSTN_CALLER_ID_PRIMARY || "").trim().toLowerCase()
     )
     const outboundCallerId = resolveInboundOutboundCallerId(routing, businessLineE164)
     const primaryE164 = routing.primary_phone_number?.trim()
@@ -1247,7 +1247,7 @@ async function handleIncomingCall(
     if (preferPrimaryCallerId && primaryE164 && isReasonablePstnDialString(primaryE164) && shouldEmitVoiceHotPathDebugLogs()) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-incoming-callerid-forced-primary-env",
+          lyncr: "telnyx-incoming-callerid-forced-primary-env",
           callSid,
           userId: routing.user_id,
           dialedLine: businessLineE164 || null,
@@ -1267,7 +1267,7 @@ async function handleIncomingCall(
       if (dialed10.length >= 10 && primary10.length >= 10 && dialed10 !== primary10) {
         console.log(
           JSON.stringify({
-            zing: "telnyx-incoming-callerid-auto-primary-multi-did",
+            lyncr: "telnyx-incoming-callerid-auto-primary-multi-did",
             callSid,
             userId: routing.user_id,
             dialedLine: businessLineE164,
@@ -1280,7 +1280,7 @@ async function handleIncomingCall(
     if (!isReasonablePstnDialString(outboundCallerId)) {
       console.error(
         JSON.stringify({
-          zing: "telnyx-incoming-callerid-missing",
+          lyncr: "telnyx-incoming-callerid-missing",
           callSid,
           userId: routing.user_id,
           businessLineE164: businessLineE164 || null,
@@ -1298,10 +1298,10 @@ async function handleIncomingCall(
     if (shouldEmitVoiceHotPathDebugLogs()) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-incoming-pstn-dial-callerid",
+          lyncr: "telnyx-incoming-pstn-dial-callerid",
           callSid,
           useBusinessLineEnv: ["1", "true", "yes", "on"].includes(
-            (process.env.ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE || "").trim().toLowerCase()
+            (process.env.LYNCR_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE || "").trim().toLowerCase()
           ),
           pstnDialCallerTail4: pstnDialCallerE164 ? tail4(pstnDialCallerE164) : null,
           businessOutboundTail4: isReasonablePstnDialString(outboundCallerId) ? tail4(outboundCallerId) : null,
@@ -1451,7 +1451,7 @@ async function tryFastInboundReceptionistResponse(
         dial.number(customTarget)
         console.log(
           JSON.stringify({
-            zing: "telnyx-incoming-custom-routing",
+            lyncr: "telnyx-incoming-custom-routing",
             toTail4: customTarget.replace(/\D/g, "").slice(-4),
             didTail4: businessLineE164Early.replace(/\D/g, "").slice(-4),
           })
@@ -1621,7 +1621,7 @@ async function tryFastInboundReceptionistResponse(
             ...(perfStartMs != null
               ? { execMs: +(performance.now() - perfStartMs).toFixed(2) }
               : {}),
-            zing: "telnyx-incoming-team-receptionist-cascade",
+            lyncr: "telnyx-incoming-team-receptionist-cascade",
             callSid: callSidEarly || null,
             didTail4: businessLineE164Early.replace(/\D/g, "").slice(-4) || null,
             receptionistCanAnswer,
@@ -1812,7 +1812,7 @@ async function tryFastInboundReceptionistResponse(
             ...(perfStartMs != null
               ? { execMs: +(performance.now() - perfStartMs).toFixed(2) }
               : {}),
-            zing: busyBackupCanAnswer
+            lyncr: busyBackupCanAnswer
               ? "telnyx-incoming-capture-busy-backup-recv"
               : `telnyx-incoming-capture-${dialPlan.captureKind}`,
             callSid: callSidEarly || null,
@@ -1852,7 +1852,7 @@ async function tryFastInboundReceptionistResponse(
   }
 
   const callSidRaw = pickField(fields, ["CallSid", "CallControlId", "call_control_id"])
-  const callSid = callSidRaw.trim() || `zing-${randomUUID()}`
+  const callSid = callSidRaw.trim() || `lyncr-${randomUUID()}`
   const callerNumber = pickField(fields, ["From", "from", "Caller", "caller", "RemoteParty"])
   const callerName = pickField(fields, ["CallerName", "CallerIDName"]) || null
   const businessLineE164 = normalizePhoneNumberE164(calledNumberRaw)
@@ -1892,7 +1892,7 @@ async function tryFastInboundReceptionistResponse(
       console.log(
         JSON.stringify({
           ...(perfStartMs != null ? { execMs: +(performance.now() - perfStartMs).toFixed(2) } : {}),
-          zing: "telnyx-incoming-fast-ai-path",
+          lyncr: "telnyx-incoming-fast-ai-path",
           callSid,
           lookupMs,
           routingSource: memHit ? "memory" : "db",
@@ -1943,7 +1943,7 @@ async function tryFastInboundReceptionistResponse(
   console.log(
     JSON.stringify({
       ...(perfStartMs != null ? { execMs: +(performance.now() - perfStartMs).toFixed(2) } : {}),
-      zing: "telnyx-incoming-fast-recv-path",
+      lyncr: "telnyx-incoming-fast-recv-path",
       userId: routing.user_id,
       callSid,
       lookupMs,
@@ -1986,7 +1986,7 @@ async function processInboundPost(req: NextRequest, perfStartMs: number): Promis
     // Pass 2 (`lyncrGreet=1`) routes here after pass-1 greeting when enabled for the line.
     const hot = await tryFastInboundReceptionistResponse(fields, perfStartMs, inboundCtx)
     if (hot) {
-      console.log(JSON.stringify({ zing: "telnyx-incoming-post-timing", totalMs: Date.now() - handlerT0, path: "fast" }))
+      console.log(JSON.stringify({ lyncr: "telnyx-incoming-post-timing", totalMs: Date.now() - handlerT0, path: "fast" }))
       return hot
     }
     fields = parseTelnyxFormBody(raw)
@@ -1996,7 +1996,7 @@ async function processInboundPost(req: NextRequest, perfStartMs: number): Promis
 
   const hot = await tryFastInboundReceptionistResponse(fields, perfStartMs, inboundCtx)
   if (hot) {
-    console.log(JSON.stringify({ zing: "telnyx-incoming-post-timing", totalMs: Date.now() - handlerT0, path: "fast" }))
+    console.log(JSON.stringify({ lyncr: "telnyx-incoming-post-timing", totalMs: Date.now() - handlerT0, path: "fast" }))
     return hot
   }
 
@@ -2008,7 +2008,7 @@ async function processInboundPost(req: NextRequest, perfStartMs: number): Promis
   if (!pickField(fields, ["To", "to", "Called"]).trim() && calledNumberRaw) {
     console.log(
       JSON.stringify({
-        zing: "telnyx-incoming-called-inferred",
+        lyncr: "telnyx-incoming-called-inferred",
         callSid: pickField(fields, ["CallSid", "CallControlId", "call_control_id"]) || null,
         inferredTo: calledNumberRaw,
         fieldKeySample: Object.keys(fields).slice(0, 25),
@@ -2017,7 +2017,7 @@ async function processInboundPost(req: NextRequest, perfStartMs: number): Promis
   }
   const callerNumber = pickField(fields, ["From", "from", "Caller", "caller", "RemoteParty"])
   const callSidRaw = pickField(fields, ["CallSid", "CallControlId", "call_control_id"])
-  const callSid = callSidRaw.trim() || `zing-${randomUUID()}`
+  const callSid = callSidRaw.trim() || `lyncr-${randomUUID()}`
   if (!callSidRaw.trim()) {
     console.error(
       "[lyncr] Telnyx incoming missing CallSid/CallControlId — using synthetic id; confirm webhook fields in Telnyx portal."
@@ -2052,7 +2052,7 @@ export async function GET(req: NextRequest) {
   if (!pickField(fields, ["To", "to", "Called"]).trim() && calledNumberRaw) {
     console.log(
       JSON.stringify({
-        zing: "telnyx-incoming-called-inferred-get",
+        lyncr: "telnyx-incoming-called-inferred-get",
         callSid: pickField(fields, ["CallSid", "CallControlId", "call_control_id"]) || null,
         inferredTo: calledNumberRaw,
       })
@@ -2060,7 +2060,7 @@ export async function GET(req: NextRequest) {
   }
   const callerNumber = pickField(fields, ["From", "from", "Caller", "caller", "RemoteParty"])
   const callSidRaw = pickField(fields, ["CallSid", "CallControlId", "call_control_id"])
-  const callSid = callSidRaw.trim() || `zing-${randomUUID()}`
+  const callSid = callSidRaw.trim() || `lyncr-${randomUUID()}`
   if (!callSidRaw.trim()) {
     console.error("[lyncr] Telnyx incoming (GET) missing CallSid — using synthetic id.")
   }

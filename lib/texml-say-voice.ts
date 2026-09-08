@@ -8,7 +8,7 @@
 
 import { normalizeElevenLabsCallControlVoice } from "@/lib/elevenlabs-voices"
 import { VoiceResponse } from "@/lib/telnyx"
-import { envLyncrOrZing } from "@/lib/lyncr-env"
+import { envLyncr } from "@/lib/lyncr-env"
 
 /** Amazon Polly neural — TeXML `<Say voice="…">`; override with LYNCR_TEXML_SAY_VOICE. */
 const DEFAULT_TEXML_SAY_VOICE = "Polly.Joanna-Neural"
@@ -72,9 +72,9 @@ export function normalizeCallControlSpeakVoice(voice: string | null | undefined)
 
 /** TeXML `<Say>` voice + language attributes. */
 export function getTexmlSayVoiceAttributes(): { voice: string; language: string } {
-  // Prefer LYNCR_*; legacy ZING_* still works until Vercel env is renamed.
-  const voice = envLyncrOrZing("TEXML_SAY_VOICE") || DEFAULT_TEXML_SAY_VOICE
-  const language = envLyncrOrZing("TEXML_SAY_LANGUAGE") || DEFAULT_TEXML_SAY_LANGUAGE
+  // Prefer LYNCR_*; legacy LYNCR_* still works until Vercel env is renamed.
+  const voice = envLyncr("TEXML_SAY_VOICE") || DEFAULT_TEXML_SAY_VOICE
+  const language = envLyncr("TEXML_SAY_LANGUAGE") || DEFAULT_TEXML_SAY_LANGUAGE
   return { voice, language }
 }
 
@@ -83,7 +83,7 @@ export function getTexmlSayVoiceAttributes(): { voice: string; language: string 
  *
  * Priority:
  * 1. `personaVoice` — saved AI Voice Persona from Greetings (`ivr_voice_engine_model`)
- * 2. `LYNCR_CALL_CONTROL_SPEAK_VOICE` (or legacy `ZING_*`) — ops override only when no persona
+ * 2. `LYNCR_CALL_CONTROL_SPEAK_VOICE` (or legacy `LYNCR_*`) — ops override only when no persona
  * 3. Normalize `LYNCR_TEXML_SAY_VOICE`, else NaturalHD astra
  *
  * To force one voice for all accounts (ignore persona), set env AND leave persona unused,
@@ -93,11 +93,11 @@ export function getCallControlSpeakVoiceAttributes(opts?: {
   /** Already-resolved Call Control voice from account persona (optional). */
   personaVoice?: string | null
 }): { voice: string; language: string } {
-  const language = envLyncrOrZing("TEXML_SAY_LANGUAGE") || DEFAULT_TEXML_SAY_LANGUAGE
+  const language = envLyncr("TEXML_SAY_LANGUAGE") || DEFAULT_TEXML_SAY_LANGUAGE
   const forceEnv =
-    envLyncrOrZing("CALL_CONTROL_SPEAK_VOICE_FORCE") === "1" ||
-    envLyncrOrZing("CALL_CONTROL_SPEAK_VOICE_FORCE") === "true"
-  const explicit = envLyncrOrZing("CALL_CONTROL_SPEAK_VOICE")
+    envLyncr("CALL_CONTROL_SPEAK_VOICE_FORCE") === "1" ||
+    envLyncr("CALL_CONTROL_SPEAK_VOICE_FORCE") === "true"
+  const explicit = envLyncr("CALL_CONTROL_SPEAK_VOICE")
   if (forceEnv && explicit) {
     return { voice: normalizeCallControlSpeakVoice(explicit), language }
   }
@@ -108,7 +108,7 @@ export function getCallControlSpeakVoiceAttributes(opts?: {
   if (explicit) {
     return { voice: normalizeCallControlSpeakVoice(explicit), language }
   }
-  const texmlVoice = envLyncrOrZing("TEXML_SAY_VOICE")
+  const texmlVoice = envLyncr("TEXML_SAY_VOICE")
   if (texmlVoice) {
     return { voice: normalizeCallControlSpeakVoice(texmlVoice), language }
   }
@@ -120,7 +120,7 @@ export function getCallControlSpeakVoiceAttributes(opts?: {
  * NaturalHD ignores this (plain text). Override with `LYNCR_CALL_CONTROL_SPEAK_RATE`.
  */
 function getCallControlSpeakProsodyRate(): number {
-  const raw = (envLyncrOrZing("CALL_CONTROL_SPEAK_RATE") ?? "1.05").trim()
+  const raw = (envLyncr("CALL_CONTROL_SPEAK_RATE") ?? "1.05").trim()
   if (raw === "" || raw === "1" || raw === "off" || raw === "false") return 1
   const n = parseFloat(raw)
   if (!Number.isFinite(n) || n < 0.85 || n > 1.25) return 1.05
@@ -137,7 +137,7 @@ export function buildCallControlSpeakPayload(
   if (!/^AWS\.Polly\./i.test(voice)) {
     return { payload: spoken, payloadType: "text" }
   }
-  if (envLyncrOrZing("CALL_CONTROL_SPEAK_SSML") === "0" || envLyncrOrZing("CALL_CONTROL_SPEAK_SSML") === "false") {
+  if (envLyncr("CALL_CONTROL_SPEAK_SSML") === "0" || envLyncr("CALL_CONTROL_SPEAK_SSML") === "false") {
     return { payload: spoken, payloadType: "text" }
   }
   const rate = getCallControlSpeakProsodyRate()
@@ -150,7 +150,7 @@ export function buildCallControlSpeakPayload(
 
 function parseProsodyRate(): number {
   // Coalesce missing env to "" so "unset" matches the empty branch below (optional `.trim()` alone yields `undefined`, which skipped that branch and forced rate 1.08 — Telnyx then spoke "<prosody …>" aloud).
-  const raw = (envLyncrOrZing("TEXML_SAY_RATE") ?? "").trim()
+  const raw = (envLyncr("TEXML_SAY_RATE") ?? "").trim()
   if (raw === "" || raw === "1" || raw === "off" || raw === "false") return 1
   const n = parseFloat(raw)
   if (!Number.isFinite(n) || n < 0.85 || n > 1.35) return 1
@@ -169,7 +169,7 @@ function escapeXmlForSsml(text: string): string {
 export function texmlSayMessageBody(plainText: string): string {
   // Always phoneticize before TTS — DB stays "502", speech becomes "five oh two".
   const spoken = cleanTextForTTS(plainText)
-  if (envLyncrOrZing("TEXML_SAY_SSML") === "0" || envLyncrOrZing("TEXML_SAY_SSML") === "false") {
+  if (envLyncr("TEXML_SAY_SSML") === "0" || envLyncr("TEXML_SAY_SSML") === "false") {
     return spoken
   }
   const rate = parseProsodyRate()

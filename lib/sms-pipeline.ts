@@ -26,7 +26,7 @@ import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
 export type SmsPhase = "booking" | "route" | "review"
 
 /** Minutes to wait before the post-job review text (overridable for testing). */
-const REVIEW_DELAY_MIN = Math.max(0, Number(process.env.ZING_REVIEW_SMS_DELAY_MIN ?? 15) || 15)
+const REVIEW_DELAY_MIN = Math.max(0, Number(process.env.LYNCR_REVIEW_SMS_DELAY_MIN ?? 15) || 15)
 
 function brandLabel(): string {
   const name = SITE_NAME.trim()

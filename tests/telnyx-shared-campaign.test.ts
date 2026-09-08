@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import {
-  buildZingCustomerReference,
-  parseZingCustomerReference,
+  buildLyncrCustomerReference,
+  parseLyncrCustomerReference,
 } from "@/lib/telnyx-customer-reference"
 import { isUsLocalDid, getPlatform10DlcCampaignId } from "@/lib/telnyx-shared-campaign"
 import {
@@ -16,23 +16,23 @@ import type { PortingOrder } from "@/lib/types"
 
 describe("telnyx-customer-reference", () => {
   it("encodes and parses workspace-scoped customer_reference", () => {
-    const ref = buildZingCustomerReference("user-1", "org-key-squad")
+    const ref = buildLyncrCustomerReference("user-1", "org-key-squad")
     expect(ref).toBe("lyncr-user-1--org-key-squad")
-    expect(parseZingCustomerReference(ref)).toEqual({
+    expect(parseLyncrCustomerReference(ref)).toEqual({
       userId: "user-1",
       organizationId: "org-key-squad",
     })
   })
 
   it("parses legacy owner-only zing reference", () => {
-    expect(parseZingCustomerReference("zing-aaaaaaaa-bbbb-cccc-dddddddddddd")).toEqual({
+    expect(parseLyncrCustomerReference("zing-aaaaaaaa-bbbb-cccc-dddddddddddd")).toEqual({
       userId: "aaaaaaaa-bbbb-cccc-dddddddddddd",
       organizationId: null,
     })
   })
 
   it("parses lyncr owner-only reference", () => {
-    expect(parseZingCustomerReference("lyncr-aaaaaaaa-bbbb-cccc-dddddddddddd")).toEqual({
+    expect(parseLyncrCustomerReference("lyncr-aaaaaaaa-bbbb-cccc-dddddddddddd")).toEqual({
       userId: "aaaaaaaa-bbbb-cccc-dddddddddddd",
       organizationId: null,
     })

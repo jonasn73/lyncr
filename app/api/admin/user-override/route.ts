@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireLyncrAdmin } from "@/lib/admin-api-guard"
 import { adminApplyUserOverride } from "@/lib/db"
 import { parseAccountStatus } from "@/lib/account-status"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export async function POST(req: NextRequest) {
   const ctx = await requireLyncrAdmin(req)
@@ -80,6 +81,18 @@ export async function POST(req: NextRequest) {
       phoneLineRoutingOverrides,
       resetActiveLines: body.resetActiveLines === true,
     })
+
+    if (body.targetStatus !== undefined) {
+      void recordAuditEvent({
+        ownerUserId: userId,
+        actorUserId: ctx.userId,
+        actorRole: "platform_admin",
+        eventType: "admin.account_status_changed",
+        entityType: "user",
+        entityId: userId,
+        detail: { to: String(body.targetStatus) },
+      })
+    }
 
     return NextResponse.json({ success: true, data: result })
   } catch (e) {

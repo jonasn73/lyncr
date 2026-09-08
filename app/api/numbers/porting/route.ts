@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
+import { parseLyncrCustomerReference } from "@/lib/telnyx-customer-reference"
 import {
   getPhoneNumberByNumberAndStatus,
   insertPhoneNumber,
@@ -156,9 +157,7 @@ export async function GET(req: NextRequest) {
       (async () => {
         try {
           for (const entry of portedNumbers) {
-            const refUserId = entry.customerRef.startsWith("zing-")
-              ? entry.customerRef.slice(5)
-              : userId
+            const refUserId = parseLyncrCustomerReference(entry.customerRef)?.userId ?? userId
 
             if (!refUserId) continue
 

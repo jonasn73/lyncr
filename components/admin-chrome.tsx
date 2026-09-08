@@ -9,9 +9,12 @@ import { toast } from "sonner"
 import {
   Bell,
   Building2,
+  CircleDollarSign,
   FileText,
   Headphones,
+  History,
   Home,
+  Landmark,
   LogOut,
   Mail,
   MessageCircle,
@@ -19,6 +22,7 @@ import {
   MoreHorizontal,
   Settings,
   Shield,
+  Wrench,
   X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -28,13 +32,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { BrandWordmark } from "@/components/brand-wordmark"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 
-// Home is Finance — money, every business's balance, and the transaction ledger in one
-// place. Businesses/Support stay reachable for directory browsing and the full ticket
-// queue; Settings is the only other thing left. Everything else (operator workforce
-// management, ad-hoc tools, the improvements board) was removed — not finance- or
-// business-specific, and unused.
+// Home is a cross-cutting overview (finance headline, businesses, support, industries,
+// audit, infra, system health) — not another Finance page; Finance itself has its own
+// full page for the revenue chart, per-business balances, and transaction ledger.
 const NAV = [
   { href: "/admin", label: "Home", icon: Home, match: (p: string) => p === "/admin" },
+  {
+    href: "/admin/finance",
+    label: "Finance",
+    icon: Landmark,
+    match: (p: string) => p.startsWith("/admin/finance"),
+  },
   {
     href: "/admin/businesses",
     label: "Businesses",
@@ -46,6 +54,24 @@ const NAV = [
     label: "Support",
     icon: MessageSquareWarning,
     match: (p: string) => p.startsWith("/admin/support"),
+  },
+  {
+    href: "/admin/industries",
+    label: "Industries",
+    icon: Wrench,
+    match: (p: string) => p.startsWith("/admin/industries"),
+  },
+  {
+    href: "/admin/audit",
+    label: "Audit",
+    icon: History,
+    match: (p: string) => p.startsWith("/admin/audit"),
+  },
+  {
+    href: "/admin/infra",
+    label: "Infra",
+    icon: CircleDollarSign,
+    match: (p: string) => p.startsWith("/admin/infra"),
   },
   {
     href: "/admin/settings",

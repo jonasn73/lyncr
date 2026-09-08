@@ -35,13 +35,12 @@ import {
 } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Database, MessageCircle, Phone, RefreshCw, ShieldAlert } from "lucide-react"
+import { MessageCircle, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { AdminBusinessEconomics, LyncrAdminDirectoryRow } from "@/lib/types"
 import type { AdminSupportAlert } from "@/lib/admin-support-alerts"
 import { AdminUserManageDrawer } from "@/components/admin-user-manage-drawer"
-import { AccountStatusBadge, isShopOwnerRow } from "@/components/lyncr-admin-dashboard"
-import { CallHealthBoard } from "@/components/admin/call-health-board"
+import { StatTile, HeroStat } from "@/components/admin/shared/stat-tile"
 
 // Static values (not CSS var()) — SVG fill attributes set by recharts don't resolve custom
 // properties reliably. Pulled from app/globals.css, except the bar fill: the app's --success
@@ -145,100 +144,6 @@ function ledgerTypeTone(entryType: LedgerRow["entryType"]): string {
 }
 
 type CardKey = "stripe_available" | "stripe_pending" | "actual_revenue" | "estimated_mrr" | "card_fees" | "platform_net"
-
-function PerfCard({
-  label,
-  value,
-  note,
-  onClick,
-}: {
-  label: string
-  value: string
-  note?: string
-  onClick?: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!onClick}
-      className={cn(
-        "rounded-xl border border-border bg-card/60 px-3.5 py-3 text-left transition-colors",
-        onClick && "hover:border-operator/40 hover:bg-operator/10 cursor-pointer",
-        !onClick && "cursor-default"
-      )}
-    >
-      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-lg font-bold tabular-nums text-foreground">{value}</p>
-      {note ? <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">{note}</p> : null}
-    </button>
-  )
-}
-
-/**
- * The one number this page leads with: is Lyncr profitable right now. Everything else
- * (Stripe balance, revenue, fees) supports this but isn't what you check first.
- */
-function HeroStat({
-  label,
-  value,
-  ahead,
-  note,
-  onClick,
-}: {
-  label: string
-  value: string
-  ahead: boolean
-  note?: string
-  onClick?: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "w-full rounded-2xl border px-5 py-4 text-left transition-colors sm:px-6 sm:py-5",
-        ahead
-          ? "border-success/35 bg-success/10 hover:bg-success/15"
-          : "border-warning/35 bg-warning/10 hover:bg-warning/15"
-      )}
-    >
-      <p
-        className={cn(
-          "text-2xs font-semibold uppercase tracking-wide",
-          ahead ? "text-success/80" : "text-warning/80"
-        )}
-      >
-        {label}
-      </p>
-      <p
-        className={cn(
-          "mt-1 text-4xl font-bold tabular-nums sm:text-5xl",
-          ahead ? "text-success" : "text-warning"
-        )}
-      >
-        {value}
-      </p>
-      {note ? <p className="mt-1.5 text-xs leading-snug text-muted-foreground">{note}</p> : null}
-    </button>
-  )
-}
-
-function HealthDot({ status }: { status: "ok" | "error" | "unconfigured" }) {
-  const color =
-    status === "ok"
-      ? "bg-success shadow-[0_0_8px_rgba(52,211,153,0.8)]"
-      : status === "unconfigured"
-        ? "bg-warning"
-        : "bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.7)]"
-  const label = status === "ok" ? "Connected" : status === "unconfigured" ? "Not configured" : "Error"
-  return (
-    <span className="inline-flex items-center gap-2">
-      <span className={cn("h-2.5 w-2.5 rounded-full", color)} aria-hidden />
-      <span className="text-sm text-foreground">{label}</span>
-    </span>
-  )
-}
 
 function roleLabel(role: AdminSupportAlert["lastSenderRole"]): string | null {
   if (role === "field_tech") return "Tech"
@@ -673,11 +578,6 @@ export function AdminFinanceBoard() {
     [users]
   )
 
-  const pendingOwners = useMemo(
-    () => users.filter((u) => isShopOwnerRow(u) && u.account_status === "pending"),
-    [users]
-  )
-
   const sortedBusinesses = useMemo(
     () =>
       businessEconomics
@@ -870,31 +770,31 @@ export function AdminFinanceBoard() {
           onClick={() => setOpenCard("platform_net")}
         />
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-          <PerfCard
+          <StatTile
             label="Stripe available"
             value={finance?.stripe_platform_available_label ?? "—"}
             note="Lyncr's own cash, ready to pay out"
             onClick={() => setOpenCard("stripe_available")}
           />
-          <PerfCard
+          <StatTile
             label="Stripe pending"
             value={finance?.stripe_platform_pending_label ?? "—"}
             note="Not yet available"
             onClick={() => setOpenCard("stripe_pending")}
           />
-          <PerfCard
+          <StatTile
             label={`Actual revenue · ${finance?.business_money_period_label ?? "All time"}`}
             value={finance?.actual_plan_revenue_period_label ?? "—"}
             note="Real Stripe-paid invoices, all businesses"
             onClick={() => setOpenCard("actual_revenue")}
           />
-          <PerfCard
+          <StatTile
             label="Estimated MRR"
             value={finance?.estimated_mrr_label ?? "—"}
             note="List-price estimate, not real billing"
             onClick={() => setOpenCard("estimated_mrr")}
           />
-          <PerfCard
+          <StatTile
             label="Card fees (MTD)"
             value={finance?.card_fee_revenue_mtd_label ?? "—"}
             note={finance?.card_fee_formula_label}
@@ -972,63 +872,6 @@ export function AdminFinanceBoard() {
             </TableBody>
           </Table>
         </div>
-      </section>
-
-      {/* --- Needs attention: pending signups + platform health, so nothing that used to live
-           on the old Home page is lost by making Finance the front door. --- */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-semibold text-foreground">Needs attention</h2>
-
-        {metrics ? (
-          <div className="rounded-xl border border-border/80 bg-card/40 px-3.5 py-2.5">
-            <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-              System
-            </p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
-              <span className="inline-flex items-center gap-2">
-                <Database className="h-3.5 w-3.5 text-muted-foreground" aria-hidden /> Neon
-                <HealthDot status={metrics.health.neon} />
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <Phone className="h-3.5 w-3.5 text-muted-foreground" aria-hidden /> Telnyx
-                <HealthDot status={metrics.health.telnyx} />
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground" aria-hidden /> Sentry
-                <HealthDot status={metrics.health.sentry} />
-              </span>
-            </div>
-          </div>
-        ) : null}
-
-        <CallHealthBoard />
-
-        {pendingOwners.length > 0 ? (
-          <div id="pending-shops" className="space-y-2 scroll-mt-4">
-            <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Pending shops — waiting for Approve or Deny
-            </p>
-            <ul className="divide-y divide-border rounded-xl border border-border">
-              {pendingOwners.map((row) => (
-                <li key={row.user_id}>
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left hover:bg-muted/40"
-                    onClick={() => openBusiness(row.user_id)}
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-foreground">
-                        {row.business_name.trim() || row.email}
-                      </span>
-                      <span className="block truncate text-2xs text-muted-foreground">{row.email}</span>
-                    </span>
-                    <AccountStatusBadge status={row.account_status} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
       </section>
 
       {/* --- Full ledger + billing ledger: opened as their own pop-up windows instead of long

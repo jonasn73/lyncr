@@ -1,10 +1,11 @@
-// Admin home — Finance is the front door: money, every business's balance, and the
-// transaction ledger, with a business drill-down (account, staff, support) one tap away.
+// Admin Home — a real cross-cutting overview across every admin area, not another
+// Finance page. See components/admin/admin-home-overview.tsx. Finance itself now lives
+// at /admin/finance.
 
-import { AdminFinanceBoard } from "@/components/admin/finance-board"
+import { AdminHomeOverview } from "@/components/admin/admin-home-overview"
 
 export const dynamic = "force-dynamic"
 
 export default function AdminHomePage() {
-  return <AdminFinanceBoard />
+  return <AdminHomeOverview />
 }

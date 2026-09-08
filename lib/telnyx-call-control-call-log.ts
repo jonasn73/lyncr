@@ -162,7 +162,7 @@ export async function persistCallControlBridged(
     // repeat it here; a second `call-connected` would just reset her HUD's timer mid-call.
     console.log(
       JSON.stringify({
-        zing: "telnyx-cc-call-log-bridged",
+        lyncr: "telnyx-cc-call-log-bridged",
         inboundCallSid,
         routedToName,
         fromQueue,
@@ -241,7 +241,7 @@ export async function finalizeCallControlCallLog(
     })
     console.log(
       JSON.stringify({
-        zing: "telnyx-cc-call-log-finalized",
+        lyncr: "telnyx-cc-call-log-finalized",
         inboundCallSid,
         status,
         callType,

@@ -42,16 +42,6 @@ export function telnyxHeaders(): Record<string, string> {
   }
 }
 
-/** Preferred alias — same as getAppUrl. */
-function getLyncrAppUrl(): string {
-  return getAppUrl()
-}
-
-/** @deprecated Use getLyncrAppUrl / getAppUrl — kept for any external imports. */
-export function getZingAppUrl(): string {
-  return getAppUrl()
-}
-
 // Find or create an outbound voice profile so voice apps can place outbound calls.
 export async function getOrCreateOutboundVoiceProfile(): Promise<string> {
   const listRes = await fetch(`${TELNYX_BASE}/outbound_voice_profiles?page[size]=50`, {

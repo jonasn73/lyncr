@@ -434,7 +434,7 @@ export async function POST(req: NextRequest) {
     if (liveBridge) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-capture-recv-fallback-live-bridge-hangup",
+          lyncr: "telnyx-capture-recv-fallback-live-bridge-hangup",
           callSid: callSid || null,
           dialStatus: dialStatus || null,
         })
@@ -468,7 +468,7 @@ export async function POST(req: NextRequest) {
       const timeoutSec = clampDayCaptureDialTimeoutSeconds(DAY_CAPTURE_DIAL_TIMEOUT_SECONDS)
       console.log(
         JSON.stringify({
-          zing: "telnyx-capture-recv-fallback-owner-dial",
+          lyncr: "telnyx-capture-recv-fallback-owner-dial",
           callSid: callSid || null,
           dialStatus: dialStatus || null,
           timeoutSec,
@@ -532,7 +532,7 @@ export async function POST(req: NextRequest) {
     if (liveBridge) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-capture-day-fallback-live-bridge-hangup",
+          lyncr: "telnyx-capture-day-fallback-live-bridge-hangup",
           callSid: callSid || null,
           dialStatus: dialStatus || null,
           hasAnsweredAt: Boolean(answeredAt),
@@ -545,7 +545,7 @@ export async function POST(req: NextRequest) {
     if (dialStatus && !isCaptureDialUnanswered(dialStatus)) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-capture-day-fallback-completed-without-bridge",
+          lyncr: "telnyx-capture-day-fallback-completed-without-bridge",
           callSid: callSid || null,
           dialStatus,
           hasAnsweredAt: Boolean(answeredAt),

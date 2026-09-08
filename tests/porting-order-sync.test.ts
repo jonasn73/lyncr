@@ -18,7 +18,7 @@ describe("porting-order-sync", () => {
       data: {
         record: {
           id: "po_123",
-          customer_reference: "zing-user-1",
+          customer_reference: "lyncr-user-1",
           porting_order_status: "in-process",
           phone_numbers: [{ porting_phone_number_status: "foc-date-confirmed" }],
         },

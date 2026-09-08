@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 const requireLyncrAdmin = vi.fn()
 const adminSetUserSubscriptionTier = vi.fn()
+const recordAuditEvent = vi.fn()
 
 vi.mock("@/lib/admin-api-guard", () => ({
   requireLyncrAdmin: (...args: unknown[]) => requireLyncrAdmin(...args),
@@ -10,6 +11,10 @@ vi.mock("@/lib/admin-api-guard", () => ({
 
 vi.mock("@/lib/db", () => ({
   adminSetUserSubscriptionTier: (...args: unknown[]) => adminSetUserSubscriptionTier(...args),
+}))
+
+vi.mock("@/lib/audit-log", () => ({
+  recordAuditEvent: (...args: unknown[]) => recordAuditEvent(...args),
 }))
 
 import { POST } from "@/app/api/admin/set-subscription-tier/route"
@@ -59,5 +64,23 @@ describe("POST /api/admin/set-subscription-tier (087 admin tier override)", () =
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.data.subscription_tier).toBe("professional")
+  })
+
+  it("records an admin.subscription_tier_changed audit event on success", async () => {
+    await POST(postRequest({ userId: "user-1", tier: "business" }))
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerUserId: "user-1",
+        actorUserId: "admin-1",
+        actorRole: "platform_admin",
+        eventType: "admin.subscription_tier_changed",
+      })
+    )
+  })
+
+  it("does not record an event when the guard rejects the request", async () => {
+    requireLyncrAdmin.mockResolvedValue(NextResponse.json({ error: "Forbidden" }, { status: 403 }))
+    await POST(postRequest({ userId: "user-1", tier: "business" }))
+    expect(recordAuditEvent).not.toHaveBeenCalled()
   })
 })

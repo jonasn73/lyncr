@@ -3,7 +3,7 @@
 // ============================================
 // Keep this file free of Telnyx imports so Lines UI can import it.
 
-import { envLyncrOrZing } from "@/lib/lyncr-env"
+import { envLyncr } from "@/lib/lyncr-env"
 
 /**
  * How long Lines keeps Answer locked while status is still `holding`
@@ -11,7 +11,7 @@ import { envLyncrOrZing } from "@/lib/lyncr-env"
  * gather.ended never promoted the row to `waiting` yet.
  */
 export function busyMenuAnswerUnlockMs(): number {
-  const raw = Number(envLyncrOrZing("BUSY_MENU_ANSWER_UNLOCK_MS") || "8000")
+  const raw = Number(envLyncr("BUSY_MENU_ANSWER_UNLOCK_MS") || "8000")
   if (!Number.isFinite(raw)) return 8_000
   // 3–20s — long enough for a short greeting, never minutes.
   return Math.min(20_000, Math.max(3_000, Math.floor(raw)))

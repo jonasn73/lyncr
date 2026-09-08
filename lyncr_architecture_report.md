@@ -585,7 +585,7 @@ ai_leads → assigned_tech_id → users (field_tech)
 | `owner` | `/dashboard` (or `/onboarding` if incomplete) |
 | `receptionist` | `/receptionist` |
 | `field_tech` | `/tech/dashboard` |
-| Platform admin (`is_platform_admin` or `ZING_ADMIN_EMAILS`) | `/admin` |
+| Platform admin (`is_platform_admin` or `LYNCR_ADMIN_EMAILS`) | `/admin` |
 
 **Impersonation:** Admin can impersonate tenants via `/api/admin/impersonate` with audit trail.
 
@@ -1222,7 +1222,7 @@ Settings menu rows dispatch custom events (`lib/settings-modals-events.ts`) to o
 `DashboardShell`:
 
 - On mount: `fetch /api/auth/session` if no SSR seed
-- Listens for `zing-account-preferences-updated` window event
+- Listens for `lyncr-account-preferences-updated` window event
 - Updates `accountHeader` state for avatar menu
 - 401 → redirect to `/login`
 

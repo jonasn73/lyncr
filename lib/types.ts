@@ -85,7 +85,7 @@ export interface User {
   balance?: number
   /** Entitlements tier key: trial | starter | growth | enterprise */
   billing_plan: string
-  /** Platform operator — may access `/admin` (also allow `ZING_ADMIN_EMAILS`). */
+  /** Platform operator — may access `/admin` (also allow `LYNCR_ADMIN_EMAILS`). */
   is_platform_admin: boolean
   /** Real address for phone-first accounts whose `email` is a synthetic placeholder (`157`). */
   contact_email?: string | null

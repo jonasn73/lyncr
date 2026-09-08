@@ -1083,7 +1083,7 @@ const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
     title: "Advanced",
     description: (
       <>
-        <p>ZING_ADMIN_EMAILS bootstraps first admins; thereafter use the Users table operator switch.</p>
+        <p>LYNCR_ADMIN_EMAILS bootstraps first admins; thereafter use the Users table operator switch.</p>
         <p className="mt-2">Schema changes belong in numbered scripts and Neon SQL editor — never from here.</p>
       </>
     ),

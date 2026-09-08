@@ -4,6 +4,7 @@
 // Comments live under GET/POST /v2/porting_orders/{id}/comments (Communications tab in portal).
 
 import { telnyxHeaders } from "@/lib/telnyx-config"
+import { parseLyncrCustomerReference } from "@/lib/telnyx-customer-reference"
 
 const TELNYX_BASE = "https://api.telnyx.com/v2"
 
@@ -19,18 +20,16 @@ export async function fetchTelnyxPortingOrderById(orderId: string): Promise<Reco
   }
 }
 
-/** Returns user id from `customer_reference: zing-<uuid>` when set by lyncr (legacy prefix). */
-function portOrderZingUserId(order: Record<string, unknown>): string | null {
+/** Returns user id from `customer_reference: lyncr-<uuid>` (or legacy `zing-<uuid>`). */
+function portOrderReferenceUserId(order: Record<string, unknown>): string | null {
   const ref = String(order.customer_reference || "").trim()
-  if (!ref.startsWith("zing-")) return null
-  const id = ref.slice(5).trim()
-  return id.length > 0 ? id : null
+  return parseLyncrCustomerReference(ref)?.userId ?? null
 }
 
 export async function userOwnsTelnyxPortOrder(orderId: string, userId: string): Promise<boolean> {
   const order = await fetchTelnyxPortingOrderById(orderId)
   if (!order) return false
-  return portOrderZingUserId(order) === userId
+  return portOrderReferenceUserId(order) === userId
 }
 
 export type TelnyxPortingComment = {

@@ -226,7 +226,7 @@ export async function syncStripeSubscriptionToNeon(
     await applySubscriptionTierToUser(userId, "free_trial")
     console.log(
       JSON.stringify({
-        zing: "stripe-subscription-downgraded",
+        lyncr: "stripe-subscription-downgraded",
         userId,
         subscriptionId: subscription.id,
         status: subscription.status,

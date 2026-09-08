@@ -40,7 +40,7 @@ const INBOUND_GENERIC_CALLER_GREETING =
 
 /** Optional hosted WAV/MP3 for pass 1 — plays faster than TTS while Telnyx is still fetching pass 2. */
 function readInboundInstantGreetingAudioUrl(): string | null {
-  const raw = (process.env.ZING_INBOUND_INSTANT_GREETING_AUDIO_URL || "").trim()
+  const raw = (process.env.LYNCR_INBOUND_INSTANT_GREETING_AUDIO_URL || "").trim()
   return raw || null
 }
 
@@ -70,10 +70,10 @@ export function prependInboundCallerGreetingToResponseTexml(texmlXml: string, gr
 
 /**
  * Two-pass inbound greeting (default on): pass 1 plays `<Say>` then `<Redirect>` before any `<Dial>`.
- * Stops US ringback from overlapping the branded greeting. Disable with `ZING_INBOUND_GREETING_FIRST=0`.
+ * Stops US ringback from overlapping the branded greeting. Disable with `LYNCR_INBOUND_GREETING_FIRST=0`.
  */
 export function readInboundGreetingFirstPassEnabled(): boolean {
-  const raw = (process.env.ZING_INBOUND_GREETING_FIRST || "1").trim().toLowerCase()
+  const raw = (process.env.LYNCR_INBOUND_GREETING_FIRST || "1").trim().toLowerCase()
   return raw !== "0" && raw !== "false" && raw !== "no" && raw !== "off"
 }
 
@@ -167,10 +167,10 @@ export function shouldPlayInboundGreetingFirstPass(greetingPassDone: boolean, gr
 
 /**
  * After the branded greeting, play US ringback while the cell rings (default on).
- * Set `ZING_INBOUND_RINGBACK_AFTER_GREETING=0` only for hold-silence experiments.
+ * Set `LYNCR_INBOUND_RINGBACK_AFTER_GREETING=0` only for hold-silence experiments.
  */
 function readInboundCallerRingbackAfterGreetingEnabled(): boolean {
-  const raw = (process.env.ZING_INBOUND_RINGBACK_AFTER_GREETING || "1").trim().toLowerCase()
+  const raw = (process.env.LYNCR_INBOUND_RINGBACK_AFTER_GREETING || "1").trim().toLowerCase()
   return raw !== "0" && raw !== "false" && raw !== "no" && raw !== "off"
 }
 

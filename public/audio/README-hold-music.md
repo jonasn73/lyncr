@@ -34,7 +34,7 @@ Call Control Dial has **no** TeXML `ringTone`. After Answer, the caller hears si
 |------|---------|
 | `us-ringback.wav` | 8 kHz mono, NA dual-tone (440+480 Hz), 2s on / 4s off — looped via `playback_start` |
 
-Env override (optional): `ZING_INBOUND_DIAL_RINGBACK_AUDIO_URL=https://lyncr.app/audio/us-ringback.wav`
+Env override (optional): `LYNCR_INBOUND_DIAL_RINGBACK_AUDIO_URL=https://lyncr.app/audio/us-ringback.wav`
 
 Env overrides (optional):
 

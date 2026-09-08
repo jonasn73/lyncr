@@ -3606,7 +3606,7 @@ export async function deleteTelnyxCallLegLink(inboundCallControlId: string): Pro
 // Insert a call log
 export async function insertCallLog(log: Omit<CallLog, "id" | "created_at">): Promise<string | null> {
   const sql = getSql()
-  const sid = (log.provider_call_sid || "").trim() || `zing-${crypto.randomUUID()}`
+  const sid = (log.provider_call_sid || "").trim() || `lyncr-${crypto.randomUUID()}`
   const fromNum = (log.from_number || "").trim() || "Unknown"
   const toNum = (log.to_number || "").trim() || "Unknown"
 
@@ -15063,6 +15063,108 @@ export async function getAdminBusinessEconomicsRawRows(opts: {
       }
     }
     console.error("[db] getAdminBusinessEconomicsRawRows:", e)
+    return []
+  }
+}
+
+/** Live owner-account count per `users.industry` slug — powers /admin/industries. */
+export async function getAdminIndustryAccountCounts(): Promise<Record<string, number>> {
+  const sql = getSql()
+  try {
+    const rows = (await sql`
+      SELECT coalesce(nullif(trim(industry), ''), 'generic') AS industry, count(*)::int AS account_count
+      FROM users
+      WHERE coalesce(account_role, 'owner') = 'owner'
+      GROUP BY 1
+    `) as { industry: string; account_count: number }[]
+    const out: Record<string, number> = {}
+    for (const row of rows) out[row.industry] = Number(row.account_count) || 0
+    return out
+  } catch (e) {
+    if (isMissingIndustryColumnError(e)) return {}
+    console.error("[db] getAdminIndustryAccountCounts:", e)
+    return {}
+  }
+}
+
+export type AuditEventRow = {
+  id: string
+  owner_user_id: string | null
+  actor_user_id: string | null
+  actor_role: string
+  event_type: string
+  entity_type: string | null
+  entity_id: string | null
+  detail: Record<string, unknown>
+  created_at: string
+}
+
+/**
+ * Insert one audit_events row (scripts/165-audit-events.sql). Fire-and-forget by
+ * design — see lib/audit-log.ts's recordAuditEvent, the only caller. Never throws:
+ * a logging failure (including the migration not having run yet) must never break
+ * the real operation it's attached to.
+ */
+export async function insertAuditEvent(params: {
+  ownerUserId: string | null
+  actorUserId: string | null
+  actorRole: string
+  eventType: string
+  entityType: string | null
+  entityId: string | null
+  detail: Record<string, unknown>
+}): Promise<void> {
+  const sql = getSql()
+  try {
+    await sql`
+      INSERT INTO audit_events
+        (owner_user_id, actor_user_id, actor_role, event_type, entity_type, entity_id, detail)
+      VALUES (
+        ${params.ownerUserId}, ${params.actorUserId}, ${params.actorRole}, ${params.eventType},
+        ${params.entityType}, ${params.entityId}, ${JSON.stringify(params.detail)}::jsonb
+      )
+    `
+  } catch (e) {
+    if (isUndefinedRelationError(e, "audit_events")) return
+    console.error("[db] insertAuditEvent:", e)
+  }
+}
+
+/** Paginated, newest-first audit feed for /admin/audit. */
+export async function listAuditEvents(filters: {
+  ownerUserId?: string | null
+  eventType?: string | null
+  entityId?: string | null
+  limit: number
+  beforeCreatedAt?: string | null
+}): Promise<AuditEventRow[]> {
+  const sql = getSql()
+  const limit = Math.max(1, Math.min(200, filters.limit))
+  try {
+    const rows = (await sql`
+      SELECT id, owner_user_id, actor_user_id, actor_role, event_type, entity_type, entity_id, detail, created_at
+      FROM audit_events
+      WHERE (${filters.ownerUserId ?? null}::uuid IS NULL OR owner_user_id = ${filters.ownerUserId ?? null}::uuid)
+        AND (${filters.eventType ?? null}::text IS NULL OR event_type = ${filters.eventType ?? null})
+        AND (${filters.entityId ?? null}::text IS NULL OR entity_id = ${filters.entityId ?? null})
+        AND (${filters.beforeCreatedAt ?? null}::timestamptz IS NULL OR created_at < ${filters.beforeCreatedAt ?? null}::timestamptz)
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `) as Record<string, unknown>[]
+    return rows.map((row) => ({
+      id: String(row.id),
+      owner_user_id: row.owner_user_id ? String(row.owner_user_id) : null,
+      actor_user_id: row.actor_user_id ? String(row.actor_user_id) : null,
+      actor_role: String(row.actor_role ?? ""),
+      event_type: String(row.event_type ?? ""),
+      entity_type: row.entity_type ? String(row.entity_type) : null,
+      entity_id: row.entity_id ? String(row.entity_id) : null,
+      detail: (row.detail as Record<string, unknown>) ?? {},
+      created_at: String(row.created_at),
+    }))
+  } catch (e) {
+    if (isUndefinedRelationError(e, "audit_events")) return []
+    console.error("[db] listAuditEvents:", e)
     return []
   }
 }

@@ -1,12 +1,12 @@
 // ============================================
 // Telnyx Dial `action` — optional diagnostic logging
 // ============================================
-// Set ZING_TELNYX_FALLBACK_DIAGNOSTIC=true on Vercel to log one JSON line per fallback
+// Set LYNCR_TELNYX_FALLBACK_DIAGNOSTIC=true on Vercel to log one JSON line per fallback
 // request (PII-redacted). Use with fixtures in tests/ to match production behavior.
 
-/** True when extended diagnostic JSON should be logged (in addition to `zing: telnyx-fallback`). */
+/** True when extended diagnostic JSON should be logged (in addition to `lyncr: telnyx-fallback`). */
 function isTelnyxFallbackDiagnosticEnabled(): boolean {
-  const v = process.env.ZING_TELNYX_FALLBACK_DIAGNOSTIC
+  const v = process.env.LYNCR_TELNYX_FALLBACK_DIAGNOSTIC
   return v === "1" || v === "true"
 }
 
@@ -71,7 +71,7 @@ export function maybeLogTelnyxFallbackDiagnosticEntry(args: {
   if (!isTelnyxFallbackDiagnosticEnabled()) return
   console.log(
     JSON.stringify({
-      zing: "telnyx-fallback-diagnostic",
+      lyncr: "telnyx-fallback-diagnostic",
       phase: "entry",
       pathname: args.pathname,
       method: args.method,
@@ -98,7 +98,7 @@ export function maybeLogTelnyxFallbackDiagnosticEarly(
   if (!isTelnyxFallbackDiagnosticEnabled()) return
   console.log(
     JSON.stringify({
-      zing: "telnyx-fallback-diagnostic",
+      lyncr: "telnyx-fallback-diagnostic",
       phase: "early-exit",
       reason,
       ...extra,
@@ -107,7 +107,7 @@ export function maybeLogTelnyxFallbackDiagnosticEarly(
 }
 
 /**
- * Logs a single JSON line: `zing: telnyx-fallback-diagnostic` when env is set.
+ * Logs a single JSON line: `lyncr: telnyx-fallback-diagnostic` when env is set.
  * Includes redacted form fields + decision snapshot so you can compare to tests/fixtures.
  */
 export function maybeLogTelnyxFallbackDiagnostic(args: {
@@ -126,7 +126,7 @@ export function maybeLogTelnyxFallbackDiagnostic(args: {
   })()
   console.log(
     JSON.stringify({
-      zing: "telnyx-fallback-diagnostic",
+      lyncr: "telnyx-fallback-diagnostic",
       phase: "full",
       method: args.method,
       pathname,

@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { acceptTeamInviteSignup, createUser, getUserAccountStatus } from "@/lib/db"
+import { recordAuditEvent } from "@/lib/audit-log"
 import { defaultProfileFromUserIndustry } from "@/lib/business-industries"
 import { signupAccountStatusForBusinessName } from "@/lib/account-status"
 import {
@@ -116,6 +117,15 @@ export async function POST(req: NextRequest) {
       data: { user, ...authMeta },
     })
     res.cookies.set(getSessionCookieName(), cookieValue, getSessionCookieOptions())
+    void recordAuditEvent({
+      ownerUserId: user.id,
+      actorUserId: user.id,
+      actorRole: user.account_role === "receptionist" ? "receptionist" : "owner",
+      eventType: "auth.signup",
+      entityType: "user",
+      entityId: user.id,
+      detail: { via_invite: Boolean(inviteToken), industry: inviteToken ? undefined : industry },
+    })
     return res
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)

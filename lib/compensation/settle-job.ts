@@ -206,7 +206,7 @@ export function settleJobEarningsInBackground(jobId: string): void {
       if (result.inserted > 0) {
         console.log(
           JSON.stringify({
-            zing: "compensation-job-settled",
+            lyncr: "compensation-job-settled",
             jobId,
             rows: result.inserted,
             paid: result.paid,

@@ -8,7 +8,7 @@
 -- Do not commit real production secrets; rotate if this file ever leaked.
 --
 -- Run in Neon → SQL Editor after core migrations (001–019 as needed).
--- Also set Vercel env `ZING_ADMIN_EMAILS=admin@getzingapp.com` if you want env-based admin access
+-- Also set Vercel env `LYNCR_ADMIN_EMAILS=admin@getzingapp.com` if you want env-based admin access
 -- in addition to `is_platform_admin` (this script sets the DB flag to true).
 
 DO $$

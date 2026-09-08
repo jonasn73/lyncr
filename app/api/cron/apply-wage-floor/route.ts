@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
     // sweep never ran" look identical from the ledger otherwise.
     console.log(
       JSON.stringify({
-        zing: "compensation-wage-floor-swept",
+        lyncr: "compensation-wage-floor-swept",
         week: week.startIso,
         plans: plans.length,
         workersToppedUp,

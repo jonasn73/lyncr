@@ -28,26 +28,26 @@ const DashboardNumbersModalContext = createContext<DashboardNumbersModalContextV
 
 export function dispatchBusinessNumbersChanged() {
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("zing-business-numbers-changed"))
+    window.dispatchEvent(new CustomEvent("lyncr-business-numbers-changed"))
   }
 }
 
 /** Tell dashboard banners to refetch porting_orders (after resubmit or webhook-driven refresh). */
 export function dispatchPortingOrdersChanged() {
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("zing-porting-orders-changed"))
+    window.dispatchEvent(new CustomEvent("lyncr-porting-orders-changed"))
   }
 }
 
 export function requestOpenBuyNumberModal() {
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("zing-open-buy-number-modal"))
+    window.dispatchEvent(new CustomEvent("lyncr-open-buy-number-modal"))
   }
 }
 
 export function requestOpenManageNumbersModal() {
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("zing-open-manage-numbers-modal"))
+    window.dispatchEvent(new CustomEvent("lyncr-open-manage-numbers-modal"))
   }
 }
 
@@ -102,11 +102,11 @@ export function DashboardNumbersModalProvider({ children }: { children: ReactNod
       void openBuyModal()
     }
     const onManage = () => setView("manage")
-    window.addEventListener("zing-open-buy-number-modal", onBuy)
-    window.addEventListener("zing-open-manage-numbers-modal", onManage)
+    window.addEventListener("lyncr-open-buy-number-modal", onBuy)
+    window.addEventListener("lyncr-open-manage-numbers-modal", onManage)
     return () => {
-      window.removeEventListener("zing-open-buy-number-modal", onBuy)
-      window.removeEventListener("zing-open-manage-numbers-modal", onManage)
+      window.removeEventListener("lyncr-open-buy-number-modal", onBuy)
+      window.removeEventListener("lyncr-open-manage-numbers-modal", onManage)
     }
   }, [openBuyModal])
 

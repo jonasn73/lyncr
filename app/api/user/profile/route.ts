@@ -5,8 +5,9 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { updateUser } from "@/lib/db"
+import { getUser, updateUser } from "@/lib/db"
 import { AI_INTAKE_PROFILE_IDS } from "@/lib/business-industries"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, "")
@@ -85,7 +86,23 @@ export async function PATCH(req: NextRequest) {
         { status: 400 }
       )
     }
+    let previousIndustry: string | null = null
+    if (updates.industry) {
+      const before = await getUser(userId)
+      previousIndustry = before?.industry ?? null
+    }
     await updateUser(userId, updates)
+    if (updates.industry && updates.industry !== previousIndustry) {
+      void recordAuditEvent({
+        ownerUserId: userId,
+        actorUserId: userId,
+        actorRole: "owner",
+        eventType: "account.industry_changed",
+        entityType: "user",
+        entityId: userId,
+        detail: { from: previousIndustry, to: updates.industry },
+      })
+    }
     return NextResponse.json({ data: { ok: true } })
   } catch (error) {
     console.error("[lyncr] Update profile error:", error)

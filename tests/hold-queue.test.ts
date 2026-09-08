@@ -16,7 +16,7 @@ import {
   holdMusicValueForPreset,
   matchHoldMusicPreset,
 } from "@/lib/hold-music-presets"
-import { envLyncrOrZing, envFlagOn } from "@/lib/lyncr-env"
+import { envLyncr, envFlagOn } from "@/lib/lyncr-env"
 import {
   encodeTelnyxCallControlState,
   decodeTelnyxCallControlState,
@@ -103,7 +103,7 @@ describe("hold-queue helpers", () => {
   })
 })
 
-describe("envLyncrOrZing", () => {
+describe("envLyncr", () => {
   beforeEach(() => {
     vi.unstubAllEnvs()
   })
@@ -112,15 +112,21 @@ describe("envLyncrOrZing", () => {
     vi.unstubAllEnvs()
   })
 
-  it("prefers LYNCR_ over ZING_", () => {
+  it("reads LYNCR_<SUFFIX>", () => {
     vi.stubEnv("LYNCR_HOLD_MUSIC_URL", "https://lyncr.example/a.mp3")
-    vi.stubEnv("ZING_HOLD_MUSIC_URL", "https://zing.example/b.mp3")
-    expect(envLyncrOrZing("HOLD_MUSIC_URL")).toBe("https://lyncr.example/a.mp3")
+    expect(envLyncr("HOLD_MUSIC_URL")).toBe("https://lyncr.example/a.mp3")
+    expect(envLyncr("LYNCR_HOLD_MUSIC_URL")).toBe("https://lyncr.example/a.mp3")
   })
 
-  it("falls back to ZING_ when LYNCR_ unset", () => {
+  it("no longer falls back to the legacy ZING_ prefix", () => {
     vi.stubEnv("ZING_INBOUND_CALL_CONTROL", "1")
-    expect(envLyncrOrZing("INBOUND_CALL_CONTROL")).toBe("1")
+    expect(envLyncr("INBOUND_CALL_CONTROL")).toBeUndefined()
+    expect(envFlagOn("INBOUND_CALL_CONTROL")).toBe(false)
+  })
+
+  it("reads LYNCR_INBOUND_CALL_CONTROL", () => {
+    vi.stubEnv("LYNCR_INBOUND_CALL_CONTROL", "1")
+    expect(envLyncr("INBOUND_CALL_CONTROL")).toBe("1")
     expect(envFlagOn("INBOUND_CALL_CONTROL")).toBe(true)
   })
 })

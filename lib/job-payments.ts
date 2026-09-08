@@ -16,6 +16,7 @@ import {
   type WalletTransactionStatus,
 } from "@/lib/tech-wallet"
 import { publishTechnicianEvent } from "@/lib/realtime/pusher-server"
+import { recordAuditEvent } from "@/lib/audit-log"
 import type Stripe from "stripe"
 
 export type JobPaymentContext = {
@@ -686,6 +687,18 @@ export async function confirmJobPaymentIntent(
       settleJobEarningsInBackground(jobId)
     }
 
+    if (transaction) {
+      void recordAuditEvent({
+        ownerUserId: transaction.ownerUserId ?? transaction.userId,
+        actorUserId: null,
+        actorRole: "system",
+        eventType: "payment.collected",
+        entityType: jobId ? "job" : "payment",
+        entityId: jobId ?? intent.id,
+        detail: { payment_intent_id: intent.id, amount_cents: intent.amount_received ?? intent.amount ?? null },
+      })
+    }
+
     return {
       paymentIntentId: intent.id,
       status: "succeeded",
@@ -705,6 +718,17 @@ export async function confirmJobPaymentIntent(
 
   // canceled / requires_payment_method / etc.
   const failed = await failWalletTransactionByPaymentIntent(intent.id)
+  if (failed) {
+    void recordAuditEvent({
+      ownerUserId: failed.ownerUserId ?? failed.userId,
+      actorUserId: null,
+      actorRole: "system",
+      eventType: "payment.failed",
+      entityType: jobId ? "job" : "payment",
+      entityId: jobId ?? intent.id,
+      detail: { payment_intent_id: intent.id, stripe_status: intent.status },
+    })
+  }
   return {
     paymentIntentId: intent.id,
     status: "failed",

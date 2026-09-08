@@ -700,6 +700,14 @@ export function useActiveCallForm(
     setCrmOpenLeadId(current?.existingLeadId?.trim() || null)
     setCrmOpenLeadQuoteCents(null)
     setCrmOpenLeadServiceTypeId(null)
+    // A real inbound call seeds phoneNumber verbatim from current.from_number in one shot (see
+    // the seed effect above) — there's no keystroke-by-keystroke churn to debounce there, so the
+    // 350ms wait was pure added latency before the sheet could show a returning caller's profile
+    // (the layout shift from Service-select to the returning-caller card). Only a manually typed
+    // number (which diverges from the call's own caller ID) still needs debouncing.
+    const isCallSeededPhone =
+      hasCompleteIntakePhone(resolvedPhoneNumber) &&
+      resolvedPhoneNumber === (current?.from_number?.trim() || "")
     const t = window.setTimeout(() => {
       const q = encodeURIComponent(resolvedPhoneNumber)
       void fetch(`/api/customers?phone=${q}`, { credentials: "include" })
@@ -848,13 +856,13 @@ export function useActiveCallForm(
             }
           }
         })
-    }, 350)
+    }, isCallSeededPhone ? 0 : 350)
 
     return () => {
       cancel = true
       window.clearTimeout(t)
     }
-  }, [callLogId, resolvedPhoneNumber, current?.existingLeadId])
+  }, [callLogId, resolvedPhoneNumber, current?.existingLeadId, current?.from_number])
 
   // Keep row handoff lead id in sync if Convert opened after the phone match.
   useEffect(() => {

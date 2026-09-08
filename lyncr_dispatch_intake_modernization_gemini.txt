@@ -18,7 +18,7 @@ INSTRUCTIONS FOR GEMINI:
 Scope: End-to-end audit, optimization, and modernization of incoming call handling pane, booking flow, pricing matrix logic, and scheduler workflows (4-step implementation track).
 
 Production URL: https://lyncr.app (Vercel)
-Telephony: Telnyx (TeXML primary inbound; Call Control optional via ZING_INBOUND_CALL_CONTROL)
+Telephony: Telnyx (TeXML primary inbound; Call Control optional via LYNCR_INBOUND_CALL_CONTROL)
 Realtime: Pusher Channels (owner-{userId} events including job-booked, lead-salvageable, call-initiated, call-answered, call-completed)
 
 --------------------------------------------------------------------------------

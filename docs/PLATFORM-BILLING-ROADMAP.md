@@ -6,7 +6,7 @@ This document is the **implementation plan** and **profitability model** for mak
 
 1. **Credits belong to the account** (`users.id`) — one balance per business owner login; future “teams” can move to `organizations` + `organization_members` without changing the credit mental model.
 2. **Transparent usage** — every debit has a row in `billing_ledger` with reason + optional reference (call id, invoice id).
-3. **Admin is rare and powerful** — platform admins (DB flag + `ZING_ADMIN_EMAILS` allow-list) see aggregates, adjust credits, triage feedback.
+3. **Admin is rare and powerful** — platform admins (DB flag + `LYNCR_ADMIN_EMAILS` allow-list) see aggregates, adjust credits, triage feedback.
 4. **Ship in phases** — avoid blocking voice on payment; start with **manual top-ups + reporting**, then automate.
 
 ---
@@ -32,7 +32,7 @@ This document is the **implementation plan** and **profitability model** for mak
 - `billing_ledger`, `feedback_submissions`
 - User-facing **Help** tab: balance/plan summary + feedback form
 - **Admin** area: `/admin` overview, user list with usage snapshot, credit adjustment API
-- **Env**: `ZING_ADMIN_EMAILS` — comma-separated emails that always get admin API access (even if `is_platform_admin` is false in DB)
+- **Env**: `LYNCR_ADMIN_EMAILS` — comma-separated emails that always get admin API access (even if `is_platform_admin` is false in DB)
 
 ---
 
@@ -65,7 +65,7 @@ This document is the **implementation plan** and **profitability model** for mak
 | **Onboarding checklist** | First-run: buy number, set routing, test call, add payment. |
 | **Status & incidents** | Link from Help to status page when you have one. |
 | **Legal** | ToS, privacy, refund policy aligned with prepaid + subscription. |
-| **Observability** | Keep `ZING_VOICE_DEBUG_LOGS` off in prod; use admin + DB for billing disputes. |
+| **Observability** | Keep `LYNCR_VOICE_DEBUG_LOGS` off in prod; use admin + DB for billing disputes. |
 | **Security** | Rate-limit `/api/feedback` and admin POSTs; audit `billing_ledger.actor_user_id`. |
 
 ---
@@ -74,4 +74,4 @@ This document is the **implementation plan** and **profitability model** for mak
 
 Run **`scripts/019-billing-admin-feedback.sql`** in Neon (see `scripts/MIGRATE-ALL.md`).
 
-Set **`ZING_ADMIN_EMAILS`** in Vercel to your operator email(s). Optionally set **`is_platform_admin = true`** on your user row in SQL for the same effect without env drift.
+Set **`LYNCR_ADMIN_EMAILS`** in Vercel to your operator email(s). Optionally set **`is_platform_admin = true`** on your user row in SQL for the same effect without env drift.

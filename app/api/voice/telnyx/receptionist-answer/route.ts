@@ -37,7 +37,7 @@ export const preferredRegion = "iad1"
 //
 // Owner legs already skipped it (31ce84e4); receptionist legs now match.
 const PRESS1_SCREEN_ENABLED = ["1", "true", "yes"].includes(
-  (process.env.ZING_RECEPTIONIST_PRESS1_SCREEN || "").trim().toLowerCase()
+  (process.env.LYNCR_RECEPTIONIST_PRESS1_SCREEN || "").trim().toLowerCase()
 )
 
 function param(req: NextRequest, ...keys: string[]): string | null {

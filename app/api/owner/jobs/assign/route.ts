@@ -9,6 +9,7 @@ import { assignJobToTech, listFieldTechnicians } from "@/lib/db"
 import { publishTechnicianEvent } from "@/lib/realtime/pusher-server"
 import { sendTechJobAssignedSms } from "@/lib/tech-job-assigned-sms"
 import { resolveCapabilityActor } from "@/lib/receptionist-capability-auth"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export const dynamic = "force-dynamic"
 
@@ -52,6 +53,15 @@ export async function POST(req: NextRequest) {
         console.warn(`[POST /api/owner/jobs/assign] tech SMS skipped: ${sms.reason}`)
       }
     }
+    void recordAuditEvent({
+      ownerUserId: userId,
+      actorUserId: actor.actingUserId,
+      actorRole: actor.actorRole,
+      eventType: "job.tech_assigned",
+      entityType: "job",
+      entityId: leadId,
+      detail: { tech_user_id: techUserId },
+    })
     return NextResponse.json({ data: { leadId, techUserId } })
   } catch (e) {
     console.error("[POST /api/owner/jobs/assign] failed:", e)

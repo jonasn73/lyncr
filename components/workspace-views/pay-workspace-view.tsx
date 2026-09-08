@@ -86,7 +86,7 @@ function PayCreditCheckoutBridge({
             title: "Line activated",
             description: "Your business number is now live on the Lyncr core network.",
           })
-          window.dispatchEvent(new CustomEvent("zing-business-numbers-changed"))
+          window.dispatchEvent(new CustomEvent("lyncr-business-numbers-changed"))
         } else if (result.provision_error) {
           const needsPicker = /no longer available|pick a different/i.test(result.provision_error)
           toast({

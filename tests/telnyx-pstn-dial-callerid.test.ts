@@ -12,7 +12,7 @@ describe("resolvePstnDialCallerIdForInboundForward", () => {
   })
 
   it("uses business line by default (forwardOriginalCallerId off)", () => {
-    vi.stubEnv("ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE", "")
+    vi.stubEnv("LYNCR_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE", "")
     expect(
       resolvePstnDialCallerIdForInboundForward({
         inboundFromRaw: "+15551234567",
@@ -22,7 +22,7 @@ describe("resolvePstnDialCallerIdForInboundForward", () => {
   })
 
   it("uses customer number when forwardOriginalCallerId is true", () => {
-    vi.stubEnv("ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE", "")
+    vi.stubEnv("LYNCR_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE", "")
     expect(
       resolvePstnDialCallerIdForInboundForward({
         inboundFromRaw: "+15551234567",
@@ -33,7 +33,7 @@ describe("resolvePstnDialCallerIdForInboundForward", () => {
   })
 
   it("forces business line when env is set even if toggle is on", () => {
-    vi.stubEnv("ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE", "1")
+    vi.stubEnv("LYNCR_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE", "1")
     expect(
       resolvePstnDialCallerIdForInboundForward({
         inboundFromRaw: "+15551234567",
@@ -44,7 +44,7 @@ describe("resolvePstnDialCallerIdForInboundForward", () => {
   })
 
   it("falls back to business line when caller is empty", () => {
-    vi.stubEnv("ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE", "")
+    vi.stubEnv("LYNCR_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE", "")
     expect(
       resolvePstnDialCallerIdForInboundForward({
         inboundFromRaw: "",
@@ -72,12 +72,12 @@ describe("readTelnyxDialAnswerOnBridge", () => {
   })
 
   it("is true when env is unset (sync ringback with B-leg)", () => {
-    vi.stubEnv("ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE", "")
+    vi.stubEnv("LYNCR_INBOUND_DIAL_ANSWER_ON_BRIDGE", "")
     expect(readTelnyxDialAnswerOnBridge()).toBe(true)
   })
 
   it("is true when env is 1", () => {
-    vi.stubEnv("ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE", "1")
+    vi.stubEnv("LYNCR_INBOUND_DIAL_ANSWER_ON_BRIDGE", "1")
     expect(readTelnyxDialAnswerOnBridge()).toBe(true)
   })
 })

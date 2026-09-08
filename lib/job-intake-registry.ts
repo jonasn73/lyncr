@@ -103,6 +103,18 @@ export function resolveJobIntakeOptions(industry: string | null | undefined): Jo
   return GENERIC_OPTIONS
 }
 
+export type JobIntakeOptionSource = "locksmith" | "bespoke" | "registry" | "generic_fallback"
+
+/** Which of resolveJobIntakeOptions's branches produced the list — admin coverage view only. */
+export function resolveJobIntakeOptionsSource(industry: string | null | undefined): JobIntakeOptionSource {
+  const id = (industry || "").trim().toLowerCase()
+  if (!id || id === "locksmith") return "locksmith"
+  if (BESPOKE_OPTIONS[id as AiIntakeProfileId]) return "bespoke"
+  const fromRegistry = optionsFromRegistry(id as AiIntakeProfileId)
+  if (fromRegistry && fromRegistry.length > 0) return "registry"
+  return "generic_fallback"
+}
+
 export function jobIntakeOptionRequiresVehicle(
   industry: string | null | undefined,
   optionId: string

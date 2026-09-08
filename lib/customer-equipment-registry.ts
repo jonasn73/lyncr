@@ -21,6 +21,11 @@ export const EQUIPMENT_AWARE_PROFILES: Record<string, EquipmentAwareProfile> = {
   plumbing: { kind: "water_heater", label: "Water heater" },
   hvac: { kind: "hvac_unit", label: "HVAC unit" },
   electrical: { kind: "electrical_panel", label: "Electrical panel" },
+  garage_door: { kind: "garage_door_opener", label: "Garage door opener" },
+  appliance_repair: { kind: "appliance", label: "Appliance" },
+  pool_service: { kind: "pool_equipment", label: "Pool equipment" },
+  security_systems: { kind: "security_system", label: "Alarm / camera system" },
+  solar: { kind: "solar_system", label: "Solar system" },
 }
 
 export function equipmentAwareProfile(

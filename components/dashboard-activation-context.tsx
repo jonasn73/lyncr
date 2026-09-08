@@ -44,7 +44,7 @@ import { readLinesChromeCache, writeLinesChromeCache } from "@/lib/lines-chrome-
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import { useSessionCacheReady } from "@/components/session-cache-hydration-gate"
 
-const SUBSCRIPTION_ACTIVATED_EVENT = "zing-subscription-activated"
+const SUBSCRIPTION_ACTIVATED_EVENT = "lyncr-subscription-activated"
 
 type ReplaceLinePrompt = {
   unavailableDisplay: string

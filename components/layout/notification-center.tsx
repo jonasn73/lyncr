@@ -288,7 +288,7 @@ export const NotificationCenter = memo(function NotificationCenter() {
       }
       void refreshPorting(true)
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("zing-business-numbers-changed"))
+        window.dispatchEvent(new Event("lyncr-business-numbers-changed"))
       }
     }
 
@@ -357,12 +357,12 @@ export const NotificationCenter = memo(function NotificationCenter() {
     }
     window.addEventListener("lyncr-organization-changed", onChanged)
     window.addEventListener("lyncr-workspace-data-changed", onChanged)
-    window.addEventListener("zing-porting-orders-changed", onChanged)
+    window.addEventListener("lyncr-porting-orders-changed", onChanged)
     window.addEventListener(CARRIER_REGISTRATION_UPDATED_EVENT, onChanged)
     return () => {
       window.removeEventListener("lyncr-organization-changed", onChanged)
       window.removeEventListener("lyncr-workspace-data-changed", onChanged)
-      window.removeEventListener("zing-porting-orders-changed", onChanged)
+      window.removeEventListener("lyncr-porting-orders-changed", onChanged)
       window.removeEventListener(CARRIER_REGISTRATION_UPDATED_EVENT, onChanged)
     }
   }, [refreshPorting, loadSms])

@@ -18,7 +18,7 @@ export function edgeInboundGreetingPassDone(url: URL): boolean {
 }
 
 function edgeInboundGreetingFirstEnabled(): boolean {
-  const raw = (process.env.ZING_INBOUND_GREETING_FIRST || "1").trim().toLowerCase()
+  const raw = (process.env.LYNCR_INBOUND_GREETING_FIRST || "1").trim().toLowerCase()
   return raw !== "0" && raw !== "false" && raw !== "no" && raw !== "off"
 }
 

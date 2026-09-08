@@ -164,8 +164,8 @@ function useBookingAlerts(enabled: boolean) {
       if (!prefs) return
       setNoisyAlerts(prefs.push_operator_dispositions !== false)
     }
-    window.addEventListener("zing-admin-notification-preferences-changed", onPrefs)
-    return () => window.removeEventListener("zing-admin-notification-preferences-changed", onPrefs)
+    window.addEventListener("lyncr-admin-notification-preferences-changed", onPrefs)
+    return () => window.removeEventListener("lyncr-admin-notification-preferences-changed", onPrefs)
   }, [session])
 
   useEffect(() => {

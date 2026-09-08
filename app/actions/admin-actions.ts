@@ -9,6 +9,7 @@ import {
   normalizePhoneNumberE164,
 } from "@/lib/db"
 import { AdminAuthError, requireLyncrAdminSession } from "@/lib/admin-server-auth"
+import { recordAuditEvent } from "@/lib/audit-log"
 import { getAppUrl } from "@/lib/telnyx"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import {
@@ -42,7 +43,7 @@ export async function adjustUserCredit(
   amount: number
 ): Promise<AdjustUserCreditResult> {
   try {
-    await requireLyncrAdminSession()
+    const { userId: adminUserId } = await requireLyncrAdminSession()
 
     const userId = targetUserId.trim()
     if (!userId) return { ok: false, error: "userId is required" }
@@ -55,6 +56,15 @@ export async function adjustUserCredit(
 
     const result = await adminAdjustProfileCarrierCredit({ userId, amountUsd: amount })
     revalidatePath("/admin")
+    void recordAuditEvent({
+      ownerUserId: userId,
+      actorUserId: adminUserId,
+      actorRole: "platform_admin",
+      eventType: "admin.credit_adjusted",
+      entityType: "user",
+      entityId: userId,
+      detail: { amount_usd: amount, balance_after_usd: result.carrier_credit_after },
+    })
     return {
       ok: true,
       user_id: result.user_id,

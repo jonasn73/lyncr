@@ -343,7 +343,7 @@ async function tryBuildAiAssistantResponse(args: {
     } else if (ensured.error) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-ai-ensure-failed",
+          lyncr: "telnyx-ai-ensure-failed",
           userId,
           error: ensured.error,
         })
@@ -355,7 +355,7 @@ async function tryBuildAiAssistantResponse(args: {
     if (forTexml !== assistantId.trim()) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-ai-assistant-id-prefixed",
+          lyncr: "telnyx-ai-assistant-id-prefixed",
           reason: "TeXML expects assistant-{uuid}; API returned bare UUID",
         })
       )
@@ -378,14 +378,14 @@ async function tryBuildAiAssistantResponse(args: {
       )
     }
     const spokenDialFallbackHandoff =
-      process.env.ZING_AI_FALLBACK_SPOKEN_HANDOFF === "1" ||
-      process.env.ZING_AI_FALLBACK_SPOKEN_HANDOFF === "true"
+      process.env.LYNCR_AI_FALLBACK_SPOKEN_HANDOFF === "1" ||
+      process.env.LYNCR_AI_FALLBACK_SPOKEN_HANDOFF === "true"
     const handoffXml = spokenDialFallbackHandoff
       ? buildSayThenRedirectToAiBridgeTeXML(userId, callSid || undefined)
       : buildRedirectOnlyToAiBridgeTeXML(userId, callSid || undefined)
     console.log(
       JSON.stringify({
-        zing: "telnyx-ai-fallback",
+        lyncr: "telnyx-ai-fallback",
         assistantIdLen: forTexml.length,
         texmlIdStartsWithAssistant: forTexml.toLowerCase().startsWith("assistant-"),
         handoff: spokenDialFallbackHandoff ? "say-then-redirect-ai-bridge" : "redirect-silent-ai-bridge",
@@ -466,8 +466,8 @@ export async function handleTelnyxFallbackDialEnded(
     ? (rawPathMode as TelnyxFallbackPathMode)
     : undefined
   const rawQueryMode = (
-    url.searchParams.get("zingFbMode") ||
-    String(formData.get("zingFbMode") || "")
+    url.searchParams.get("lyncrFbMode") ||
+    String(formData.get("lyncrFbMode") || "")
   )
     .trim()
     .toLowerCase()
@@ -536,7 +536,7 @@ export async function handleTelnyxFallbackDialEnded(
     if (!userId && lr?.user_id) {
       userId = lr.user_id
       userIdSource = "did-recovery"
-      console.log(JSON.stringify({ zing: "telnyx-fallback-userid-from-did", userId }))
+      console.log(JSON.stringify({ lyncr: "telnyx-fallback-userid-from-did", userId }))
     }
 
     if (userId && (!lr || lr.user_id !== userId)) {
@@ -553,7 +553,7 @@ export async function handleTelnyxFallbackDialEnded(
     if (!userId) {
       console.error(
         JSON.stringify({
-          zing: "telnyx-fallback-missing-userid",
+          lyncr: "telnyx-fallback-missing-userid",
           pathUserId: pathUserId || null,
           toField: String(formData.get("To") || ""),
           callSid: callSid || null,
@@ -573,7 +573,7 @@ export async function handleTelnyxFallbackDialEnded(
 
     const accountStatus = await getUserAccountStatus(userId)
     if (isAccountRoutingBlocked(accountStatus)) {
-      console.warn(JSON.stringify({ zing: "telnyx-fallback-account-suspended", userId, accountStatus, callSid }))
+      console.warn(JSON.stringify({ lyncr: "telnyx-fallback-account-suspended", userId, accountStatus, callSid }))
       texmlSayNatural(texml, SUSPENDED_LINE_TEXML_MESSAGE)
       texml.hangup()
       return new NextResponse(texml.toString(), {
@@ -591,7 +591,7 @@ export async function handleTelnyxFallbackDialEnded(
         primaryWasOwner = true
         console.log(
           JSON.stringify({
-            zing: "telnyx-fallback-primary-owner-inferred",
+            lyncr: "telnyx-fallback-primary-owner-inferred",
             userId,
             source: "routing_join_owner_phone",
           })
@@ -746,7 +746,7 @@ export async function handleTelnyxFallbackDialEnded(
         primaryWasOwner = true
         console.log(
           JSON.stringify({
-            zing: "telnyx-fallback-primary-owner-inferred",
+            lyncr: "telnyx-fallback-primary-owner-inferred",
             userId,
             source: "users_phone_column",
           })
@@ -769,7 +769,7 @@ export async function handleTelnyxFallbackDialEnded(
         fallbackType = "ai"
         console.log(
           JSON.stringify({
-            zing: "telnyx-fallback-promote-ai-after-owner-leg",
+            lyncr: "telnyx-fallback-promote-ai-after-owner-leg",
             userId,
             reason: pathFallbackMode === "owner-ai" ? "path-mode-owner-ai" : "account-or-live-default-says-ai",
           })
@@ -790,7 +790,7 @@ export async function handleTelnyxFallbackDialEnded(
         fallbackType = "ai"
         console.log(
           JSON.stringify({
-            zing: "telnyx-fallback-fb-ai-overrides-voicemail",
+            lyncr: "telnyx-fallback-fb-ai-overrides-voicemail",
             userId,
             pathBnPresent: Boolean(pathBnE164),
             pathFallbackMode: pathFallbackMode ?? null,
@@ -803,7 +803,7 @@ export async function handleTelnyxFallbackDialEnded(
       if (shouldEmitVoiceHotPathDebugLogs()) {
         console.log(
           JSON.stringify({
-            zing: "telnyx-fallback-routing-mismatch",
+            lyncr: "telnyx-fallback-routing-mismatch",
             userId,
             businessLineE164: businessLineE164 || null,
             effectiveBusinessLine: effectiveBusinessLine || null,
@@ -818,7 +818,7 @@ export async function handleTelnyxFallbackDialEnded(
     if (shouldEmitVoiceHotPathDebugLogs()) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-fallback",
+          lyncr: "telnyx-fallback",
           userIdSource,
           userId,
           businessLineE164: businessLineE164 || null,
@@ -984,7 +984,7 @@ export async function handleTelnyxFallbackDialEnded(
     ) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-fallback-owner-first-to-recv",
+          lyncr: "telnyx-fallback-owner-first-to-recv",
           userId,
           callSid,
           pathFallbackMode: pathFallbackMode ?? null,
@@ -1010,7 +1010,7 @@ export async function handleTelnyxFallbackDialEnded(
         didPath.length >= 10
           ? `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(userId)}/n/${didPath}/${nextPathMode}`
           : `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(userId)}`
-      const secondModeQuery = didPath.length < 10 ? `&zingFbMode=${encodeURIComponent(nextPathMode)}` : ""
+      const secondModeQuery = didPath.length < 10 ? `&lyncrFbMode=${encodeURIComponent(nextPathMode)}` : ""
       const recvRingSec = Math.min(Math.max(lr?.ring_timeout_seconds ?? 30, 10), 60)
       const dial = texml.dial({
         ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
@@ -1054,7 +1054,7 @@ export async function handleTelnyxFallbackDialEnded(
           fallbackType = "network"
           console.log(
             JSON.stringify({
-              zing: "telnyx-fallback-network-divert",
+              lyncr: "telnyx-fallback-network-divert",
               userId,
               callSid,
               routingStrategy: hybrid.routing_strategy,
@@ -1077,7 +1077,7 @@ export async function handleTelnyxFallbackDialEnded(
         if (!entitlement.allowed) {
           console.log(
             JSON.stringify({
-              zing: "telnyx-fallback-ai-blocked-by-tier",
+              lyncr: "telnyx-fallback-ai-blocked-by-tier",
               userId,
               tier: entitlement.tier,
             })
@@ -1127,7 +1127,7 @@ export async function handleTelnyxFallbackDialEnded(
             didPath.length >= 10
               ? `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(userId)}/n/${didPath}/network`
               : `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(userId)}`
-          const networkModeQuery = didPath.length < 10 ? `&zingFbMode=network` : ""
+          const networkModeQuery = didPath.length < 10 ? `&lyncrFbMode=network` : ""
           const networkRingSec = Math.min(Math.max(lr?.ring_timeout_seconds ?? 20, 10), 45)
           const dial = texml.dial({
             ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
@@ -1141,7 +1141,7 @@ export async function handleTelnyxFallbackDialEnded(
           for (const e164 of networkTargets) dial.number(e164)
           console.log(
             JSON.stringify({
-              zing: "telnyx-fallback-network-pool-dial",
+              lyncr: "telnyx-fallback-network-pool-dial",
               userId,
               callSid,
               industryTag: networkIndustryTag,
@@ -1154,7 +1154,7 @@ export async function handleTelnyxFallbackDialEnded(
         // Zero global agents online (or no owner row) → drop straight through to the owner cell, no extra hop.
         console.log(
           JSON.stringify({
-            zing: "telnyx-fallback-network-pool-empty",
+            lyncr: "telnyx-fallback-network-pool-empty",
             userId,
             callSid,
             industryTag: networkIndustryTag,
@@ -1184,7 +1184,7 @@ export async function handleTelnyxFallbackDialEnded(
             if (aiRes === "missing-assistant") {
               console.log(
                 JSON.stringify({
-                  zing: "telnyx-ai-fallback-no-assistant",
+                  lyncr: "telnyx-ai-fallback-no-assistant",
                   userId,
                   context: "primary-owner-leg",
                   dialStatus: dialStatus || rawStatus || null,
@@ -1222,7 +1222,7 @@ export async function handleTelnyxFallbackDialEnded(
             didPath.length >= 10
               ? `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(userId)}/n/${didPath}/${secondMode}`
               : `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(userId)}`
-          const secondModeQuery = didPath.length < 10 ? `&zingFbMode=${encodeURIComponent(secondMode)}` : ""
+          const secondModeQuery = didPath.length < 10 ? `&lyncrFbMode=${encodeURIComponent(secondMode)}` : ""
           const dial = texml.dial({
             ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
             ...(fromDisplayName ? { fromDisplayName } : {}),
@@ -1264,7 +1264,7 @@ export async function handleTelnyxFallbackDialEnded(
         if (aiRes && aiRes !== "missing-assistant") return aiRes
         console.log(
           JSON.stringify({
-            zing: "telnyx-ai-fallback-no-assistant",
+            lyncr: "telnyx-ai-fallback-no-assistant",
             userId,
             dialStatus: dialStatus || rawStatus || null,
           })

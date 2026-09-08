@@ -1,19 +1,19 @@
 import { getAppUrl } from "@/lib/telnyx"
 import { prependInboundCallerGreetingToResponseTexml } from "@/lib/inbound-branded-greeting"
-import { envLyncrOrZing } from "@/lib/lyncr-env"
+import { envLyncr } from "@/lib/lyncr-env"
 
 /** G.711 μ-law (PCMU) — best PSTN clarity; comma-list allows Telnyx to offer only these codecs. */
-function readInboundDialPreferredCodecs(): string {
-  const raw = (process.env.ZING_INBOUND_DIAL_PREFERRED_CODECS || "PCMU").trim()
+export function readInboundDialPreferredCodecs(): string {
+  const raw = (process.env.LYNCR_INBOUND_DIAL_PREFERRED_CODECS || "PCMU").trim()
   return raw || "PCMU"
 }
 
 /**
  * Symmetric RTP on the outbound PSTN leg — keeps media paths aligned after the bridge.
- * Set `ZING_INBOUND_DIAL_RTP_SYMMETRIC=0` to disable if a carrier rejects the attribute.
+ * Set `LYNCR_INBOUND_DIAL_RTP_SYMMETRIC=0` to disable if a carrier rejects the attribute.
  */
 function readInboundDialRtpSymmetric(): boolean {
-  const raw = (process.env.ZING_INBOUND_DIAL_RTP_SYMMETRIC || "").trim().toLowerCase()
+  const raw = (process.env.LYNCR_INBOUND_DIAL_RTP_SYMMETRIC || "").trim().toLowerCase()
   if (raw === "0" || raw === "false" || raw === "no") return false
   return true
 }
@@ -21,10 +21,10 @@ function readInboundDialRtpSymmetric(): boolean {
 /**
  * Comfort Noise Generation (CNG) on bridged PSTN legs — prevents dead-air during handoffs.
  * Default off on inbound — CNG can sound like an audible “tone change” when the B-leg starts ringing.
- * Enable with `ZING_INBOUND_COMFORT_NOISE=1`.
+ * Enable with `LYNCR_INBOUND_COMFORT_NOISE=1`.
  */
 function readInboundComfortNoiseEnabled(): boolean {
-  const raw = (process.env.ZING_INBOUND_COMFORT_NOISE || "").trim().toLowerCase()
+  const raw = (process.env.LYNCR_INBOUND_COMFORT_NOISE || "").trim().toLowerCase()
   if (raw === "1" || raw === "true" || raw === "yes" || raw === "on") return true
   return false
 }
@@ -36,14 +36,14 @@ function readInboundJitterBufferConfig(): {
   minMs: number
   maxMs: number
 } {
-  const raw = (process.env.ZING_INBOUND_JITTER_BUFFER || "").trim().toLowerCase()
+  const raw = (process.env.LYNCR_INBOUND_JITTER_BUFFER || "").trim().toLowerCase()
   if (raw === "0" || raw === "false" || raw === "no" || raw === "off" || raw === "") {
     return { enabled: false, mode: "adaptive", minMs: 40, maxMs: 200 }
   }
-  const minMs = Math.max(40, Math.min(400, parseInt(process.env.ZING_INBOUND_JITTER_BUFFER_MIN_MS || "40", 10) || 40))
+  const minMs = Math.max(40, Math.min(400, parseInt(process.env.LYNCR_INBOUND_JITTER_BUFFER_MIN_MS || "40", 10) || 40))
   const maxMs = Math.max(
     minMs,
-    Math.min(400, parseInt(process.env.ZING_INBOUND_JITTER_BUFFER_MAX_MS || "200", 10) || 200)
+    Math.min(400, parseInt(process.env.LYNCR_INBOUND_JITTER_BUFFER_MAX_MS || "200", 10) || 200)
   )
   return { enabled: true, mode: "adaptive", minMs, maxMs }
 }
@@ -67,16 +67,16 @@ function buildBridgedLegMediaAttributes(): Record<string, string | boolean | num
 
 /** US ringback while the B-leg is ringing (`answerOnBridge` preserves caller-side ringing). */
 function readInboundDialRingTone(): string {
-  const raw = (process.env.ZING_INBOUND_DIAL_RING_TONE || "us").trim()
+  const raw = (process.env.LYNCR_INBOUND_DIAL_RING_TONE || "us").trim()
   return raw || "us"
 }
 
 /**
  * Optional custom ringback WAV/MP3 URL on `<Dial>` (Telnyx `audioUrl` — overrides `ringTone` when set).
- * Example: `ZING_INBOUND_DIAL_RINGBACK_AUDIO_URL=https://lyncr.app/audio/us-ringback.wav`
+ * Example: `LYNCR_INBOUND_DIAL_RINGBACK_AUDIO_URL=https://lyncr.app/audio/us-ringback.wav`
  */
 export function readInboundDialRingbackAudioUrl(): string | null {
-  const raw = (process.env.ZING_INBOUND_DIAL_RINGBACK_AUDIO_URL || "").trim()
+  const raw = (process.env.LYNCR_INBOUND_DIAL_RINGBACK_AUDIO_URL || "").trim()
   return raw || null
 }
 
@@ -89,10 +89,10 @@ export function buildInboundDialRingbackAttributes(): Record<string, string> {
 
 /**
  * Ring seconds on the fast inbound `<Dial>` (Telnyx `timeout` attribute, 5–120).
- * Uses routing snapshot first; override with `ZING_INBOUND_FAST_DIAL_TIMEOUT=20` if needed.
+ * Uses routing snapshot first; override with `LYNCR_INBOUND_FAST_DIAL_TIMEOUT=20` if needed.
  */
 export function resolveInboundFastDialTimeoutSeconds(ringTimeoutFromRouting: number): number {
-  const raw = (process.env.ZING_INBOUND_FAST_DIAL_TIMEOUT || "").trim()
+  const raw = (process.env.LYNCR_INBOUND_FAST_DIAL_TIMEOUT || "").trim()
   if (raw) {
     const n = parseInt(raw, 10)
     if (Number.isFinite(n) && n >= 5 && n <= 120) return n
@@ -112,9 +112,9 @@ export function fallbackNeedsCarrierVmGuard(fallbackType: string | null | undefi
 
 /**
  * When AI is the no-answer fallback, cap PSTN ring time (~4 rings) before `/fallback` → AI bridge.
- * Default AI cap: 20s (`ZING_INBOUND_AI_DIAL_TIMEOUT`).
+ * Default AI cap: 20s (`LYNCR_INBOUND_AI_DIAL_TIMEOUT`).
  * When Hold queue is the fallback, honor the UI ring delay up to a cap just before typical
- * carrier VM pickup (~22–25s). Default Hold cap: 25s (`ZING_INBOUND_HOLD_DIAL_TIMEOUT`).
+ * carrier VM pickup (~22–25s). Default Hold cap: 25s (`LYNCR_INBOUND_HOLD_DIAL_TIMEOUT`).
  * Prefer 20s in the UI — enough for ~4–5 rings without racing personal voicemail.
  */
 export function resolveInboundForwardDialTimeoutSeconds(
@@ -124,14 +124,14 @@ export function resolveInboundForwardDialTimeoutSeconds(
 ): number {
   const ring = Number(ringTimeoutFromRouting) || 30
   if (wantsAiAfterNoAnswer) {
-    const raw = (process.env.ZING_INBOUND_AI_DIAL_TIMEOUT || "20").trim()
+    const raw = (process.env.LYNCR_INBOUND_AI_DIAL_TIMEOUT || "20").trim()
     const aiCap = parseInt(raw, 10)
     const cap = Number.isFinite(aiCap) && aiCap >= 5 && aiCap <= 120 ? aiCap : 20
     return Math.min(ring, cap)
   }
   if (wantsHoldAfterNoAnswer) {
     // 25s default: UI 15/20/25 honor fully; 30/45/60 snap down so we hang up before most carrier VMs.
-    const raw = (process.env.ZING_INBOUND_HOLD_DIAL_TIMEOUT || "25").trim()
+    const raw = (process.env.LYNCR_INBOUND_HOLD_DIAL_TIMEOUT || "25").trim()
     const holdCap = parseInt(raw, 10)
     const cap = Number.isFinite(holdCap) && holdCap >= 5 && holdCap <= 120 ? holdCap : 25
     return Math.min(ring, cap)
@@ -142,12 +142,12 @@ export function resolveInboundForwardDialTimeoutSeconds(
 /**
  * Minimum dial age before we trust AMD `machine` and hang up the cell leg.
  * Early false positives (silence / early media ~2–3s) must not cut a normal human ring short.
- * Override with `LYNCR_INBOUND_AMD_MIN_MACHINE_AGE_MS` (or legacy `ZING_*`), 3000–60000 ms.
+ * Override with `LYNCR_INBOUND_AMD_MIN_MACHINE_AGE_MS` (or legacy `LYNCR_*`), 3000–60000 ms.
  * Default 18s so a ~20–25s Hold ring window is not aborted mid-ring on a false machine.
  */
 export function resolveAmdMinMachineAgeMs(): number {
-  // Prefer LYNCR_*; keep ZING_* working until Vercel env is renamed.
-  const raw = (envLyncrOrZing("INBOUND_AMD_MIN_MACHINE_AGE_MS") || "18000").trim()
+  // Prefer LYNCR_*; keep LYNCR_* working until Vercel env is renamed.
+  const raw = (envLyncr("INBOUND_AMD_MIN_MACHINE_AGE_MS") || "18000").trim()
   const n = parseInt(raw, 10)
   if (Number.isFinite(n) && n >= 3000 && n <= 60_000) return n
   return 18_000
@@ -199,24 +199,24 @@ export function readInboundFastDialAnswerOnBridge(): boolean {
  * Default off — `getIncomingRoutingByNumber` already merges per-DID + default rows in one query.
  */
 export function readInboundRoutingCfgOverlayEnabled(): boolean {
-  const raw = (process.env.ZING_INBOUND_ROUTING_CFG_OVERLAY || "").trim().toLowerCase()
+  const raw = (process.env.LYNCR_INBOUND_ROUTING_CFG_OVERLAY || "").trim().toLowerCase()
   return raw === "1" || raw === "true" || raw === "yes" || raw === "on"
 }
 
 /**
  * Two-phase inbound: optional instant `<Redirect>` before DB routing (pass 2 adds `<Dial>`).
  * Default **off** — `<Play loop>` before `<Redirect>` blocks pass 2 forever on Telnyx (call never forwards).
- * Enable with `ZING_INBOUND_EARLY_MEDIA=1` for redirect-only pass 1 (no `<Play>`).
+ * Enable with `LYNCR_INBOUND_EARLY_MEDIA=1` for redirect-only pass 1 (no `<Play>`).
  */
 export function readInboundEarlyMediaEnabled(): boolean {
-  const raw = (process.env.ZING_INBOUND_EARLY_MEDIA || "").trim().toLowerCase()
+  const raw = (process.env.LYNCR_INBOUND_EARLY_MEDIA || "").trim().toLowerCase()
   if (raw === "1" || raw === "true" || raw === "yes" || raw === "on") return true
   return false
 }
 
 /** Optional pass-1 ring URL — only used when explicitly set (never loop; blocks Redirect if misconfigured). */
 function readInboundEarlyMediaRingUrl(): string | null {
-  const custom = process.env.ZING_INBOUND_EARLY_MEDIA_RING_URL?.trim()
+  const custom = process.env.LYNCR_INBOUND_EARLY_MEDIA_RING_URL?.trim()
   return custom || null
 }
 

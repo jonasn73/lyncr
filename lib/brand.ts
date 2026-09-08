@@ -1,7 +1,7 @@
 // ============================================
 // Public product identity (UI + metadata)
 // ============================================
-// Legacy env vars (ZING_*) and cookie `zing_session` stay for production compatibility;
+// Legacy cookie `zing_session` stays for production compatibility;
 // product branding is Lyncr everywhere else.
 
 /** Official product name (lowercase in UI wordmark). */

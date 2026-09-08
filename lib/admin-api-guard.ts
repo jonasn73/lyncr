@@ -20,7 +20,7 @@ export async function requireSessionUser(req: NextRequest): Promise<SessionUserC
   }
   let user = await getUser(userId)
   if (!user && process.env.NODE_ENV === "development" && userId === "dev-user") {
-    const devEmail = process.env.DEV_LOGIN_EMAIL?.trim().toLowerCase() ?? "dev@zing.local"
+    const devEmail = process.env.DEV_LOGIN_EMAIL?.trim().toLowerCase() ?? "dev@lyncr.local"
     user = {
       id: "dev-user",
       email: devEmail,

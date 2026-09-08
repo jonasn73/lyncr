@@ -63,7 +63,7 @@ async function updateRouting(receptionistId: string | null) {
 ## File Map
 
 ```
-zing/
+lyncr/
 ├── app/
 │   ├── api/
 │   │   ├── voice/

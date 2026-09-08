@@ -27,7 +27,7 @@ describe("receptionist-answer route", () => {
   it("receptionist leg bridges immediately, same as the owner leg", async () => {
     // Press-1 used to gate this leg. A receptionist who picked up and just talked was
     // never recorded as having answered — no bridge, no answered_at, no intake, and no
-    // pay for the call. The screen is now opt-in via ZING_RECEPTIONIST_PRESS1_SCREEN.
+    // pay for the call. The screen is now opt-in via LYNCR_RECEPTIONIST_PRESS1_SCREEN.
     const req = new NextRequest(
       "https://lyncr.app/api/voice/telnyx/receptionist-answer?r=recv-1&cl=CA_test&bt=generic&bn=Key%20Squad"
     )

@@ -76,7 +76,7 @@ export function buildAdminRoutingOverrideDial<R extends AdminRoutingOverrideRout
     didDigits.length >= 10
       ? `${params.appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(params.routing.user_id)}/n/${didDigits}/${fallbackMode}`
       : `${params.appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(params.routing.user_id)}`
-  const modeQuery = didDigits.length < 10 ? `&zingFbMode=${encodeURIComponent(fallbackMode)}` : ""
+  const modeQuery = didDigits.length < 10 ? `&lyncrFbMode=${encodeURIComponent(fallbackMode)}` : ""
   const fbQuery = wantsAiAfterNoAnswer ? "&fb=ai" : ""
   const bnQuery = `&bn=${encodeURIComponent(params.businessLineE164)}`
   const origFromQuery = origFromQuerySuffixFromRaw(params.callerNumber)

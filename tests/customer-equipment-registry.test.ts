@@ -24,6 +24,29 @@ describe("customer-equipment-registry (087)", () => {
     expect(equipmentAwareProfile("auto_repair")).toBeNull()
   })
 
+  it("resolves the newer physical-equipment trades to their kind and label", () => {
+    expect(equipmentAwareProfile("garage_door")).toEqual({
+      kind: "garage_door_opener",
+      label: "Garage door opener",
+    })
+    expect(equipmentAwareProfile("appliance_repair")).toEqual({
+      kind: "appliance",
+      label: "Appliance",
+    })
+    expect(equipmentAwareProfile("pool_service")).toEqual({
+      kind: "pool_equipment",
+      label: "Pool equipment",
+    })
+    expect(equipmentAwareProfile("security_systems")).toEqual({
+      kind: "security_system",
+      label: "Alarm / camera system",
+    })
+    expect(equipmentAwareProfile("solar")).toEqual({
+      kind: "solar_system",
+      label: "Solar system",
+    })
+  })
+
   it("isEquipmentAwareIndustry mirrors equipmentAwareProfile", () => {
     for (const industry of Object.keys(EQUIPMENT_AWARE_PROFILES)) {
       expect(isEquipmentAwareIndustry(industry)).toBe(true)

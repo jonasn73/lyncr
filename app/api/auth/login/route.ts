@@ -12,7 +12,9 @@ import {
   getSessionCookieOptions,
 } from "@/lib/auth"
 import { isPlatformAdminUser } from "@/lib/platform-admin"
+import { isLyncrAdminUser } from "@/lib/lyncr-admin"
 import { postAuthPayload } from "@/lib/post-auth-redirect"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export async function POST(req: NextRequest) {
   try {
@@ -85,6 +87,14 @@ export async function POST(req: NextRequest) {
       data: { user, ...authMeta },
     })
     res.cookies.set(getSessionCookieName(), cookieValue, getSessionCookieOptions())
+    void recordAuditEvent({
+      ownerUserId: user.id,
+      actorUserId: user.id,
+      actorRole: isLyncrAdminUser(user) ? "platform_admin" : (user.account_role ?? "owner"),
+      eventType: "auth.login",
+      entityType: "user",
+      entityId: user.id,
+    })
     return res
   } catch (error) {
     console.error("[lyncr] Login error:", error)

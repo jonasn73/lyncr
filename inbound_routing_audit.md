@@ -230,7 +230,7 @@ Only reached when fast path fails. Additional parallel fetch:
 await Promise.all([
   getUserAccountStatus(routing.user_id),           // if not already in join
   isTelnyxInboundDialCallerLegDone(callSid),       // repeat-leg guard
-  getRoutingConfigForNumber(...),                  // if ZING_INBOUND_ROUTING_CFG_OVERLAY=1
+  getRoutingConfigForNumber(...),                  // if LYNCR_INBOUND_ROUTING_CFG_OVERLAY=1
   getReceptionist(selectedReceptionistId),         // if phone missing from join
 ])
 ```
@@ -254,10 +254,10 @@ Optional AI direct path adds:
 
 | Env var | Default | Effect |
 |---------|---------|--------|
-| `ZING_INBOUND_ROUTING_CFG_OVERLAY` | off | When `1`: disables fast path; adds second `routing_config` read on slow path |
-| `ZING_INBOUND_EARLY_MEDIA` | off | Two-pass redirect (disabled by default — can block forwarding) |
-| `ZING_INBOUND_RECEPTIONIST_WHISPER` | on | Disables whisper phrase on slow owner path only |
-| `ZING_RECEPTIONIST_PRESS1_SCREEN` | on | Press-1 gate on answer (post-ring, not pre-ring) |
+| `LYNCR_INBOUND_ROUTING_CFG_OVERLAY` | off | When `1`: disables fast path; adds second `routing_config` read on slow path |
+| `LYNCR_INBOUND_EARLY_MEDIA` | off | Two-pass redirect (disabled by default — can block forwarding) |
+| `LYNCR_INBOUND_RECEPTIONIST_WHISPER` | on | Disables whisper phrase on slow owner path only |
+| `LYNCR_RECEPTIONIST_PRESS1_SCREEN` | on | Press-1 gate on answer (post-ring, not pre-ring) |
 
 ---
 
@@ -310,7 +310,7 @@ When receptionist's cell answers, Telnyx fetches the `<Number url="…">` docume
 2. On press 1 → empty TeXML → bridge caller + `handleCallConnected` HUD broadcast
 3. On timeout/wrong key → hang up B-leg → caller falls to fallback chain
 
-Disabled with `ZING_RECEPTIONIST_PRESS1_SCREEN=0`.
+Disabled with `LYNCR_RECEPTIONIST_PRESS1_SCREEN=0`.
 
 ---
 
@@ -345,8 +345,8 @@ GET/POST /api/voice/telnyx/receptionist-answer  → Press 1 + HUD broadcast
 From `lib/telnyx-inbound-media-quality.ts`:
 
 - `answerOnBridge: true` — caller not bridged until B-leg answers
-- `ringTone: "us"` (or custom `ZING_INBOUND_DIAL_RINGBACK_AUDIO_URL`)
-- `timeout` — capped at 20s when AI fallback is configured (`ZING_INBOUND_AI_DIAL_TIMEOUT`)
+- `ringTone: "us"` (or custom `LYNCR_INBOUND_DIAL_RINGBACK_AUDIO_URL`)
+- `timeout` — capped at 20s when AI fallback is configured (`LYNCR_INBOUND_AI_DIAL_TIMEOUT`)
 - `preferred_codecs: PCMU`, optional `rtp_symmetric`
 
 ---
@@ -356,7 +356,7 @@ From `lib/telnyx-inbound-media-quality.ts`:
 1. **Routing pool probe on every call** — 2–4 Neon round trips before direct `<Dial>`, even when account uses a single assigned receptionist and no skill pool.
 2. **Cold snapshot / full join** — first call after deploy or routing change hits the 5-table join until `inbound_*` snapshot is written.
 3. **Neon cold connection** — mitigated by `warmDatabasePool()` but first real query can still stall on serverless cold start (Vercel `iad1` region set on route).
-4. **`ZING_INBOUND_ROUTING_CFG_OVERLAY=1`** — disables fast path entirely; adds `getRoutingConfigForNumber` on slow path.
+4. **`LYNCR_INBOUND_ROUTING_CFG_OVERLAY=1`** — disables fast path entirely; adds `getRoutingConfigForNumber` on slow path.
 5. **Telnyx B-leg origination** — after TeXML returns; not controllable in app code. `answerOnBridge` + `ringTone="us"` already gives caller ringback during B-leg setup.
 
 **Not a factor for pre-ring silence:** whisper engine, organizations, schedules, team tables, 10DLC lookups.

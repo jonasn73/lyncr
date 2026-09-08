@@ -85,7 +85,10 @@ function SheetContent({
                 side === 'left' && 'left-0 w-3/4 border-r border-l-0 sm:max-w-sm',
               )
             : cn(
-                'shadow-overlay transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=open]:animate-in data-[state=closed]:animate-out',
+                // Open used to lag 200ms behind close (500ms vs 300ms) — nothing about opening
+                // needs to be slower than closing, and the call-answered sheet in particular
+                // needs to feel instant. Match durations.
+                'shadow-overlay transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out',
                 side === 'right' &&
                   'data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-full border-l border-border/60 sm:max-w-md md:max-w-lg lg:max-w-xl',
                 side === 'left' &&
