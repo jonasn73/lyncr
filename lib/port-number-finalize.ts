@@ -9,7 +9,7 @@ import {
   updatePhoneNumber,
 } from "@/lib/db"
 import { configureNumberMessaging } from "@/lib/telnyx-messaging-config"
-import { provisionLocalDidOnSharedPlatformCampaign } from "@/lib/telnyx-shared-campaign"
+import { provisionLocalDidFor10Dlc } from "@/lib/telnyx-shared-campaign"
 import { configureNumberVoice, findTelnyxPhoneNumberId, getOrCreateTexmlApp } from "@/lib/telnyx-config"
 import { promotePortedLineAsPrimary } from "@/lib/port-line-promotion"
 
@@ -101,11 +101,11 @@ export async function finalizePortedNumber(params: {
     await configureNumberMessaging(e164)
     messagingConfigured = true
 
-    const shared = await provisionLocalDidOnSharedPlatformCampaign(e164)
+    const shared = await provisionLocalDidFor10Dlc(params.ownerUserId, params.organizationId, e164)
     if (shared.error) {
-      console.warn("[port-finalize] shared 10DLC:", shared.error)
+      console.warn("[port-finalize] 10DLC provision:", shared.error)
     } else if (shared.campaign_assigned) {
-      console.log("[port-finalize] shared 10DLC campaign assigned", shared.campaign_id)
+      console.log("[port-finalize] 10DLC campaign assigned", shared.campaign_id)
     }
 
     promotedPrimary = await promotePortedLineAsPrimary({

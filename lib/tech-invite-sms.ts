@@ -46,7 +46,7 @@ function mapTelnyxFailure(raw: string): { errorType: TechInviteSmsErrorType; mes
     return {
       errorType: "INVALID_SENDER",
       message:
-        "This workspace's business line is not set up for outbound SMS on Telnyx yet. Finish the line under Settings → Lines, or share the setup link manually.",
+        "This workspace's business line is not set up for outbound SMS yet. Finish the line under Settings → Lines, or share the setup link manually.",
     }
   }
   return { errorType: "OTHER", message: classified.message }

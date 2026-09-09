@@ -145,7 +145,7 @@ export function useTelnyxWebRtc(opts: { enabled: boolean }): UseTelnyxWebRtc {
           if (cancelled) return
           setStatus("error")
           const msg = (e as { error?: { message?: string } })?.error?.message
-          setError(msg ?? "Telnyx connection error")
+          setError(msg ?? "Browser calling connection error")
         })
         // The SDK auto-reconnects the signaling socket on its own (default up to 10 attempts,
         // 1s apart) — this listener only surfaces that window in `status` instead of leaving

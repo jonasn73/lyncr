@@ -272,7 +272,7 @@ export async function getTelnyx10DlcAssignmentStatus(e164: string): Promise<Teln
       assigned: false,
       campaign_id: platformCampaignId,
       detail:
-        "10DLC campaign not assigned — in Telnyx Mission Control go to Messaging → 10DLC, register a brand + campaign, then assign your business line.",
+        "This line isn't linked to an approved messaging campaign yet, so carriers may delay or block texts. We're completing this automatically — check Settings → Carrier registration, or contact support if it's been more than a day.",
     }
   }
 
@@ -287,7 +287,7 @@ export async function getTelnyx10DlcAssignmentStatus(e164: string): Promise<Teln
       return {
         assigned: false,
         campaign_id: campaignId,
-        detail: `10DLC assignment failed for ${target} (${assignmentStatus}). Open Settings → Carrier registration and refresh, or check Telnyx Mission Control.`,
+        detail: `Carrier registration needs attention for ${target} (${assignmentStatus}). Open Settings → Carrier registration and try again, or contact support.`,
       }
     }
     // PENDING_ASSIGNMENT still counts as linked — Telnyx already accepted the DID on the campaign.
@@ -297,7 +297,7 @@ export async function getTelnyx10DlcAssignmentStatus(e164: string): Promise<Teln
   return {
     assigned: false,
     campaign_id: getPlatform10DlcCampaignId(),
-    detail: `10DLC campaign not assigned — Telnyx accepted the API request but US carriers block delivery until you assign ${target} to an approved 10DLC campaign.`,
+    detail: `This line isn't linked to an approved messaging campaign yet, so US carriers may block delivery of ${target} until it is. We're completing this automatically.`,
   }
 }
 

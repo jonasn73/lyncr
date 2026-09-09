@@ -209,9 +209,9 @@ export async function purchasePhoneNumberForUser(
   clearIncomingRoutingCache()
 
   try {
-    const { provisionLocalDidOnSharedPlatformCampaign } = await import("@/lib/telnyx-shared-campaign")
-    void provisionLocalDidOnSharedPlatformCampaign(normalized).catch((e) => {
-      console.warn("[number-allocation] shared 10DLC provision:", e)
+    const { provisionLocalDidFor10Dlc } = await import("@/lib/telnyx-shared-campaign")
+    void provisionLocalDidFor10Dlc(userId, organizationId, normalized).catch((e) => {
+      console.warn("[number-allocation] 10DLC provision:", e)
     })
   } catch {
     // non-fatal

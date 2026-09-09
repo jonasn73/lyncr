@@ -1,6 +1,6 @@
 // Shared 10DLC campaign architecture — assign tenant local DIDs to Lyncr's platform campaign.
 
-import { normalizePhoneNumberE164 } from "@/lib/db"
+import { getMessaging10DlcRegistration, normalizePhoneNumberE164 } from "@/lib/db"
 import { assignNumberToTelnyx10DlcCampaign } from "@/lib/telnyx-10dlc"
 import { configureNumberMessaging } from "@/lib/telnyx-messaging-config"
 
@@ -101,5 +101,44 @@ export async function provisionLocalDidOnSharedPlatformCampaign(
     messaging_profile_assigned: messagingAssigned,
     campaign_assigned: campaignAssigned,
     campaign_id: campaignId,
+  }
+}
+
+/**
+ * Provision a newly purchased/ported line for SMS, org-aware.
+ *
+ * Tries the platform shared campaign first (no-op today — TELNYX_PLATFORM_10DLC_CAMPAIGN_ID
+ * isn't set). Falls back to the workspace's own already-approved 10DLC campaign, if it has
+ * one, so a second/third line an owner buys after finishing 10DLC rides on the same approved
+ * campaign instead of silently going unassigned (carriers accept the message from Telnyx but
+ * then drop it — no error, it just never arrives).
+ */
+export async function provisionLocalDidFor10Dlc(
+  userId: string,
+  organizationId: string | null | undefined,
+  phoneNumberE164: string
+): Promise<SharedCampaignProvisionResult> {
+  const shared = await provisionLocalDidOnSharedPlatformCampaign(phoneNumberE164)
+  if (shared.campaign_assigned || shared.skipped_reason === "not_us_local_did" || shared.error) {
+    return shared
+  }
+
+  try {
+    const registration = await getMessaging10DlcRegistration(userId, organizationId ?? null)
+    if (registration?.status !== "approved" || !registration.campaign_id) {
+      return shared
+    }
+    const assign = await assignNumberToTelnyx10DlcCampaign(shared.phone_number, registration.campaign_id)
+    if (!assign.ok) {
+      return { ...shared, error: `Workspace campaign: ${assign.error}` }
+    }
+    return {
+      ...shared,
+      campaign_assigned: true,
+      campaign_id: registration.campaign_id,
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { ...shared, error: `Workspace campaign lookup failed: ${msg}` }
   }
 }

@@ -1258,7 +1258,7 @@ export async function sendCollectPayLink(params: {
     if (is10DlcDeliveryWarning(result.delivery_warning)) {
       return {
         sent: false,
-        error: result.delivery_warning || TEN_DLC_BLOCK_USER_MESSAGE,
+        error: TEN_DLC_BLOCK_USER_MESSAGE,
       }
     }
     return { sent: true }

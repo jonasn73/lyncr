@@ -21,7 +21,7 @@ export async function purchaseAndConfigureTelnyxLine(
   try {
     getTelnyxApiKey()
   } catch {
-    return { ok: false, error: "Telnyx is not configured on the server (missing TELNYX_API_KEY)." }
+    return { ok: false, error: "Number purchasing is not configured on the server yet." }
   }
 
   let target = requested
@@ -46,7 +46,7 @@ export async function purchaseAndConfigureTelnyxLine(
     }
     target = purchasable
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Could not search Telnyx inventory"
+    const msg = e instanceof Error ? e.message : "Could not search available numbers"
     return { ok: false, error: msg }
   }
 
@@ -60,7 +60,7 @@ export async function purchaseAndConfigureTelnyxLine(
     const errMsg =
       (data as { errors?: { detail?: string; title?: string }[] })?.errors?.[0]?.detail ||
       (data as { errors?: { detail?: string; title?: string }[] })?.errors?.[0]?.title ||
-      "Telnyx could not purchase this number — it may no longer be available. Search again and pick a different line."
+      "This number could not be purchased — it may no longer be available. Search again and pick a different line."
     console.error("[Telnyx] purchase failed:", errMsg, data)
     return { ok: false, reason: "carrier_error", error: String(errMsg) }
   }

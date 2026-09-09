@@ -161,13 +161,13 @@ export async function createTelnyx10DlcBrand(
   })
   const json = await res.json().catch(() => ({}))
   if (!res.ok) {
-    return { ok: false, error: telnyxErrorDetail(json, "Telnyx rejected the brand registration.") }
+    return { ok: false, error: telnyxErrorDetail(json, "Carrier rejected the brand registration.") }
   }
   const brandId =
     (json as { brandId?: string; data?: { brandId?: string } }).brandId ??
     (json as { data?: { brandId?: string } }).data?.brandId
   if (!brandId) {
-    return { ok: false, error: "Telnyx accepted the brand but returned no brandId." }
+    return { ok: false, error: "Carrier accepted the brand but returned no brand id." }
   }
   return { ok: true, brandId: String(brandId) }
 }
@@ -304,13 +304,13 @@ export async function createTelnyx10DlcCampaign(
   })
   const json = await res.json().catch(() => ({}))
   if (!res.ok) {
-    return { ok: false, error: telnyxErrorDetail(json, "Telnyx rejected the campaign registration.") }
+    return { ok: false, error: telnyxErrorDetail(json, "Carrier rejected the campaign registration.") }
   }
   const campaignId =
     (json as { campaignId?: string; data?: { campaignId?: string } }).campaignId ??
     (json as { data?: { campaignId?: string } }).data?.campaignId
   if (!campaignId) {
-    return { ok: false, error: "Telnyx accepted the campaign but returned no campaignId." }
+    return { ok: false, error: "Carrier accepted the campaign but returned no campaign id." }
   }
   return { ok: true, campaignId: String(campaignId) }
 }
