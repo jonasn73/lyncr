@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import {
+  getActivePhoneNumberByE164,
   getUserByPhoneNumber,
   normalizePhoneNumberE164,
 } from "@/lib/db"
@@ -184,9 +185,19 @@ export async function POST(req: NextRequest) {
       bookingSource: bookingSource || null,
     })
 
+    // The called DID already identifies the shop — resolve it explicitly so multi-shop
+    // owners don't hit resolveWorkspaceSmsSender's "more than one shop" guard and fail
+    // every callback send (that guard only accepts an org it wasn't told to look up).
+    const callbackLine = await getActivePhoneNumberByE164(line)
+    const callbackOrganizationId =
+      callbackLine?.organization_id && !callbackLine.organization_id.startsWith("legacy-")
+        ? callbackLine.organization_id
+        : null
+
     // Shop-line “we got it” — recaps the request, invites them to text this number.
     await sendGotItHoldingCustomerSms({
       ownerUserId: owner.id,
+      organizationId: callbackOrganizationId,
       leadId: job.lead_id,
       customerPhone,
       customerName,
