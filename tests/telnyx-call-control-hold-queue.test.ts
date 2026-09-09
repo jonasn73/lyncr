@@ -59,10 +59,6 @@ vi.mock("@/lib/inbound-booking-sms", () => ({
   sendInboundBookingSmsAndTag: (...args: unknown[]) => sendInboundBookingSmsAndTag(...args),
 }))
 
-vi.mock("@/lib/elevenlabs-voices", () => ({
-  preferWorkingSpeakVoice: vi.fn((v?: string) => v || "Telnyx.NaturalHD.astra"),
-}))
-
 vi.mock("@/lib/ivr-automation-settings", () => ({
   resolveSpeakVoiceForPersona: vi.fn(() => "Telnyx.NaturalHD.astra"),
 }))

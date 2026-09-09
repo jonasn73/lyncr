@@ -38,7 +38,6 @@ import {
   CAPTURE_STATUS_HOLD_QUEUE,
 } from "@/lib/inbound-time-capture"
 import { bookingSmsConfirmSpeech, sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
-import { preferWorkingSpeakVoice } from "@/lib/elevenlabs-voices"
 import { resolveSpeakVoiceForPersona } from "@/lib/ivr-automation-settings"
 import { lyncrLog } from "@/lib/lyncr-env"
 import { resolveAiVoiceAssistantEntitlement } from "@/lib/ai-voice-entitlement"
@@ -548,11 +547,11 @@ async function startHoldMusicGather(
 
   // No music (or all paths failed) — speak a short hold line and wait for press 1.
   const text = await buildHoldRepromptText(state, callControlId)
-  let fallbackVoice = preferWorkingSpeakVoice(state.holdSpeakVoice?.trim() || "")
+  let fallbackVoice = state.holdSpeakVoice?.trim() || ""
   if (!fallbackVoice) {
     try {
       const presence = await getAccountPresence(state.userId)
-      fallbackVoice = preferWorkingSpeakVoice(resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel))
+      fallbackVoice = resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel)
     } catch {
       fallbackVoice = "Telnyx.NaturalHD.astra"
     }
@@ -600,12 +599,12 @@ async function startHoldRepromptGather(
   // Always the same short line (+ optional “you're next”); never HOLD_AWARE_BUSY_PROMPT again.
   const say = await buildHoldRepromptText({ ...state, holdPromptCount: promptCount }, callControlId)
 
-  // Same premium voice as Busy gather — but never re-use a broken ElevenLabs snapshot.
-  let speakVoice = preferWorkingSpeakVoice(state.holdSpeakVoice?.trim() || "")
+  // Same premium voice as the Busy gather.
+  let speakVoice = state.holdSpeakVoice?.trim() || ""
   if (!speakVoice) {
     try {
       const presence = await getAccountPresence(state.userId)
-      speakVoice = preferWorkingSpeakVoice(resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel))
+      speakVoice = resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel)
     } catch {
       speakVoice = "Telnyx.NaturalHD.astra"
     }

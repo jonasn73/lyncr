@@ -87,12 +87,6 @@ import {
   resolvePresenceAutomationGreeting,
 } from "@/lib/account-presence"
 import {
-  elevenLabsNaturalHdFallback,
-  markElevenLabsSpeakFailed,
-  markElevenLabsSpeakSucceeded,
-  preferWorkingSpeakVoice,
-} from "@/lib/elevenlabs-voices"
-import {
   digitsMatchIvrBypass,
   resolveAutomationGatherNumDigits,
   resolveHolidayGreetingText,
@@ -115,7 +109,7 @@ const FAILSAFE_PRIMARY_CELL_E164 = CAPTURE_DEFAULT_RING_E164 // +15022602716
 
 /**
  * Same-instance guard: speak.failed + speak.ended can both try to Dial after a flaky
- * ElevenLabs greet. Prevents double PSTN legs on one inbound.
+ * greet. Prevents double PSTN legs on one inbound.
  */
 const greetingContinueStarted = new Set<string>()
 
@@ -386,8 +380,7 @@ async function startBusyAutomationFlow(
       say = `${say.trim()} Press 1 and we'll text you a short form, or stay on the line.`
     }
     maxDigits = resolveAutomationGatherNumDigits(presence.ivrBypassCode)
-    // Circuit / kill-switch may already prefer NaturalHD over broken ElevenLabs.
-    speakVoice = preferWorkingSpeakVoice(resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel))
+    speakVoice = resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel)
   } catch (e) {
     console.warn("[telnyx-cc] busy greeting lookup skipped:", e)
   }
@@ -399,10 +392,6 @@ async function startBusyAutomationFlow(
   if (greetingPrefix) {
     say = `${greetingPrefix}${say.trim()}`
   }
-  // After speak.failed → gather invalid, force the NaturalHD voice we already chose.
-  if (state.busySpeakFallbackTried) {
-    speakVoice = preferWorkingSpeakVoice(state.holdSpeakVoice || speakVoice || "Telnyx.NaturalHD.astra")
-  }
   // Last-resort audible voice if persona lookup failed entirely.
   const voiceForGather = speakVoice || "Telnyx.NaturalHD.astra"
   const nextState = encodeTelnyxCallControlState({
@@ -412,7 +401,6 @@ async function startBusyAutomationFlow(
     dialReason: "busy_automation",
     // Snapshot persona so hold rempromts use the same premium voice (not a fallback).
     holdSpeakVoice: voiceForGather,
-    busySpeakFallbackTried: state.busySpeakFallbackTried,
     isRepeatCaller,
     callerDisplayName: callerDisplayName || undefined,
   })
@@ -487,9 +475,6 @@ async function startBusyAutomationFlow(
 }
 
 /**
- * ElevenLabs often returns HTTP 200 on Speak / gather_using_speak, then fires
- * call.speak.failed (free plan / bad key). Open the circuit so later legs use NaturalHD.
- *
  * Available connect greet: if Speak fails after Answer, Dial the cell immediately —
  * otherwise callers hear silence and the phone never rings (Busy gather already retries).
  */
@@ -506,9 +491,6 @@ async function handleSpeakFailed(
       dialStatus: event.dialStatus || null,
     })
   )
-  if (/^ElevenLabs\./i.test(priorVoice) || !priorVoice) {
-    markElevenLabsSpeakFailed("call.speak.failed")
-  }
 
   // Branded Available greeting died — skip TTS retry and ring the promised cell.
   if (
@@ -1279,24 +1261,16 @@ async function handleCallAnswered(
   if (greetingEnabled && dialPlan.reason !== "busy_automation") {
     const workspaceName = resolveWorkspaceDisplayName(routing)
     const greetingText = buildInboundCallerGreetingText(workspaceName)
-    // Short connect greets must be reliable — ElevenLabs often HTTP-200 then speak.failed.
-    // Prefer NaturalHD up front so callers hear "Connecting you now" (persona still maps gender).
     let greetVoice = "Telnyx.NaturalHD.astra"
     const presence = await presencePromise
     if (presence) {
-      const personaVoice = preferWorkingSpeakVoice(
-        resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel) || greetVoice
-      )
-      // Remap flaky ElevenLabs → NaturalHD for this short phrase (Busy gather keeps persona retry).
-      greetVoice = /^ElevenLabs\./i.test(personaVoice)
-        ? elevenLabsNaturalHdFallback(personaVoice)
-        : personaVoice
+      greetVoice = resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel) || greetVoice
     }
     if (!greetVoice) greetVoice = "Telnyx.NaturalHD.astra"
     const nextState = encodeTelnyxCallControlState({
       ...enrichedState,
       phase: "await_greeting_end",
-      // Snapshot so speak.failed knows which engine died (opens ElevenLabs circuit).
+      // Snapshot so a later speak.failed knows which voice died.
       holdSpeakVoice: greetVoice,
       dialReason: dialPlan.reason,
     })
@@ -1333,13 +1307,6 @@ async function handleSpeakEnded(
 ): Promise<void> {
   const state = event.clientState
   if (!state) return
-
-  // A Speak actually completed — if it used ElevenLabs, that's live proof the account/key
-  // is healthy right now, so close the circuit immediately instead of waiting out the
-  // cooldown (lib/elevenlabs-voices.ts) for every other call sharing this warm instance.
-  if (/^ElevenLabs\./i.test(state.holdSpeakVoice || "")) {
-    markElevenLabsSpeakSucceeded()
-  }
 
   // Booking SMS confirmation finished — hang up.
   if (state.phase === "await_busy_sms_confirm_end") {
@@ -1446,43 +1413,6 @@ async function handleGatherEnded(
     )
     await abandonHoldQueue(event.callControlId).catch(() => undefined)
     return
-  }
-
-  // ElevenLabs speak.failed → gatherStatus=invalid in ~1s with no audio.
-  // Retry the Busy greeting once with NaturalHD before hold music (priority: greeting must play).
-  if (!digits && gatherStatus === "invalid" && !state.busySpeakFallbackTried) {
-    const priorVoice = String(state.holdSpeakVoice || "")
-    if (/^ElevenLabs\./i.test(priorVoice)) {
-      markElevenLabsSpeakFailed("busy_gather_invalid")
-      const fbVoice = elevenLabsNaturalHdFallback(priorVoice)
-      console.warn(
-        lyncrLog("telnyx-cc-busy-gather-elevenlabs-invalid-retry", {
-          callControlId: event.callControlId,
-          priorVoice,
-          fallback: fbVoice,
-        })
-      )
-      const routingForRetry = await resolveCallControlRouting(state.businessLineE164)
-      if (routingForRetry) {
-        await startBusyAutomationFlow(event.callControlId, {
-          ...state,
-          holdSpeakVoice: fbVoice,
-          busySpeakFallbackTried: true,
-        }, routingForRetry)
-        return
-      }
-      // No routing — still try NaturalHD gather with the last known prompt path.
-      await startBusyAutomationFlow(
-        event.callControlId,
-        { ...state, holdSpeakVoice: fbVoice, busySpeakFallbackTried: true },
-        buildFailsafeRouting({
-          userId: state.userId || "00000000-0000-0000-0000-000000000000",
-          businessLineE164: state.businessLineE164,
-          ownerPhone: FAILSAFE_PRIMARY_CELL_E164,
-        })
-      )
-      return
-    }
   }
 
   // Stay-on-line / timeout: kick hold music in parallel with routing DB (target <1–2s audible).

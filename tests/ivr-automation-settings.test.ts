@@ -1,8 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 import {
   digitsMatchIvrBypass,
   defaultIvrVoiceEngineModel,
-  ELEVENLABS_DEFAULT_IVR_VOICE_ENGINE_MODEL,
   isHolidayOverrideActive,
   IVR_VOICE_PERSONA_OPTIONS,
   normalizeIvrBypassCode,
@@ -14,45 +13,15 @@ import {
 } from "@/lib/ivr-automation-settings"
 import { buildAutomationPresenceGatherXml } from "@/lib/ivr-automation-texml"
 import { DEFAULT_ACCOUNT_PRESENCE } from "@/lib/account-presence"
-import {
-  ELEVENLABS_VOICE_IDS,
-  elevenLabsCallControlVoice,
-  markElevenLabsSpeakFailed,
-  normalizeElevenLabsCallControlVoice,
-  resetElevenLabsSpeakCircuitForTests,
-} from "@/lib/elevenlabs-voices"
 
 describe("ivr automation settings", () => {
-  const prevEleven = process.env.ELEVENLABS_API_KEY
-  const prevRef = process.env.TELNYX_ELEVENLABS_API_KEY_REF
-  const prevDisabled = process.env.LYNCR_ELEVENLABS_DISABLED
-
-  afterEach(() => {
-    if (prevEleven === undefined) delete process.env.ELEVENLABS_API_KEY
-    else process.env.ELEVENLABS_API_KEY = prevEleven
-    if (prevRef === undefined) delete process.env.TELNYX_ELEVENLABS_API_KEY_REF
-    else process.env.TELNYX_ELEVENLABS_API_KEY_REF = prevRef
-    if (prevDisabled === undefined) delete process.env.LYNCR_ELEVENLABS_DISABLED
-    else process.env.LYNCR_ELEVENLABS_DISABLED = prevDisabled
-    resetElevenLabsSpeakCircuitForTests()
-  })
-
   it("maps voice personas to Polly TeXML voices", () => {
     expect(resolveIvrTexmlVoice("en-US-Standard-C")).toBe("Polly.Joanna-Neural")
     expect(resolveIvrTexmlVoice("en-US-Standard-B")).toBe("Polly.Matthew-Neural")
     expect(resolveIvrTexmlVoice("Polly.Joanna-Neural")).toBe("Polly.Joanna-Neural")
   })
 
-  it("maps voice personas to Call Control Speak voices (ElevenLabs + NaturalHD)", () => {
-    expect(resolveIvrCallControlVoice("en-US-ElevenLabs-Rachel")).toBe(
-      elevenLabsCallControlVoice(ELEVENLABS_VOICE_IDS.rachel)
-    )
-    expect(resolveIvrCallControlVoice("en-US-ElevenLabs-Bella")).toBe(
-      elevenLabsCallControlVoice(ELEVENLABS_VOICE_IDS.bella)
-    )
-    expect(resolveIvrCallControlVoice("en-US-ElevenLabs-Adam")).toBe(
-      elevenLabsCallControlVoice(ELEVENLABS_VOICE_IDS.adam)
-    )
+  it("maps voice personas to Call Control Speak voices (NaturalHD / Polly)", () => {
     expect(resolveIvrCallControlVoice("en-US-Standard-C")).toBe("Telnyx.NaturalHD.astra")
     expect(resolveIvrCallControlVoice("en-US-NaturalHD-Luna")).toBe("Telnyx.NaturalHD.luna")
     expect(resolveIvrCallControlVoice("en-US-NaturalHD-Albion")).toBe("Telnyx.NaturalHD.albion")
@@ -67,90 +36,28 @@ describe("ivr automation settings", () => {
     expect(resolveIvrCallControlVoice("Polly.Joanna-Neural")).toBe("AWS.Polly.Joanna-Neural")
   })
 
-  it("normalizes legacy ElevenLabs.Rachel short names to model.voiceId", () => {
-    expect(normalizeElevenLabsCallControlVoice("ElevenLabs.Rachel")).toBe(
-      elevenLabsCallControlVoice(ELEVENLABS_VOICE_IDS.rachel)
+  it("maps a legacy stored ElevenLabs persona/voice to NaturalHD (retired provider)", () => {
+    expect(resolveIvrCallControlVoice("en-US-ElevenLabs-Rachel")).toBe("Telnyx.NaturalHD.astra")
+    expect(resolveIvrCallControlVoice("en-US-ElevenLabs-Adam")).toBe("Telnyx.NaturalHD.astra")
+    expect(resolveIvrCallControlVoice("ElevenLabs.eleven_multilingual_v2.adam")).toBe(
+      "Telnyx.NaturalHD.albion"
     )
-    expect(normalizeElevenLabsCallControlVoice("ElevenLabs.Adam")).toBe(
-      elevenLabsCallControlVoice(ELEVENLABS_VOICE_IDS.adam)
-    )
-  })
-
-  it("falls back ElevenLabs personas to NaturalHD when API key missing", () => {
-    delete process.env.ELEVENLABS_API_KEY
-    delete process.env.TELNYX_ELEVENLABS_API_KEY_REF
-    delete process.env.LYNCR_ELEVENLABS_DISABLED
-    expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe("Telnyx.NaturalHD.astra")
-    expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Bella")).toBe("Telnyx.NaturalHD.astra")
-    expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Adam")).toBe("Telnyx.NaturalHD.albion")
-  })
-
-  it("keeps ElevenLabs Speak voice when API key present and circuit open not set", () => {
-    process.env.ELEVENLABS_API_KEY = "test-key"
-    delete process.env.LYNCR_ELEVENLABS_DISABLED
-    expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe(
-      elevenLabsCallControlVoice(ELEVENLABS_VOICE_IDS.rachel)
-    )
-    expect(defaultIvrVoiceEngineModel()).toBe(ELEVENLABS_DEFAULT_IVR_VOICE_ENGINE_MODEL)
-  })
-
-  it("forces NaturalHD when LYNCR_ELEVENLABS_DISABLED=1", () => {
-    process.env.ELEVENLABS_API_KEY = "test-key"
-    process.env.LYNCR_ELEVENLABS_DISABLED = "1"
-    expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe("Telnyx.NaturalHD.astra")
-    expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Adam")).toBe("Telnyx.NaturalHD.albion")
-  })
-
-  it("forces NaturalHD after runtime speak.failed circuit opens", () => {
-    process.env.ELEVENLABS_API_KEY = "test-key"
-    delete process.env.LYNCR_ELEVENLABS_DISABLED
-    markElevenLabsSpeakFailed("test")
     expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe("Telnyx.NaturalHD.astra")
   })
 
-  it("self-heals back to ElevenLabs after the cooldown, instead of degrading forever on a warm instance", () => {
-    // A Fluid Compute instance can stay warm across many unrelated calls/accounts for a
-    // long time — one transient failure must not silently downgrade "best quality" voice
-    // until the next cold start, with no automatic recovery (markElevenLabsSpeakSucceeded
-    // was never actually called anywhere in the app).
-    process.env.ELEVENLABS_API_KEY = "test-key"
-    delete process.env.LYNCR_ELEVENLABS_DISABLED
-    vi.useFakeTimers()
-    try {
-      markElevenLabsSpeakFailed("test")
-      expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe("Telnyx.NaturalHD.astra")
-
-      vi.advanceTimersByTime(4 * 60 * 1000)
-      expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe("Telnyx.NaturalHD.astra")
-
-      vi.advanceTimersByTime(2 * 60 * 1000)
-      expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe(
-        elevenLabsCallControlVoice(ELEVENLABS_VOICE_IDS.rachel)
-      )
-    } finally {
-      vi.useRealTimers()
-    }
+  it("defaults new accounts to a NaturalHD persona (no third-party TTS)", () => {
+    expect(defaultIvrVoiceEngineModel()).toBe("en-US-Standard-C")
   })
 
-  it("orders personas with Best labels first (plain English, no vendor names)", () => {
-    expect(IVR_VOICE_PERSONA_OPTIONS[0].id).toBe("en-US-ElevenLabs-Rachel")
-    expect(IVR_VOICE_PERSONA_OPTIONS[1].id).toBe("en-US-ElevenLabs-Bella")
-    expect(IVR_VOICE_PERSONA_OPTIONS[2].id).toBe("en-US-ElevenLabs-Adam")
-    expect(IVR_VOICE_PERSONA_OPTIONS[0].callControlVoice).toContain(ELEVENLABS_VOICE_IDS.rachel)
-    expect(IVR_VOICE_PERSONA_OPTIONS.map((o) => o.label).join(" ")).toMatch(/★ Best/)
-    // Owner-facing labels stay free of engine / vendor jargon.
+  it("has no ElevenLabs or other third-party TTS options in the persona list", () => {
+    expect(IVR_VOICE_PERSONA_OPTIONS.some((o) => "requiresElevenLabs" in o)).toBe(false)
+    const allVoices = IVR_VOICE_PERSONA_OPTIONS.map((o) => o.callControlVoice).join(" ")
+    expect(allVoices).not.toMatch(/ElevenLabs/i)
+    // Owner-facing labels/descriptions stay free of engine / vendor jargon.
     const labels = IVR_VOICE_PERSONA_OPTIONS.map((o) => o.label).join(" ")
-    expect(labels).not.toMatch(/ElevenLabs|NaturalHD|Polly|Telnyx|Rachel|Bella|Adam/i)
-    expect(IVR_VOICE_PERSONA_OPTIONS.map((o) => o.label)).toEqual(
-      expect.arrayContaining([
-        "★ Best · Calm woman",
-        "★ Best · Warm woman",
-        "★ Best · Calm man",
-        "Calm woman",
-      ])
-    )
+    expect(labels).not.toMatch(/ElevenLabs|NaturalHD|Polly|Telnyx/i)
     const descriptions = IVR_VOICE_PERSONA_OPTIONS.map((o) => o.description).join(" ")
-    expect(descriptions).not.toMatch(/ElevenLabs|NaturalHD|Polly|Telnyx|ELEVENLABS|Vercel|Integration Secret/i)
+    expect(descriptions).not.toMatch(/ElevenLabs|NaturalHD|Polly|Telnyx|Vercel|Integration Secret/i)
   })
 
   it("normalizes bypass codes and match digits", () => {

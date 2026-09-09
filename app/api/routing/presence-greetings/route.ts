@@ -12,7 +12,6 @@ import { getAccountHoldSettings, setAccountHoldSettings } from "@/lib/call-queue
 import { holdMaxWaitSecs, holdRePromptIntervalMs } from "@/lib/hold-queue"
 import {
   defaultIvrVoiceEngineModel,
-  elevenLabsKeyConfigured,
   IVR_VOICE_PERSONA_OPTIONS,
 } from "@/lib/ivr-automation-settings"
 
@@ -72,12 +71,10 @@ function serializePresence(
       closedGreetingText: DEFAULT_CLOSED_GREETING_TEXT,
       ivrVoiceEngineModel: defaultIvrVoiceEngineModel(),
     },
-    elevenLabsEnabled: elevenLabsKeyConfigured(),
     voicePersonas: IVR_VOICE_PERSONA_OPTIONS.map((o) => ({
       id: o.id,
       label: o.label,
       description: o.description,
-      requiresElevenLabs: "requiresElevenLabs" in o && o.requiresElevenLabs === true,
     })),
   }
 }

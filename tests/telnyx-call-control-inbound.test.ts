@@ -1060,7 +1060,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
   })
 
   it("speak.failed after Available greet dials cell (no silent hang)", async () => {
-    // Production: ElevenLabs Speak HTTP 200 then call.speak.failed — speak.ended never
+    // Production: Speak HTTP 200 then call.speak.failed — speak.ended never
     // arrived and the owner cell never rang. Recover by Dialing immediately.
     vi.doMock("@/lib/db", () => ({
       getIncomingRoutingForVoiceWebhook: vi.fn(() =>
@@ -1104,7 +1104,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       ringTimeoutSec: 30,
       fallbackType: "voicemail",
       dialReason: "day_dial",
-      holdSpeakVoice: "ElevenLabs.eleven_multilingual_v2.21m00Tcm4TlvDq8ikWAM",
+      holdSpeakVoice: "Telnyx.NaturalHD.astra",
     })
 
     const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
@@ -1345,7 +1345,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     const speakCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/speak"))
     expect(speakCall).toBeTruthy()
     const speakBody = JSON.parse(String(speakCall![1].body))
-    // Available connect greet uses NaturalHD (not flaky ElevenLabs) so callers hear audio.
+    // Available connect greet uses NaturalHD so callers hear audio.
     expect(String(speakBody.voice || "")).toMatch(/^Telnyx\.NaturalHD\./i)
     const dialCall = fetchMock.mock.calls.find(
       (c) => String(c[0]).includes("/v2/calls") && !String(c[0]).includes("/actions/")
@@ -2404,59 +2404,6 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(gatherBody.payload).not.toContain("Hey ")
     expect(gatherBody.payload).not.toContain("trying us again")
     expect(gatherBody.payload).toContain("We are with another customer.")
-  })
-
-  it("call.speak.ended on an ElevenLabs voice closes the circuit immediately (best-quality self-heal)", async () => {
-    vi.stubEnv("ELEVENLABS_API_KEY", "test-key")
-
-    vi.doMock("@/lib/db", () => ({
-      updateCallLog: vi.fn(() => Promise.resolve()),
-      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
-      normalizePhoneNumberE164: (p: string) => p,
-    }))
-
-    // Dynamic imports so this resolves to the exact same module graph the code under
-    // test uses in this file's vi.resetModules()-per-test setup (a static top-of-file
-    // import would bind to a stale pre-reset instance and never see the update).
-    const {
-      elevenLabsCallControlVoice,
-      ELEVENLABS_VOICE_IDS,
-      elevenLabsSpeakRuntimeAllowed,
-      markElevenLabsSpeakFailed,
-      resetElevenLabsSpeakCircuitForTests,
-    } = await import("@/lib/elevenlabs-voices")
-    resetElevenLabsSpeakCircuitForTests()
-    markElevenLabsSpeakFailed("prior_test_failure")
-    expect(elevenLabsSpeakRuntimeAllowed()).toBe(false)
-
-    const confirmState = encodeTelnyxCallControlState({
-      v: 1,
-      phase: "await_busy_sms_confirm_end",
-      userId: "u1",
-      businessLineE164: "+15555571219",
-      callerE164: "+15551230000",
-      holdSpeakVoice: elevenLabsCallControlVoice(ELEVENLABS_VOICE_IDS.rachel),
-      dialReason: "busy_automation",
-      fallbackType: "voicemail",
-    })
-
-    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
-    await handleTelnyxCallControlVoiceWebhook({
-      data: {
-        event_type: "call.speak.ended",
-        id: "evt-speak-end-elevenlabs-ok",
-        payload: {
-          call_control_id: "cc-speak-ok",
-          from: "+15551230000",
-          to: "+15555571219",
-          direction: "incoming",
-          client_state: confirmState,
-        },
-      },
-    })
-
-    expect(elevenLabsSpeakRuntimeAllowed()).toBe(true)
-    resetElevenLabsSpeakCircuitForTests()
   })
 
   it("a missing customer-name lookup does not break the repeat-caller signal", async () => {

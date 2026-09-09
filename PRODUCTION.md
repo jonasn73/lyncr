@@ -38,12 +38,8 @@ In your Vercel project: **Settings → Environment Variables**. Add:
 | `LYNCR_HOLD_MAX_WAIT_SECS` | Optional. Max hold wait before one SMS + hangup (default **600**). Per-account override in Greetings (migration **130**). |
 | `LYNCR_HOLD_REPROMPT_MS` | Optional. Hold music segment length in ms between re-prompts (default **45000**). Per-account seconds override in Greetings (migration **130**). |
 | `LYNCR_HOLD_MAX_CONCURRENT` | Optional. Cap waiting holds per account (default **3**). |
-| `LYNCR_CALL_CONTROL_SPEAK_VOICE` | Optional ops override **only when no AI Voice Persona is saved**, or when `LYNCR_CALL_CONTROL_SPEAK_VOICE_FORCE=1`. Saved Greetings persona wins by default. ★ Best = **ElevenLabs Rachel** when wired, else **`Telnyx.NaturalHD.astra`**. Examples: `AWS.Polly.Joanna-Neural`, `Telnyx.NaturalHD.astra`, `ElevenLabs.eleven_multilingual_v2.21m00Tcm4TlvDq8ikWAM`. |
+| `LYNCR_CALL_CONTROL_SPEAK_VOICE` | Optional ops override **only when no AI Voice Persona is saved**, or when `LYNCR_CALL_CONTROL_SPEAK_VOICE_FORCE=1`. Saved Greetings persona wins by default. ★ Best = **`Telnyx.NaturalHD.astra`**. Examples: `AWS.Polly.Joanna-Neural`, `Telnyx.NaturalHD.astra`. |
 | `LYNCR_CALL_CONTROL_SPEAK_VOICE_FORCE` | Set `1` to force `LYNCR_CALL_CONTROL_SPEAK_VOICE` over the saved persona. |
-| `ELEVENLABS_API_KEY` | Optional **server-only** (never `NEXT_PUBLIC_`). Enables ★ Best ElevenLabs personas on Call Control Speak / Busy gather / hold re-prompt. Lyncr auto-creates a Telnyx Mission Control **Integration Secret** named `lyncr_elevenlabs` from this key on first Speak. Without it, ElevenLabs personas fall back to NaturalHD. |
-| `TELNYX_ELEVENLABS_API_KEY_REF` | Optional. Mission Control secret **identifier** passed as `voice_settings.api_key_ref` (default **`lyncr_elevenlabs`**). Set this if you created the secret manually under a different name. |
-| `TELNYX_ELEVENLABS_SKIP_AUTO_SECRET` | Optional. Set `1` to skip auto-create of the Telnyx integration secret (you already pasted the key in Mission Control). |
-| `LYNCR_ELEVENLABS_DISABLED` | Optional. Set `1` to **never** use ElevenLabs Speak (always NaturalHD for ★ Best personas). Use until a paid ElevenLabs plan works with Telnyx. |
 | `LYNCR_CALL_CONTROL_SPEAK_RATE` | Optional Polly SSML rate for Call Control (default **`1.05`** — slightly conversational). Set `1` or `off` to disable. NaturalHD ignores this (plain text). |
 | `LYNCR_TEXML_SAY_VOICE` | Optional. TeXML `<Say>` voice. Default **`Polly.Joanna-Neural`**. |
 | `LYNCR_VOICE_DEBUG_LOGS` | Optional. `1` restores verbose voice JSON logs in production. |
@@ -61,7 +57,7 @@ The app was renamed from **Zing**. All voice/Call Control env vars now read `LYN
 | `LYNCR_TELNYX_FALLBACK_DIAGNOSTIC` | Optional. If `true` / `1`: log **`lyncr: telnyx-fallback-diagnostic`** per Dial `action` request (PII-redacted form fields + routing snapshot). Use when debugging; turn off after. See **`tests/fixtures/telnyx-fallback/README.md`**. |
 | `LYNCR_INBOUND_RECEPTIONIST_WHISPER` | Optional **global** kill switch. Set to **`0`**, **`false`**, or **`no`** to disable the short callee-only whisper for **all** accounts on this deployment. Per-user default is **on** in Settings unless turned off there. Whisper text is **account business name** (from Settings) **then** the line label / friendly number / last four digits. |
 | `LYNCR_TEXML_SAY_VOICE` | Optional. **Polly / Google neural** voice id for TeXML `<Say>` (whisper, voicemail prompts, IVR). Default **`Polly.Joanna-Neural`**. Set e.g. `Polly.Matthew-Neural` or `Google.en-US-Neural2-F` if Telnyx accepts it on your account. |
-| `LYNCR_CALL_CONTROL_SPEAK_VOICE` | Optional. Voice for **Call Control** `speak` / Busy menus (Key Squad production). Prefer **`LYNCR_CALL_CONTROL_SPEAK_VOICE`**. When unset, Greetings **AI Voice Persona** drives the voice (Reassuring Female → **`Telnyx.NaturalHD.astra`**). Must use Telnyx Call Control format (`AWS.Polly.*`, `Azure.*`, `Telnyx.NaturalHD.astra`, or `ElevenLabs.…`). Bare `Polly.*` is auto-upgraded to `AWS.Polly.*`. |
+| `LYNCR_CALL_CONTROL_SPEAK_VOICE` | Optional. Voice for **Call Control** `speak` / Busy menus (Key Squad production). Prefer **`LYNCR_CALL_CONTROL_SPEAK_VOICE`**. When unset, Greetings **AI Voice Persona** drives the voice (Reassuring Female → **`Telnyx.NaturalHD.astra`**). Must use Telnyx Call Control format (`AWS.Polly.*`, `Azure.*`, `Telnyx.NaturalHD.astra`). Bare `Polly.*` is auto-upgraded to `AWS.Polly.*`. |
 | `LYNCR_INBOUND_INSTANT_GREETING_AUDIO_URL` | Optional. Public **HTTPS URL** to a WAV/MP3 human greeting for TeXML inbound pass-1 (`<Play>` instead of TTS). Host the file (e.g. Vercel public folder or CDN). |
 | `LYNCR_TEXML_SAY_LANGUAGE` | Optional. BCP-47 language for `<Say>` (default **`en-US`**). |
 | `LYNCR_TEXML_SAY_RATE` | Optional. When set to a number **≠ 1** (e.g. **`1.08`**), `<Say>` wraps text in SSML `<prosody rate="…">`. **Default is off (plain text):** omit this variable. Telnyx often **reads SSML tags as words** (“prosody…”) — use plain default or set `LYNCR_TEXML_SAY_SSML` to **`false`**. |
@@ -74,23 +70,6 @@ The app was renamed from **Zing**. All voice/Call Control env vars now read `LYN
 | `TELNYX_AI_EXPRESSIVE` | Optional. Set **`0`** / **`false`** to skip **`expressive_mode`** when using **`Telnyx.Ultra.*`** voices. Default enables expressive for Ultra. |
 
 Save and **redeploy** the project (Deployments → … → Redeploy).
-
-### ElevenLabs Busy / hold Speak (optional ★ Best voices)
-
-Telnyx Call Control Speak uses **your** ElevenLabs account. Format: `ElevenLabs.eleven_multilingual_v2.<voiceId>` plus `voice_settings.api_key_ref`.
-
-1. **Vercel** → Project → **Settings → Environment Variables** → add **`ELEVENLABS_API_KEY`** (Production; not `NEXT_PUBLIC_`) → Redeploy.
-2. **Automatic (preferred):** On the first Busy Speak, lyncr creates a Telnyx Integration Secret named **`lyncr_elevenlabs`** from that key (needs `TELNYX_API_KEY`).
-3. **Manual (if auto-create fails):** Telnyx Mission Control → **[Integration Secrets](https://portal.telnyx.com/#/app/integration-secrets)** → **Create** → Identifier **`lyncr_elevenlabs`** (or set `TELNYX_ELEVENLABS_API_KEY_REF` to your name) → Type **Bearer** → paste the same ElevenLabs API key → Save.
-4. Greetings → AI Voice Persona → choose **★ Best · Calm woman (ElevenLabs Rachel)** → Save → place a Busy test call.
-
-ElevenLabs **free** plans often reject Telnyx relay traffic — a **paid ElevenLabs plan** is usually required. Telnyx may return HTTP 200 on `gather_using_speak`, then fire **`call.speak.failed`** (silent greeting). Lyncr then:
-
-1. Retries the **same Busy call** immediately with **NaturalHD Astra/Albion** (so the greeting still plays).
-2. Opens a short-lived **circuit** so later Speak/reprompts on that instance skip ElevenLabs.
-3. Honors **`LYNCR_ELEVENLABS_DISABLED=1`** on Vercel to never attempt ElevenLabs until you upgrade the plan.
-
-Also needs a Telnyx Mission Control **Integration Secret** (`lyncr_elevenlabs` / `TELNYX_ELEVENLABS_API_KEY_REF`) — auto-created from `ELEVENLABS_API_KEY` when possible.
 
 ### AI receptionist (Telnyx Voice AI)
 

@@ -2,11 +2,10 @@
 // TeXML <Say> + Call Control Speak — natural TTS
 // ============================================
 // TeXML accepts `Polly.*-Neural`. Call Control Speak needs `AWS.Polly.*-Neural`
-// (or Azure / Telnyx / ElevenLabs). Sending bare `Polly.*` on Call Control often falls back
+// (or Azure / Telnyx). Sending bare `Polly.*` on Call Control often falls back
 // to a basic robotic voice — that was the Key Squad Busy / Available greet issue.
 // Optional SSML <prosody rate="…"> slightly speeds TeXML delivery (see LYNCR_TEXML_SAY_RATE).
 
-import { normalizeElevenLabsCallControlVoice } from "@/lib/elevenlabs-voices"
 import { VoiceResponse } from "@/lib/telnyx"
 import { envLyncr } from "@/lib/lyncr-env"
 
@@ -45,18 +44,17 @@ export function cleanTextForTTS(text: string): string {
  * Map a TeXML / legacy voice id into a Call Control Speak `voice` string.
  * - `Polly.Joanna-Neural` → `AWS.Polly.Joanna-Neural`
  * - `alice` / `man` / `woman` → NaturalHD astra (avoid robotic basic engine)
- * - Already-prefixed AWS / Azure / Telnyx / ElevenLabs / etc. pass through
+ * - A legacy stored `ElevenLabs.*` (retired third-party TTS) maps to NaturalHD astra
+ * - Already-prefixed AWS / Azure / Telnyx / etc. pass through
  */
 export function normalizeCallControlSpeakVoice(voice: string | null | undefined): string {
   const raw = String(voice ?? "").trim()
   if (!raw) return DEFAULT_CALL_CONTROL_SPEAK_VOICE
+  if (/^ElevenLabs\./i.test(raw)) return DEFAULT_CALL_CONTROL_SPEAK_VOICE
   // Already a Call Control provider voice — keep as-is.
   if (
-    /^(AWS\.|Azure\.|ElevenLabs\.|Telnyx\.|Google\.|Minimax\.|Rime\.|Resemble\.|Inworld\.|FishAudio\.|xAI\.)/i.test(
-      raw
-    )
+    /^(AWS\.|Azure\.|Telnyx\.|Google\.|Minimax\.|Rime\.|Resemble\.|Inworld\.|FishAudio\.|xAI\.)/i.test(raw)
   ) {
-    if (/^ElevenLabs\./i.test(raw)) return normalizeElevenLabsCallControlVoice(raw)
     return raw
   }
   // TeXML Polly id → AWS Polly on Call Control Speak.
