@@ -4229,25 +4229,36 @@ export async function getPlatformCallHealthSummary(days = 7): Promise<{
     setup_duration_ms: number | null
     post_dial_delay_ms: number | null
   }
-  let rows: Row[]
+  let rawRows: Record<string, unknown>[]
   try {
-    rows = (await sql`
+    rawRows = (await sql`
       SELECT status, routed_to_name, answered_at, ended_at, duration_seconds,
              setup_duration_ms, post_dial_delay_ms
       FROM call_logs
       WHERE call_type = 'incoming'
         AND created_at >= now() - (${days}::numeric * interval '1 day')
-    `) as unknown as Row[]
+    `) as Record<string, unknown>[]
   } catch (e) {
     if (!isMissingCallQualityColumnsError(e)) throw e
-    rows = (await sql`
+    rawRows = (await sql`
       SELECT status, routed_to_name, answered_at, ended_at, duration_seconds,
              NULL::int AS setup_duration_ms, NULL::int AS post_dial_delay_ms
       FROM call_logs
       WHERE call_type = 'incoming'
         AND created_at >= now() - (${days}::numeric * interval '1 day')
-    `) as unknown as Row[]
+    `) as Record<string, unknown>[]
   }
+  // The Neon driver returns timestamptz columns as Date objects, not strings — isMissedCallRecord
+  // calls .trim() on answered_at/ended_at expecting a string, which throws on a Date.
+  const rows: Row[] = rawRows.map((row) => ({
+    status: row.status != null ? String(row.status) : null,
+    routed_to_name: row.routed_to_name != null ? String(row.routed_to_name) : null,
+    answered_at: row.answered_at instanceof Date ? row.answered_at.toISOString() : (row.answered_at as string | null),
+    ended_at: row.ended_at instanceof Date ? row.ended_at.toISOString() : (row.ended_at as string | null),
+    duration_seconds: row.duration_seconds != null ? Number(row.duration_seconds) : null,
+    setup_duration_ms: row.setup_duration_ms != null ? Number(row.setup_duration_ms) : null,
+    post_dial_delay_ms: row.post_dial_delay_ms != null ? Number(row.post_dial_delay_ms) : null,
+  }))
 
   const missedByRoute = new Map<string, number>()
   let missedCalls = 0
@@ -5392,15 +5403,18 @@ export async function listTodaysCallLogsForCaller(
       ORDER BY created_at DESC
       LIMIT ${limit}
     `
-    return rows as Array<{
-      id: string
-      from_number: string | null
-      created_at: string
-      call_type: string | null
-      status: string | null
-      answered_at: string | null
-      ended_at: string | null
-    }>
+    // The Neon driver returns timestamptz columns as Date objects, not strings — callers
+    // (resolveRepeatCallerUrgency → isMissedCallRecord) call .trim() on answered_at/ended_at
+    // expecting a string, which throws on a Date. Normalize here rather than at every call site.
+    return (rows as Record<string, unknown>[]).map((row) => ({
+      id: String(row.id),
+      from_number: row.from_number != null ? String(row.from_number) : null,
+      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+      call_type: row.call_type != null ? String(row.call_type) : null,
+      status: row.status != null ? String(row.status) : null,
+      answered_at: row.answered_at instanceof Date ? row.answered_at.toISOString() : (row.answered_at as string | null),
+      ended_at: row.ended_at instanceof Date ? row.ended_at.toISOString() : (row.ended_at as string | null),
+    }))
   } catch (e) {
     if (isUndefinedRelationError(e, "call_logs")) return []
     console.warn("[db] listTodaysCallLogsForCaller failed:", e)
