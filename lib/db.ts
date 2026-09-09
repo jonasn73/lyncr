@@ -3995,13 +3995,23 @@ export async function recordCallStatusEvent(
             WHEN ${normalizedStatus} IN ('completed', 'busy', 'failed', 'no-answer', 'canceled') THEN ${occurredAt}
             ELSE cl.ended_at
           END,
+          -- Ring-to-answer latency, stamped once at the first answer/in-progress
+          -- transition. Must NOT re-fire on a later 'completed' (hangup) — that used
+          -- (occurredAt - first_ring_at) at hangup time, i.e. the *entire call length*,
+          -- silently replacing a real ~1-3s setup metric with e.g. 660000ms for an
+          -- 11-minute hold call. That is why every "setup"/"post-dial delay" reading
+          -- on the admin call-quality board matched call duration instead of latency.
           setup_duration_ms = CASE
-            WHEN ${normalizedStatus} IN ('answered', 'in-progress', 'completed') AND cl.first_ring_at IS NOT NULL THEN
+            WHEN ${normalizedStatus} IN ('answered', 'in-progress')
+              AND cl.first_ring_at IS NOT NULL
+              AND cl.setup_duration_ms IS NULL THEN
               EXTRACT(EPOCH FROM (${occurredAt} - cl.first_ring_at))::int * 1000
             ELSE cl.setup_duration_ms
           END,
           post_dial_delay_ms = CASE
-            WHEN ${normalizedStatus} IN ('answered', 'in-progress', 'completed') AND cl.first_ring_at IS NOT NULL THEN
+            WHEN ${normalizedStatus} IN ('answered', 'in-progress')
+              AND cl.first_ring_at IS NOT NULL
+              AND cl.post_dial_delay_ms IS NULL THEN
               EXTRACT(EPOCH FROM (${occurredAt} - cl.first_ring_at))::int * 1000
             ELSE cl.post_dial_delay_ms
           END
