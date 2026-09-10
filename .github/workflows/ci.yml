@@ -46,12 +46,28 @@ jobs:
         working-directory: mobile
         run: npm run typecheck
 
+      - name: Mobile lint
+        working-directory: mobile
+        run: npm run lint
+
+      - name: Mobile tests
+        working-directory: mobile
+        run: npm test
+
       # Non-blocking (continue-on-error): 5 known prod vulnerabilities as of 2026-09-10, both
       # requiring a breaking major-version bump (@telnyx/webrtc, @stripe/terminal-js — live
       # calling and card-present payments) that needs real regression testing, not
       # `npm audit fix --force` on a whim. Visible on every run so it can't silently regress
       # further; make it blocking once those two upgrades are done and reviewed.
       - name: Dependency audit (informational)
+        continue-on-error: true
+        run: npm audit --omit=dev
+
+      # Same treatment: 37 remaining after a safe `npm audit fix` (2026-09-10), all inside
+      # Expo/Metro's own toolchain (@expo/config-plugins, ws in metro/react-devtools-core) —
+      # forcing majors there needs a real device build + smoke test, not a blind CI fix.
+      - name: Mobile dependency audit (informational)
+        working-directory: mobile
         continue-on-error: true
         run: npm audit --omit=dev
 

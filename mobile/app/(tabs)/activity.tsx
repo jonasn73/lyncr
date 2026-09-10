@@ -117,7 +117,7 @@ export default function ActivityScreen() {
         else setError(err instanceof Error ? err.message : "Failed to load")
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [router])
 
   const missedCount = useMemo(() => calls.filter((call) => isMissedCallToday(call)).length, [calls])
 

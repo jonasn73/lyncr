@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native"
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native"
 import { useRouter } from "expo-router"
 import { apiGet } from "../../lib/api"
 
@@ -36,7 +36,7 @@ export default function DashboardScreen() {
         else setError(err instanceof Error ? err.message : "Failed to load")
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [router])
 
   if (loading) {
     return (

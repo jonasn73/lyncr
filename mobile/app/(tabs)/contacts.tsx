@@ -25,7 +25,7 @@ export default function ContactsScreen() {
         else setError(err instanceof Error ? err.message : "Failed to load")
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [router])
 
   if (loading) {
     return (

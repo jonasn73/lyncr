@@ -41,7 +41,7 @@ export default function PayScreen() {
         else setError(err instanceof Error ? err.message : "Failed to load")
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [router])
 
   if (loading) {
     return (
