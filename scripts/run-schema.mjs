@@ -1,8 +1,13 @@
 /**
+ * Superseded by scripts/migrate.mjs (`npm run db:schema` now runs that instead) — this only
+ * ever applied migrations 001-004, so a database bootstrapped from it was missing ~160
+ * migrations' worth of the real schema. Left in place for anyone with a direct reference to
+ * it, but new setups should not use this file.
+ *
  * Run the lyncr Postgres schema (creates tables).
  * Loads DATABASE_URL from .env.local and runs scripts/001-create-schema.sql
  *
- * Usage: npm run db:schema  (or: node scripts/run-schema.mjs)
+ * Usage: node scripts/run-schema.mjs (deprecated — use `npm run db:schema`)
  */
 
 import { readFileSync } from "fs"

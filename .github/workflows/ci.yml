@@ -46,6 +46,48 @@ jobs:
         working-directory: mobile
         run: npm run typecheck
 
+  db-bootstrap:
+    name: fresh database bootstrap
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Proves scripts/migrate.mjs actually brings an empty database up to today's real schema —
+    # the gap this replaced: db:schema used to only apply migrations 001-004, so nothing ever
+    # verified a truly fresh environment could reach production's current state.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: lyncr
+          POSTGRES_PASSWORD: lyncr
+          POSTGRES_DB: lyncr_bootstrap_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Bootstrap a fresh database from the baseline snapshot
+        run: npm run db:schema
+        env:
+          DATABASE_URL: postgresql://lyncr:lyncr@localhost:5432/lyncr_bootstrap_test
+
+      - name: Bootstrap must be idempotent (no-op on a second run)
+        run: npm run db:schema
+        env:
+          DATABASE_URL: postgresql://lyncr:lyncr@localhost:5432/lyncr_bootstrap_test
+
 # Deliberately not running eslint here. It reports ~305 errors on main today
 # (verified 2026-09-10 — the eslint.config.mjs ignores didn't exclude .claude/**,
 # so a naive run also picks up ~2,000 more from stale build output in leftover
