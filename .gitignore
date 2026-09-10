@@ -18,6 +18,11 @@ node_modules/
 data/*.bak
 data/*.bak
 
+# Playwright E2E run output
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
 # Claude Code session checkpoints (per-session, not shared); launch.json IS shared
 .claude/RESUME.md
 .claude/*.lock

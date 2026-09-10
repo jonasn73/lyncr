@@ -97,6 +97,58 @@ jobs:
         env:
           DATABASE_URL: postgresql://lyncr:lyncr@localhost:5432/lyncr_bootstrap_test
 
+  e2e:
+    name: end-to-end (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # RESEND_API_KEY / TELNYX_API_KEY are deliberately not set — every email/SMS send path in
+    # this codebase already fails soft rather than throwing when they're missing (see
+    # playwright.config.ts's top comment), so signup/booking/password-reset flows complete
+    # normally for testing without contacting a real third party or spending money.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: lyncr
+          POSTGRES_PASSWORD: lyncr
+          POSTGRES_DB: lyncr_e2e_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://lyncr:lyncr@localhost:5432/lyncr_e2e_test
+      SESSION_SECRET: ci-e2e-session-secret-not-for-production-use
+      NEXT_PUBLIC_APP_URL: http://localhost:3100
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E suite
+        run: npm run e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
 # Deliberately not running eslint here. It reports ~305 errors on main today
 # (verified 2026-09-10 — the eslint.config.mjs ignores didn't exclude .claude/**,
 # so a naive run also picks up ~2,000 more from stale build output in leftover

@@ -11,10 +11,17 @@ function isNeonPoolerHost(hostname: string): boolean {
 /**
  * Rewrite a direct Neon endpoint host to the `-pooler` variant when possible.
  * Example: ep-foo.us-east-2.aws.neon.tech → ep-foo-pooler.us-east-2.aws.neon.tech
+ *
+ * Only touches real Neon hostnames. SETUP-DATABASE.md documents Supabase and "any Postgres"
+ * (including a local instance for tests) as supported DATABASE_URL targets too — blindly
+ * splicing "-pooler" into hostParts[0] previously corrupted any of those (e.g. 127.0.0.1
+ * became 127-pooler.0.0.1, an unresolvable host) since it assumed every hostname followed
+ * Neon's ep-xxx.<region>.aws.neon.tech shape.
  */
 function toNeonPoolerUrl(url: string): string {
   try {
     const parsed = new URL(url)
+    if (!parsed.hostname.endsWith(".neon.tech")) return url
     if (isNeonPoolerHost(parsed.hostname)) return url
     const hostParts = parsed.hostname.split(".")
     if (hostParts.length < 2) return url

@@ -9,6 +9,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
     "db:schema": "node scripts/migrate.mjs",
     "db:pay-migrations": "node scripts/run-pay-migrations.mjs",
     "audit:vehicle-keys": "npx tsx scripts/audit-vehicle-key-coverage.ts",
@@ -70,6 +72,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.2.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/leaflet": "^1.9.21",
