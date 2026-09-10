@@ -32,10 +32,13 @@ const nextConfig = {
       },
     ]
   },
-  // Site-wide baseline security headers. No CSP here yet — this app loads Stripe, Telnyx
-  // WebRTC, Sentry, and a maps provider client-side, and a wrong script-src/connect-src would
-  // silently break payments or calling; that needs its own report-only rollout, tested against
-  // each of those integrations, not a blind addition alongside everything else here.
+  // Site-wide baseline security headers, plus a Content-Security-Policy shipped in
+  // Report-Only mode (see CSP_DIRECTIVES below) — it can never block a real request, only
+  // log violations to each visitor's browser console, so it's safe to ship while the
+  // directive list is still being validated against Stripe, Telnyx WebRTC, Pusher, and
+  // Sentry traffic. Do not switch the header name to the enforcing one
+  // (Content-Security-Policy) without first collecting real violation reports across every
+  // role (customer booking/pay pages, tech WebRTC calling, owner dashboard, admin).
   async headers() {
     return [
       {
@@ -56,11 +59,49 @@ const nextConfig = {
           // No `preload`: submitting to browsers' HSTS preload list is a separate, deliberate,
           // hard-to-reverse call — do that only if asked.
           { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+          { key: "Content-Security-Policy-Report-Only", value: CSP_DIRECTIVES },
         ],
       },
     ]
   },
 }
+
+// Report-Only CSP directive list — see the headers() comment above for why this isn't the
+// enforcing header yet. Sources, by integration:
+//   Stripe (Elements, embedded Checkout, Connect, Terminal): js.stripe.com (script),
+//     js.stripe.com / hooks.stripe.com / connect.stripe.com (frame — Elements iframes),
+//     api.stripe.com / m.stripe.com / m.stripe.network (connect — API + telemetry beacons)
+//   Telnyx WebRTC (in-browser tech calling): wss://rtc.telnyx.com, wss://rtcdev.telnyx.com
+//     (grepped node_modules/@telnyx/webrtc's bundle directly for its signaling endpoints)
+//   Pusher (live dashboard updates): *.pusher.com / *.pusherapp.com, ws(s) + https (the
+//     specific ws-<cluster>/sockjs-<cluster> subdomain isn't worth hardcoding to a cluster)
+//   Sentry (error/session reporting): *.sentry.io and *.ingest.us.sentry.io (DSN host varies
+//     by org/region)
+//   next/font/google self-hosts at build time — no fonts.googleapis.com needed
+//   Vercel Analytics/Speed Insights post to /_vercel/... on this app's own origin — no
+//     external connect-src needed
+//   The geocoding providers (Google Places, Photon, Nominatim) are called server-side from
+//     API routes, never from the browser — not part of this policy
+const CSP_DIRECTIVES = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "worker-src 'self' blob:",
+  "frame-src https://js.stripe.com https://hooks.stripe.com https://connect.stripe.com",
+  [
+    "connect-src 'self'",
+    "https://api.stripe.com https://m.stripe.com https://m.stripe.network",
+    "https://*.pusher.com https://*.pusherapp.com wss://*.pusher.com wss://*.pusherapp.com",
+    "wss://rtc.telnyx.com wss://rtcdev.telnyx.com",
+    "https://*.sentry.io https://*.ingest.us.sentry.io",
+  ].join(" "),
+].join("; ")
 
 export default withSentryConfig(nextConfig, {
   // Optional source-map upload — skip silently when SENTRY_AUTH_TOKEN is unset.
