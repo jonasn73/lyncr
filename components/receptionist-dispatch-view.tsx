@@ -16,6 +16,7 @@ import { RefreshCw, Truck } from "lucide-react"
 import { JobDetailDrawer } from "@/components/scheduler/job-detail-drawer"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { dayKeyLocal } from "@/lib/scheduler-utils"
+import { SCHEDULER_BADGE_STYLE, SCHEDULER_STATUS_LABEL, schedulerLifecyclePhase } from "@/lib/scheduler-job-status"
 import { cn } from "@/lib/utils"
 import type { ActivePipelineJob, FieldTechnician, UnassignedPoolJob } from "@/lib/types"
 
@@ -23,6 +24,15 @@ type PoolJobRow = UnassignedPoolJob | ActivePipelineJob
 
 function JobCard({ job, onOpen }: { job: PoolJobRow; onOpen: () => void }) {
   const assignedName = "assigned_tech_name" in job ? job.assigned_tech_name : null
+  const assignedTechId = "assigned_tech_id" in job ? job.assigned_tech_id : null
+  const jobStatus = "job_status" in job ? job.job_status : null
+  const phase = schedulerLifecyclePhase({
+    job_status: jobStatus,
+    dispatch_status: job.dispatch_status,
+    assigned_tech_id: assignedTechId,
+  })
+  // Only show a live-status pill once a tech is assigned — "In pool" already reads as "Needs a tech" below.
+  const showStatusPill = Boolean(assignedName) && phase !== "unassigned"
   return (
     <button
       type="button"
@@ -33,14 +43,26 @@ function JobCard({ job, onOpen }: { job: PoolJobRow; onOpen: () => void }) {
         <p className="truncate text-sm font-semibold text-foreground">
           {job.customer_name?.trim() || formatPhoneDisplay(job.customer_phone)}
         </p>
-        <span
-          className={cn(
-            "shrink-0 rounded-md px-2 py-0.5 text-2xs font-medium",
-            assignedName ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
-          )}
-        >
-          {assignedName || "Needs a tech"}
-        </span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {showStatusPill ? (
+            <span
+              className={cn(
+                "rounded-md border px-2 py-0.5 text-2xs font-medium",
+                SCHEDULER_BADGE_STYLE[phase]
+              )}
+            >
+              {SCHEDULER_STATUS_LABEL[phase]}
+            </span>
+          ) : null}
+          <span
+            className={cn(
+              "rounded-md px-2 py-0.5 text-2xs font-medium",
+              assignedName ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+            )}
+          >
+            {assignedName || "Needs a tech"}
+          </span>
+        </div>
       </div>
       {job.summary ? (
         <p className="mt-1 truncate text-xs text-muted-foreground">{job.summary}</p>
