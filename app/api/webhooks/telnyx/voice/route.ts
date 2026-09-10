@@ -6,7 +6,7 @@ import {
   handleTelnyxCallControlVoiceWebhook,
   readInboundCallControlEnabled,
 } from "@/lib/telnyx-call-control-inbound"
-import { warnOnInvalidTelnyxSignature } from "@/lib/telnyx"
+import { validateTelnyxRequest } from "@/lib/telnyx"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -21,12 +21,22 @@ export async function POST(req: NextRequest) {
   }
 
   let body: Record<string, unknown>
+  let raw: string
   try {
-    const raw = await req.text()
-    warnOnInvalidTelnyxSignature(req.headers, raw, "webhooks/telnyx/voice")
+    raw = await req.text()
     body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  }
+
+  // Enforced 2026-09-10 — a multi-hour window of real production traffic logged zero
+  // signature failures on this route (see lib/telnyx.ts for the other 3 webhook routes,
+  // still fail-open pending the same confirmation).
+  const signature = req.headers.get("telnyx-signature-ed25519") || ""
+  const timestamp = req.headers.get("telnyx-timestamp") || ""
+  if (!validateTelnyxRequest(raw, signature, timestamp)) {
+    console.error("[telnyx/voice] rejected: invalid or missing webhook signature")
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
   }
 
   try {
