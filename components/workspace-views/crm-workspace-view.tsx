@@ -3293,7 +3293,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
           showCloseButton={false}
           // Above mobile CRM profile dialog so the form is always reachable.
           overlayClassName="z-[7200]"
-          className="z-[7210] flex max-h-[92dvh] flex-col gap-0 rounded-t-2xl border-border bg-[#101018] p-0 sm:max-w-lg"
+          className="z-[7210] flex max-h-[92dvh] flex-col gap-0 rounded-t-2xl border-border bg-surface p-0 sm:max-w-lg"
         >
           <SheetHeader className="shrink-0 border-b border-border px-4 pb-3 pt-4 text-left">
             <div className="flex items-start justify-between gap-3">
@@ -3411,7 +3411,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
           side="bottom"
           showCloseButton={false}
           overlayClassName="z-[7200]"
-          className="z-[7210] flex max-h-[92dvh] flex-col gap-0 rounded-t-2xl border-border bg-[#101018] p-0 sm:max-w-lg"
+          className="z-[7210] flex max-h-[92dvh] flex-col gap-0 rounded-t-2xl border-border bg-surface p-0 sm:max-w-lg"
         >
           <SheetHeader className="shrink-0 border-b border-border px-4 pb-3 pt-4 text-left">
             <div className="flex items-start justify-between gap-3">

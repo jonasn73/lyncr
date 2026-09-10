@@ -400,7 +400,7 @@ function MobileBottomTabs({
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-[#060a12]/95 backdrop-blur-md lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-sidebar/95 backdrop-blur-md lg:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       aria-label="Admin primary navigation"
     >
@@ -476,7 +476,7 @@ function MoreSheet({
         onClick={onClose}
       />
       <div
-        className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border border-border bg-[#060a12] shadow-overlay lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border border-border bg-sidebar shadow-overlay lg:hidden"
         style={{ paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))" }}
         role="dialog"
         aria-label="More admin pages"
@@ -558,11 +558,11 @@ export function AdminChrome({
 
   return (
     <div
-      className="flex min-h-dvh flex-col bg-[#0b1120] text-foreground antialiased lg:flex-row"
+      className="flex min-h-dvh flex-col bg-card text-foreground antialiased lg:flex-row"
       data-sigo-surface="operator"
     >
       {/* Desktop sidebar — full nav */}
-      <aside className="hidden w-48 shrink-0 flex-col border-r border-border bg-[#060a12] lg:flex">
+      <aside className="hidden w-48 shrink-0 flex-col border-r border-border bg-sidebar lg:flex">
         <div className="flex items-center gap-2 border-b border-border px-3 py-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-operator">
             <Shield className="h-4 w-4 text-white" aria-hidden />
@@ -596,7 +596,7 @@ export function AdminChrome({
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex shrink-0 items-center gap-2 border-b border-border bg-[#0b1120]/95 px-3 py-2 backdrop-blur-md sm:px-4">
+        <header className="flex shrink-0 items-center gap-2 border-b border-border bg-card/95 px-3 py-2 backdrop-blur-md sm:px-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <Headphones className="hidden h-4 w-4 text-operator sm:block" aria-hidden />
             <div className="min-w-0">
@@ -613,7 +613,7 @@ export function AdminChrome({
         </header>
 
         {/* pb clears fixed mobile bottom tabs + safe area */}
-        <div className="min-h-0 flex-1 overflow-auto bg-[linear-gradient(180deg,#0b1120_0%,#070b14_100%)] pb-[calc(3.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
+        <div className="min-h-0 flex-1 overflow-auto bg-gradient-to-b from-card to-sidebar pb-[calc(3.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
           {children}
         </div>
       </div>

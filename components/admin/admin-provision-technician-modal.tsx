@@ -88,7 +88,7 @@ export function AdminProvisionTechnicianModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-border bg-[#0b1120] text-foreground sm:max-w-md" showCloseButton>
+      <DialogContent className="border-border bg-card text-foreground sm:max-w-md" showCloseButton>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-foreground">
             <HardHat className="h-5 w-5 text-operator" aria-hidden />

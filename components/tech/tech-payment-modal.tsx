@@ -1173,7 +1173,7 @@ export function TechPaymentModal(props: {
       aria-label="Charge"
     >
       {tapListening ? (
-        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-[#0b0b12]/95 px-8 text-center">
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-sidebar/95 px-8 text-center">
           <div className="relative mb-6 flex h-28 w-28 items-center justify-center">
             <span className="absolute inset-0 animate-ping rounded-full bg-operator/30" />
             <span className="relative flex h-24 w-24 items-center justify-center rounded-full border border-operator/40 bg-operator/15">
@@ -1192,7 +1192,7 @@ export function TechPaymentModal(props: {
       <div
         className={cn(
           // Content-height sheet — tip+sign hugs content (no empty full-screen void).
-          "flex w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-b-0 border-border bg-[#101018] pb-[env(safe-area-inset-bottom)] shadow-overlay sm:max-w-md",
+          "flex w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-b-0 border-border bg-card pb-[env(safe-area-inset-bottom)] shadow-overlay sm:max-w-md",
           postPayStep === "tip_sign" ||
           postPayStep === "sign" ||
           postPayStep === "card_entry" ||
@@ -1278,7 +1278,9 @@ export function TechPaymentModal(props: {
                   paymentMethodCreation: "manual",
                   appearance: {
                     theme: "night",
-                    variables: { colorPrimary: "#6366f1", borderRadius: "10px" },
+                    // Matches the owner's Stripe Elements forms (get-paid-sheet.tsx,
+                    // owner-collect-payment-sheet.tsx) — was a mismatched indigo before.
+                    variables: { colorPrimary: "#10b981", borderRadius: "10px" },
                   },
                   paymentMethodTypes: ["card"],
                 }}
@@ -2110,7 +2112,7 @@ function NestedPayPopup(props: {
         role="dialog"
         aria-modal="true"
         aria-label={props.title}
-        className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-border bg-[#12121a] shadow-overlay sm:rounded-3xl"
+        className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-overlay sm:rounded-3xl"
       >
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <h3 className="text-sm font-bold text-white">{props.title}</h3>

@@ -15,7 +15,7 @@ export function TechPageHeader({
   backHref?: string
 }) {
   return (
-    <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-border/80 bg-[#0b0b12]/95 px-4 py-4 backdrop-blur">
+    <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-border/80 bg-sidebar/95 px-4 py-4 backdrop-blur">
       {backHref ? (
         <Link
           href={backHref}

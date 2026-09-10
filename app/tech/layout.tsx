@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 export default function TechLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className={`min-h-[100dvh] bg-[#0b0b12] text-foreground antialiased font-[family-name:var(--font-tech-body)] ${sora.variable} ${karla.variable}`}
+      className={`min-h-[100dvh] bg-sidebar text-foreground antialiased font-[family-name:var(--font-tech-body)] ${sora.variable} ${karla.variable}`}
     >
       {children}
     </div>

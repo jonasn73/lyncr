@@ -5,5 +5,5 @@
 // TechPageHeader's backHref instead of a persistent bottom tab bar.
 
 export function TechPortalChrome({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-[100dvh] bg-[#0b0b12] text-foreground">{children}</div>
+  return <div className="min-h-[100dvh] bg-sidebar text-foreground">{children}</div>
 }

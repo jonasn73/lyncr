@@ -4,15 +4,17 @@
 // `await requireReceptionistCapability(...)` in page.tsx, which is what this covers instead
 // of freezing the previous tab's content during the transition.
 
+import { Skeleton } from "@/components/ui/skeleton"
+
 export function ReceptionistRouteSkeleton() {
   return (
-    <div className="animate-pulse space-y-4" aria-hidden="true">
-      <div className="h-6 w-40 rounded bg-muted" />
+    <div className="space-y-4" aria-hidden="true">
+      <Skeleton className="h-6 w-40" />
       {[0, 1, 2].map((i) => (
         <div key={i} className="rounded-xl border border-border bg-card p-4">
-          <div className="h-4 w-1/3 rounded bg-muted" />
-          <div className="mt-3 h-3 w-full rounded bg-muted" />
-          <div className="mt-2 h-3 w-5/6 rounded bg-muted" />
+          <Skeleton className="h-4 w-1/3" />
+          <Skeleton className="mt-3 h-3 w-full" />
+          <Skeleton className="mt-2 h-3 w-5/6" />
         </div>
       ))}
     </div>

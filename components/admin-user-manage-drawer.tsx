@@ -407,7 +407,7 @@ export function AdminUserManageDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full border-border bg-[#0b1120] text-foreground sm:max-w-lg">
+      <SheetContent side="right" className="w-full border-border bg-card text-foreground sm:max-w-lg">
         <SheetHeader>
           {/* Shop name is the title so you know whose account you opened. */}
           <SheetTitle className="text-foreground">
