@@ -5,6 +5,7 @@
 // ============================================
 // Keyboard shortcut (⌘K / Ctrl+K) is registered in `AppShell` so `open` state never goes stale.
 
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   Zap,
@@ -25,6 +26,7 @@ import {
 } from "lucide-react"
 import { useDispatchCommandBridge } from "@/lib/dispatch-command-bridge"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
+import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import {
   requestOpenBuyNumberModal,
   requestOpenManageNumbersModal,
@@ -62,6 +64,8 @@ type AppNavCommandPaletteProps = {
   onOpenChange: (open: boolean) => void
 }
 
+type CustomerSearchResult = { id: string; name: string; phone: string }
+
 export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavCommandPaletteProps) {
   const router = useRouter()
   const { commands: dispatchCommands } = useDispatchCommandBridge()
@@ -69,6 +73,53 @@ export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavComm
   const isLocksmithAccount = !accountIndustry || accountIndustry.trim().toLowerCase() === "locksmith"
   // Key inventory (barcode scan for keys/FCC IDs) makes sense only for locksmith accounts.
   const jumpPages = isLocksmithAccount ? JUMP_PAGES : JUMP_PAGES.filter((p) => p.id !== "inventory")
+
+  // Live customer search — reuses the same /api/crm/customers the CRM list itself calls (owner-
+  // scoped, capability-gated server-side), so this was wiring, not a new search index. A failed
+  // or unauthorized fetch just clears the group rather than showing an error — this is a jump
+  // shortcut, not a place that needs its own error UI.
+  const [search, setSearch] = useState("")
+  const [customerResults, setCustomerResults] = useState<CustomerSearchResult[]>([])
+
+  useEffect(() => {
+    if (!open) {
+      setSearch("")
+      setCustomerResults([])
+    }
+  }, [open])
+
+  useEffect(() => {
+    const q = search.trim()
+    if (q.length < 2) {
+      setCustomerResults([])
+      return
+    }
+    let cancelled = false
+    const timer = setTimeout(() => {
+      fetch(`/api/crm/customers?q=${encodeURIComponent(q)}&limit=6`, {
+        credentials: "include",
+        cache: "no-store",
+      })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error("search"))))
+        .then((json: { data?: { customers?: { id: string; display_name: string; phone_e164: string }[] } }) => {
+          if (cancelled) return
+          setCustomerResults(
+            (json.data?.customers ?? []).map((c) => ({
+              id: c.id,
+              name: c.display_name?.trim() || formatPhoneDisplay(c.phone_e164),
+              phone: c.phone_e164,
+            }))
+          )
+        })
+        .catch(() => {
+          if (!cancelled) setCustomerResults([])
+        })
+    }, 200)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [search])
 
   if (!enabled) return null
 
@@ -87,9 +138,30 @@ export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavComm
       showCloseButton
       className="max-w-xl border border-border/80 bg-background/95 shadow-overlay backdrop-blur-xl"
     >
-      <CommandInput placeholder="Search commands or actions…" />
+      <CommandInput
+        placeholder="Search commands, pages, or a customer…"
+        value={search}
+        onValueChange={setSearch}
+      />
       <CommandList>
         <CommandEmpty>No matches.</CommandEmpty>
+        {customerResults.length > 0 ? (
+          <CommandGroup heading="Customers">
+            {customerResults.map((c) => (
+              <CommandItem
+                key={c.id}
+                value={`${search} ${c.name} ${c.phone}`}
+                onSelect={() => go(`/dashboard/customers?customer=${c.id}`)}
+              >
+                <ContactRound className="size-4 shrink-0 text-info" aria-hidden />
+                <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                <span className="shrink-0 text-2xs text-muted-foreground">
+                  {formatPhoneDisplay(c.phone)}
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        ) : null}
         {dispatchCommands.length > 0 ? (
           <CommandGroup heading="Dispatch shortcuts">
             {dispatchCommands.map((command) => (
