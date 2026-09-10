@@ -998,6 +998,7 @@ export async function updateRoutingConfig(
       | "private_ring_timeout_seconds"
       | "inbound_caller_greeting_enabled"
       | "forward_original_caller_id"
+      | "oncall_technician_id"
     >
   >,
   businessNumber?: string | null
@@ -1076,6 +1077,17 @@ export async function updateRoutingConfig(
     await sql`
       UPDATE routing_config
       SET ai_ring_owner_first = ${updates.ai_ring_owner_first}, updated_at = now()
+      WHERE user_id = ${userId} AND business_number IS NULL
+    `
+    clearIncomingRoutingCache()
+  }
+
+  // On-call tech (166) is account-wide, same reasoning as ai_ring_owner_first above —
+  // a single after-hours contact, not a per-line setting.
+  if (updates.oncall_technician_id !== undefined) {
+    await sql`
+      UPDATE routing_config
+      SET oncall_technician_id = ${updates.oncall_technician_id}, updated_at = now()
       WHERE user_id = ${userId} AND business_number IS NULL
     `
     clearIncomingRoutingCache()

@@ -16,6 +16,7 @@ type InboundDialReason =
   | "legacy_owner"
   | "failsafe"
   | "lyncr_pool"
+  | "oncall_tech"
 
 type InboundDialHopType =
   | "owner"
@@ -24,6 +25,7 @@ type InboundDialHopType =
   | "custom"
   | "none"
   | "pool"
+  | "oncall_tech"
 
 type InboundCaptureKind =
   | "presence_closed"
@@ -38,6 +40,8 @@ type InboundDialHop = {
   phoneE164: string | null
   name: string | null
   receptionistId: string | null
+  /** field_technicians.id when type === "oncall_tech" (166). */
+  technicianId?: string | null
   reason: InboundDialReason
 }
 
@@ -85,6 +89,12 @@ export type PlanInboundDialInputs = {
   } | null
   legacyReceptionist?: {
     receptionistId: string
+    name: string | null
+    phoneE164: string
+  } | null
+  /** Designated after-hours tech (166) — only consulted when captureKind is "presence_closed". */
+  onCallTech?: {
+    technicianId: string
     name: string | null
     phoneE164: string
   } | null
@@ -149,6 +159,18 @@ function receptionistHop(
     name: recv.name?.trim() || "Receptionist",
     receptionistId: recv.receptionistId,
     reason,
+  }
+}
+
+/** After-hours on-call tech hop (166) — dialed via the same target-agnostic path as any other cell. */
+function onCallTechHop(tech: { technicianId: string; name: string | null; phoneE164: string }): InboundDialHop {
+  return {
+    type: "oncall_tech",
+    phoneE164: tech.phoneE164,
+    name: tech.name?.trim() || "On-call tech",
+    receptionistId: null,
+    technicianId: tech.technicianId,
+    reason: "oncall_tech",
   }
 }
 
@@ -314,6 +336,19 @@ export function planInboundDial(input: PlanInboundDialInputs): InboundDialPlanRe
       // Use presence_on_job labels when soft-busy so Activity stays coherent.
       const busyKind: InboundCaptureKind =
         captureKind === "day_dial" ? "presence_on_job" : captureKind
+      // After-hours on-call tech (166) takes unconditional priority over the receptionist
+      // busy-backup during CLOSED — it replaces that lookup for this capture kind rather
+      // than trying both. Scoped strictly to presence_closed, not general daytime "busy".
+      const tech = input.onCallTech
+      if (captureKind === "presence_closed" && tech?.phoneE164 && isReasonablePstn(tech.phoneE164)) {
+        return finish({
+          mode,
+          captureKind,
+          ...finishOpts,
+          primaryHop: onCallTechHop(tech),
+          fallbackHop: ivrHop(busyKind),
+        })
+      }
       if (backup?.phoneE164 && isReasonablePstn(backup.phoneE164)) {
         return finish({
           mode,

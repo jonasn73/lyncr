@@ -310,6 +310,50 @@ export async function getFirstAvailableOwnerReceptionist(params: {
   }
 }
 
+/**
+ * Designated after-hours on-call tech (166) — dialed during CLOSED presence instead of
+ * the busy-backup receptionist. Requires routing_config.oncall_technician_id to point at
+ * an active field_technicians row with a real phone number; fails open (null) otherwise.
+ */
+export async function getOnCallTechnicianForOwner(params: {
+  ownerUserId: string
+}): Promise<{
+  technicianId: string
+  name: string | null
+  phoneE164: string
+} | null> {
+  const ownerUserId = params.ownerUserId?.trim()
+  if (!ownerUserId) return null
+  const sql = sqlClient()
+  try {
+    const rows = await sql`
+      SELECT ft.id, ft.name, ft.phone, ft.is_active
+      FROM routing_config rc
+      JOIN field_technicians ft ON ft.id = rc.oncall_technician_id
+      WHERE rc.user_id = ${ownerUserId}
+        AND rc.business_number IS NULL
+        AND rc.oncall_technician_id IS NOT NULL
+      LIMIT 1
+    `
+    const row = rows[0] as { id?: string; name?: string; phone?: string; is_active?: boolean } | undefined
+    if (!row || row.is_active !== true) return null
+    const id = String(row.id || "").trim()
+    if (!id) return null
+    const phoneRaw = typeof row.phone === "string" ? row.phone.trim() : ""
+    if (!phoneRaw) return null
+    const phoneE164 = normalizePhoneNumberE164(phoneRaw) || phoneRaw
+    if (!phoneE164) return null
+    return {
+      technicianId: id,
+      name: typeof row.name === "string" ? row.name : null,
+      phoneE164,
+    }
+  } catch (e) {
+    console.warn("[active-routing-mode] on-call technician lookup failed:", e)
+    return null
+  }
+}
+
 /** Team receptionist dial target for an inbound DID (null when not in that mode). */
 export async function getTeamReceptionistForDid(toNumber: string): Promise<{
   receptionistId: string

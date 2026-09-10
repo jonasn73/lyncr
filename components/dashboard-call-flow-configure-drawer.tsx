@@ -98,6 +98,8 @@ type ConfigureDraft = {
   hoursScheduleEnabled: boolean
   hoursTimezone: string
   weeklyHours: WeeklyHoursDay[]
+  /** After-hours on-call tech (166) — rings this tech's cell instead of the receptionist/hold menu while Closed. */
+  oncallTechnicianId: string | null
 }
 
 const DEFAULT_DRAFT: ConfigureDraft = {
@@ -118,6 +120,7 @@ const DEFAULT_DRAFT: ConfigureDraft = {
   hoursScheduleEnabled: false,
   hoursTimezone: "America/New_York",
   weeklyHours: defaultWeeklyHoursDays(),
+  oncallTechnicianId: null,
 }
 
 function draftSnapshot(d: ConfigureDraft): string {
@@ -171,6 +174,10 @@ export function DashboardCallFlowConfigureDrawer({
   const [teamMembers, setTeamMembers] = useState<
     { id: string; name: string; is_active: boolean }[]
   >([])
+  // Field tech roster for the after-hours on-call picker (166).
+  const [techMembers, setTechMembers] = useState<
+    { id: string; name: string; is_active: boolean }[]
+  >([])
 
   // Keep tab in sync when opener switches (Who Answers vs Greetings card).
   useEffect(() => {
@@ -183,10 +190,11 @@ export function DashboardCallFlowConfigureDrawer({
       const qs = routingBusinessNumber
         ? `?number=${encodeURIComponent(routingBusinessNumber)}`
         : ""
-      // Load configure payload + Team roster in parallel.
-      const [res, teamRes] = await Promise.all([
+      // Load configure payload + Team roster + tech roster in parallel.
+      const [res, teamRes, techRes] = await Promise.all([
         fetch(`/api/routing/configure${qs}`, { credentials: "include" }),
         fetch("/api/receptionists", { credentials: "include" }),
+        fetch("/api/technicians", { credentials: "include" }),
       ])
       const json = (await res.json()) as {
         data?: {
@@ -212,6 +220,7 @@ export function DashboardCallFlowConfigureDrawer({
           hoursScheduleEnabled?: boolean
           hoursTimezone?: string
           weeklyHours?: WeeklyHoursDay[]
+          oncallTechnicianId?: string | null
         }
       }
       const teamJson = (await teamRes.json()) as {
@@ -225,6 +234,18 @@ export function DashboardCallFlowConfigureDrawer({
           }))
         : []
       setTeamMembers(members)
+
+      const techJson = (await techRes.json()) as {
+        data?: { id: string; name: string; is_active?: boolean }[]
+      }
+      const techs = Array.isArray(techJson.data)
+        ? techJson.data.map((t) => ({
+            id: t.id,
+            name: t.name,
+            is_active: t.is_active !== false,
+          }))
+        : []
+      setTechMembers(techs)
 
       const d = json.data || {}
       if (d.holdDefaults?.maxWaitSecs || d.holdDefaults?.repromptSecs) {
@@ -246,6 +267,10 @@ export function DashboardCallFlowConfigureDrawer({
       const savedRecId =
         typeof d.selectedReceptionistId === "string" && d.selectedReceptionistId.trim()
           ? d.selectedReceptionistId.trim()
+          : null
+      const savedOncallTechId =
+        typeof d.oncallTechnicianId === "string" && d.oncallTechnicianId.trim()
+          ? d.oncallTechnicianId.trim()
           : null
       const maxWait =
         d.holdMaxWaitSecs ?? d.hold_max_wait_secs
@@ -278,6 +303,12 @@ export function DashboardCallFlowConfigureDrawer({
           Array.isArray(d.weeklyHours) && d.weeklyHours.length === 7
             ? d.weeklyHours
             : defaultWeeklyHoursDays(),
+        // Unlike the receptionist pick, "off" (null) is a valid state here — don't
+        // force-default to the first tech if the saved one is gone/inactive.
+        oncallTechnicianId:
+          savedOncallTechId && techs.some((t) => t.id === savedOncallTechId && t.is_active)
+            ? savedOncallTechId
+            : null,
       }
       setDraft(next)
       baselineRef.current = draftSnapshot(next)
@@ -364,6 +395,7 @@ export function DashboardCallFlowConfigureDrawer({
           hoursScheduleEnabled: draft.hoursScheduleEnabled,
           hoursTimezone: draft.hoursTimezone,
           weeklyHours: draft.weeklyHours,
+          oncall_technician_id: draft.oncallTechnicianId,
         }),
       })
       const json = (await res.json()) as { error?: string; migration?: string }
@@ -1009,6 +1041,40 @@ export function DashboardCallFlowConfigureDrawer({
                       </div>
                     )
                   })}
+                </div>
+
+                <div className="space-y-2 border-t border-border pt-4">
+                  <label
+                    htmlFor="configure-oncall-tech"
+                    className="text-xs font-semibold text-foreground"
+                  >
+                    On-call tech (after hours)
+                  </label>
+                  <select
+                    id="configure-oncall-tech"
+                    value={draft.oncallTechnicianId || ""}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        oncallTechnicianId: e.target.value || null,
+                      }))
+                    }
+                    className={cn(fieldClass, "min-h-11")}
+                  >
+                    <option value="">Off — use receptionist / hold menu</option>
+                    {techMembers
+                      .filter((t) => t.is_active)
+                      .map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-2xs leading-snug text-muted-foreground">
+                    Rings this tech&apos;s cell during Closed / after-hours instead of your
+                    receptionist or hold menu. No screen alert — have them save your business
+                    number as a contact so they recognize the call.
+                  </p>
                 </div>
               </div>
             ) : null}

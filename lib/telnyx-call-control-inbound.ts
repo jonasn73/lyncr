@@ -1565,8 +1565,13 @@ async function applyDialMissFallback(params: {
     return
   }
 
-  // Busy backup teammate missed — do not Dial the Busy owner; play automation instead.
-  if (state.dialReason === "busy_backup_recv" || state.dialReason === "team_receptionist") {
+  // Busy backup teammate (or after-hours on-call tech, 166) missed — do not Dial the
+  // Busy owner; play automation instead.
+  if (
+    state.dialReason === "busy_backup_recv" ||
+    state.dialReason === "team_receptionist" ||
+    state.dialReason === "oncall_tech"
+  ) {
     const plan = await resolveInboundCapturePlan({ ownerUserId: routing.user_id }).catch(() => null)
     if (!plan || plan.kind !== "day_dial") {
       await startBusyAutomationFlow(inboundCallControlId, state, routing)

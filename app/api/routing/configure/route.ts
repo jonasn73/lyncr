@@ -2,7 +2,13 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { normalizePhoneNumberE164, updateRoutingConfig, getRoutingConfigForNumber, getRoutingConfig } from "@/lib/db"
+import {
+  normalizePhoneNumberE164,
+  updateRoutingConfig,
+  getRoutingConfigForNumber,
+  getRoutingConfig,
+  getFieldTechnicianByIdForOwner,
+} from "@/lib/db"
 import {
   normalizeActiveRoutingMode,
   type ActiveRoutingMode,
@@ -63,7 +69,8 @@ function serializeConfigure(
   presence: Awaited<ReturnType<typeof getAccountPresence>>,
   fallbackType: string,
   hold?: Awaited<ReturnType<typeof getAccountHoldSettings>> | null,
-  weeklyHours?: Awaited<ReturnType<typeof getAccountWeeklyHours>> | null
+  weeklyHours?: Awaited<ReturnType<typeof getAccountWeeklyHours>> | null,
+  oncallTechnicianId?: string | null
 ) {
   const holdMusicUrl = hold?.holdMusicUrl ?? null
   const maxWaitDefault = holdMaxWaitSecs()
@@ -73,6 +80,7 @@ function serializeConfigure(
     customRoutingPhone: modeState.customRoutingPhone,
     ringTimeoutSeconds: modeState.ringTimeoutSeconds,
     selectedReceptionistId: modeState.selectedReceptionistId,
+    oncallTechnicianId: oncallTechnicianId ?? null,
     fallbackType,
     onJobGreetingText: presence.onJobGreetingText,
     closedGreetingText: presence.closedGreetingText,
@@ -115,12 +123,16 @@ export async function GET(req: NextRequest) {
   const businessNumber = numberParam ? normalizePhoneNumberE164(numberParam) : null
 
   try {
-    const [modeState, presence, routing, hold, weeklyHours] = await Promise.all([
+    const [modeState, presence, routing, defaultRouting, hold, weeklyHours] = await Promise.all([
       getActiveRoutingState(userId, businessNumber),
       getAccountPresence(userId),
       businessNumber
         ? getRoutingConfigForNumber(userId, businessNumber)
         : getRoutingConfig(userId),
+      // On-call tech is account-wide (like ai_ring_owner_first) — always read from the
+      // default row, even when viewing a per-number config, so the picker never shows
+      // "unset" just because the per-DID row doesn't carry it.
+      businessNumber ? getRoutingConfig(userId) : null,
       getAccountHoldSettings(userId).catch(() => null),
       getAccountWeeklyHours(userId).catch(() => null),
     ])
@@ -130,7 +142,8 @@ export async function GET(req: NextRequest) {
         presence,
         routing?.fallback_type || "owner",
         hold,
-        weeklyHours
+        weeklyHours,
+        (businessNumber ? defaultRouting?.oncall_technician_id : routing?.oncall_technician_id) ?? null
       ),
     })
   } catch (e) {
@@ -179,6 +192,12 @@ export async function PUT(req: NextRequest) {
         ? body.selectedReceptionistId
         : null
 
+  // undefined = field omitted, don't touch; null = explicitly clear; string = set to this tech.
+  const oncallTechnicianIdRaw = pickNullableString(body, [
+    "oncall_technician_id",
+    "oncallTechnicianId",
+  ])
+
   const fallbackRaw = String(body.fallback_type ?? body.fallbackType ?? "").toLowerCase()
   // Map hold_queue alias → hold (Advanced Rules missed-call → soft hold).
   const fallbackNormalized = fallbackRaw === "hold_queue" ? "hold" : fallbackRaw
@@ -197,6 +216,14 @@ export async function PUT(req: NextRequest) {
         { error: AI_VOICE_ASSISTANT_UPGRADE_MESSAGE, reason: "tier_limit", tier: entitlement.tier },
         { status: 402 }
       )
+    }
+  }
+
+  // Confirm the tech belongs to this owner before wiring them into call routing.
+  if (typeof oncallTechnicianIdRaw === "string" && oncallTechnicianIdRaw.trim()) {
+    const tech = await getFieldTechnicianByIdForOwner(userId, oncallTechnicianIdRaw.trim())
+    if (!tech || tech.is_active === false) {
+      return NextResponse.json({ error: "Technician not found for this account" }, { status: 400 })
     }
   }
 
@@ -365,6 +392,8 @@ export async function PUT(req: NextRequest) {
     }
 
     // Fallback + ring timeout only — receptionist id already set by applyActiveRoutingMode.
+    // oncall_technician_id always targets the default row regardless of businessNumber
+    // (account-wide setting, same reasoning as ai_ring_owner_first).
     await updateRoutingConfig(
       userId,
       {
@@ -373,14 +402,18 @@ export async function PUT(req: NextRequest) {
         typeof ringTimeout === "number"
           ? { ring_timeout_seconds: ringTimeout }
           : {}),
+        ...(oncallTechnicianIdRaw !== undefined
+          ? { oncall_technician_id: oncallTechnicianIdRaw?.trim() || null }
+          : {}),
       },
       businessNumber
     )
 
-    const [routing, hold, weeklyHours] = await Promise.all([
+    const [routing, defaultRouting, hold, weeklyHours] = await Promise.all([
       businessNumber
         ? getRoutingConfigForNumber(userId, businessNumber)
         : getRoutingConfig(userId),
+      businessNumber ? getRoutingConfig(userId) : null,
       getAccountHoldSettings(userId).catch(() => null),
       getAccountWeeklyHours(userId).catch(() => null),
     ])
@@ -391,7 +424,8 @@ export async function PUT(req: NextRequest) {
         presenceSaved,
         routing?.fallback_type || fallbackType || "owner",
         hold,
-        weeklyHours
+        weeklyHours,
+        (businessNumber ? defaultRouting?.oncall_technician_id : routing?.oncall_technician_id) ?? null
       ),
     })
   } catch (e) {

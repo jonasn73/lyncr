@@ -1527,6 +1527,8 @@ export interface RoutingConfig {
   active_routing_mode?: "your_phone" | "team_receptionist" | "smart_ivr" | "lyncr_pool" | "custom_routing" | string | null
   /** E.164 forward target when mode is custom_routing (`089`). */
   custom_routing_phone?: string | null
+  /** field_technicians.id to ring during CLOSED presence instead of busy-backup receptionist/automation (`166`). */
+  oncall_technician_id?: string | null
   updated_at: string
 }
 

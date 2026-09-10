@@ -4,6 +4,7 @@ import {
   getActiveRoutingModeForDid,
   getCustomRoutingPhoneForDid,
   getFirstAvailableOwnerReceptionist,
+  getOnCallTechnicianForOwner,
   getTeamReceptionistForDid,
 } from "@/lib/active-routing-mode-db"
 import {
@@ -127,6 +128,20 @@ export async function resolveInboundDialPlan(params: {
     }
   }
 
+  let onCallTech: PlanInboundDialInputs["onCallTech"] = null
+  // Only consulted during CLOSED (after-hours) presence — the planner ignores it otherwise.
+  if (
+    (mode === "your_phone" || mode === "smart_ivr") &&
+    capturePlan.kind === "presence_closed" &&
+    params.userId
+  ) {
+    try {
+      onCallTech = await getOnCallTechnicianForOwner({ ownerUserId: params.userId })
+    } catch (e) {
+      console.warn("[inbound-dial-plan] on-call tech lookup skipped:", e)
+    }
+  }
+
   let legacyReceptionist: PlanInboundDialInputs["legacyReceptionist"] = null
   const legacyPhone = params.legacyReceptionistPhone?.trim() || ""
   const legacyId = params.legacyReceptionistId?.trim() || ""
@@ -149,6 +164,7 @@ export async function resolveInboundDialPlan(params: {
     busyBackup,
     teamReceptionist,
     legacyReceptionist,
+    onCallTech,
     failsafePhoneE164: failsafe,
     ownerOnLiveCall,
   })

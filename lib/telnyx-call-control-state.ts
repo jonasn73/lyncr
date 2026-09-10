@@ -37,6 +37,8 @@ export type TelnyxCallControlDialReason =
   | "failsafe"
   /** Owner/agent answering a waiting hold-queue caller from Lines. */
   | "queue_answer"
+  /** After-hours on-call field tech (166) — dialed during CLOSED presence. */
+  | "oncall_tech"
 
 export type TelnyxCallControlClientState = {
   v: 1

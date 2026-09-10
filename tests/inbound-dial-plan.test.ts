@@ -124,6 +124,93 @@ describe("planInboundDial", () => {
   })
 })
 
+describe("on-call tech (166)", () => {
+  const owner = "+15022602716"
+  const alex = {
+    receptionistId: "recv-alex",
+    name: "Alex Jonas",
+    phoneE164: "+15029995874",
+  }
+  const jordan = {
+    technicianId: "tech-jordan",
+    name: "Jordan",
+    phoneE164: "+15025557890",
+  }
+
+  it("CLOSED + on-call tech set rings the tech", () => {
+    const plan = planInboundDial({
+      mode: "your_phone",
+      ownerPhoneE164: owner,
+      captureKind: "presence_closed",
+      onCallTech: jordan,
+    })
+    expect(plan.reason).toBe("oncall_tech")
+    expect(plan.dialTargetE164).toBe(jordan.phoneE164)
+    expect(plan.primaryHop.type).toBe("oncall_tech")
+    expect(plan.ringsNowLabel).toBe(jordan.name)
+    expect(plan.ifNoAnswerLabel).toBe("Hold queue")
+  })
+
+  it("CLOSED + on-call tech set + busy-backup receptionist also set — tech wins", () => {
+    const plan = planInboundDial({
+      mode: "your_phone",
+      ownerPhoneE164: owner,
+      captureKind: "presence_closed",
+      onCallTech: jordan,
+      busyBackup: alex,
+    })
+    expect(plan.reason).toBe("oncall_tech")
+    expect(plan.dialTargetE164).toBe(jordan.phoneE164)
+  })
+
+  it("CLOSED + no on-call tech, busy-backup set — unchanged existing behavior", () => {
+    const plan = planInboundDial({
+      mode: "your_phone",
+      ownerPhoneE164: owner,
+      captureKind: "presence_closed",
+      onCallTech: null,
+      busyBackup: alex,
+    })
+    expect(plan.reason).toBe("busy_backup_recv")
+    expect(plan.dialTargetE164).toBe(alex.phoneE164)
+  })
+
+  it("daytime busy (ON_JOB), not CLOSED — on-call tech does not fire, busy-backup still wins", () => {
+    const plan = planInboundDial({
+      mode: "your_phone",
+      ownerPhoneE164: owner,
+      captureKind: "presence_on_job",
+      onCallTech: jordan,
+      busyBackup: alex,
+    })
+    expect(plan.reason).toBe("busy_backup_recv")
+    expect(plan.dialTargetE164).toBe(alex.phoneE164)
+  })
+
+  it("Available (day_dial) — on-call tech never fires, owner still rings", () => {
+    const plan = planInboundDial({
+      mode: "your_phone",
+      ownerPhoneE164: owner,
+      captureKind: "day_dial",
+      onCallTech: jordan,
+    })
+    expect(plan.reason).toBe("day_dial")
+    expect(plan.dialTargetE164).toBe(owner)
+  })
+
+  it("malformed on-call tech phone falls through to busy-backup/IVR unchanged", () => {
+    const plan = planInboundDial({
+      mode: "your_phone",
+      ownerPhoneE164: owner,
+      captureKind: "presence_closed",
+      onCallTech: { technicianId: "tech-bad", name: "Bad Number", phoneE164: "123" },
+      busyBackup: alex,
+    })
+    expect(plan.reason).toBe("busy_backup_recv")
+    expect(plan.dialTargetE164).toBe(alex.phoneE164)
+  })
+})
+
 describe("deriveRingsNowStrip", () => {
   it("Available shows your phone", () => {
     const strip = deriveRingsNowStrip({
