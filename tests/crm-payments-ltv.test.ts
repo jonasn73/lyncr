@@ -16,6 +16,7 @@ function tx(
     tipCents: null,
     hasSignature: false,
     reversalReason: null,
+    collectedByTechName: null,
     ...partial,
   }
 }

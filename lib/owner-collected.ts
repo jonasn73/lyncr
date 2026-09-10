@@ -167,6 +167,13 @@ export type OwnerCollectedTransaction = {
   hasSignature: boolean
   /** Non-null only on negative reversal rows (migration 154). */
   reversalReason: "REFUND" | "DISPUTE" | "DISPUTE_WON" | null
+  /**
+   * Name of the field tech who actually collected this charge (wallet_transactions.user_id
+   * joined to field_technicians.portal_user_id), null when the owner collected it themselves
+   * (walk-up charges with no assigned tech). Lets a support escalation ("customer says double
+   * charged") be traced to who ran the card, not just which job it was on.
+   */
+  collectedByTechName: string | null
 }
 
 /**
@@ -288,7 +295,8 @@ export async function listOwnerCollectedTransactions(
             NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type,
             ps.tip_cents,
             wt.reversal_reason,
-            CASE WHEN ps.signature_png IS NOT NULL AND ps.signature_png <> '' THEN true ELSE false END AS has_signature
+            CASE WHEN ps.signature_png IS NOT NULL AND ps.signature_png <> '' THEN true ELSE false END AS has_signature,
+            NULLIF(TRIM(ft.name), '') AS collected_by_tech_name
           FROM wallet_transactions wt
           LEFT JOIN ai_leads al ON al.id = wt.job_id
           LEFT JOIN customers crm
@@ -311,6 +319,7 @@ export async function listOwnerCollectedTransactions(
             LIMIT 1
           ) cpl ON true
           LEFT JOIN payment_slips ps ON ps.stripe_payment_intent_id = wt.stripe_payment_intent_id
+          LEFT JOIN field_technicians ft ON ft.portal_user_id = wt.user_id AND ft.user_id = ${uid}
           WHERE
             (al.user_id = ${uid} OR (wt.job_id IS NULL AND wt.user_id = ${uid}))
             AND (
@@ -366,7 +375,8 @@ export async function listOwnerCollectedTransactions(
             NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type,
             ps.tip_cents,
             wt.reversal_reason,
-            CASE WHEN ps.signature_png IS NOT NULL AND ps.signature_png <> '' THEN true ELSE false END AS has_signature
+            CASE WHEN ps.signature_png IS NOT NULL AND ps.signature_png <> '' THEN true ELSE false END AS has_signature,
+            NULLIF(TRIM(ft.name), '') AS collected_by_tech_name
           FROM wallet_transactions wt
           LEFT JOIN ai_leads al ON al.id = wt.job_id
           LEFT JOIN customers crm
@@ -389,6 +399,7 @@ export async function listOwnerCollectedTransactions(
             LIMIT 1
           ) cpl ON true
           LEFT JOIN payment_slips ps ON ps.stripe_payment_intent_id = wt.stripe_payment_intent_id
+          LEFT JOIN field_technicians ft ON ft.portal_user_id = wt.user_id AND ft.user_id = ${uid}
           WHERE
             al.user_id = ${uid}
             OR (wt.job_id IS NULL AND wt.user_id = ${uid})
@@ -433,9 +444,11 @@ export async function listOwnerCollectedTransactions(
                 NULLIF(TRIM(al.collected->>'vehicle_year'), '') AS vehicle_year,
                 NULLIF(TRIM(al.collected->>'vehicle_make'), '') AS vehicle_make,
                 NULLIF(TRIM(al.collected->>'vehicle_model'), '') AS vehicle_model,
-                NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type
+                NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type,
+                NULLIF(TRIM(ft.name), '') AS collected_by_tech_name
               FROM wallet_transactions wt
               LEFT JOIN ai_leads al ON al.id = wt.job_id
+              LEFT JOIN field_technicians ft ON ft.portal_user_id = wt.user_id AND ft.user_id = ${uid}
               WHERE
                 (al.user_id = ${uid} OR (wt.job_id IS NULL AND wt.user_id = ${uid}))
                 AND (
@@ -484,9 +497,11 @@ export async function listOwnerCollectedTransactions(
                 NULLIF(TRIM(al.collected->>'vehicle_year'), '') AS vehicle_year,
                 NULLIF(TRIM(al.collected->>'vehicle_make'), '') AS vehicle_make,
                 NULLIF(TRIM(al.collected->>'vehicle_model'), '') AS vehicle_model,
-                NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type
+                NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type,
+                NULLIF(TRIM(ft.name), '') AS collected_by_tech_name
               FROM wallet_transactions wt
               LEFT JOIN ai_leads al ON al.id = wt.job_id
+              LEFT JOIN field_technicians ft ON ft.portal_user_id = wt.user_id AND ft.user_id = ${uid}
               WHERE
                 al.user_id = ${uid}
                 OR (wt.job_id IS NULL AND wt.user_id = ${uid})
@@ -558,7 +573,8 @@ export async function listOwnerCollectedTransactionsForPhone(
         NULLIF(TRIM(al.collected->>'vehicle_model'), '') AS vehicle_model,
         NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type,
         ps.tip_cents,
-        CASE WHEN ps.signature_png IS NOT NULL AND ps.signature_png <> '' THEN true ELSE false END AS has_signature
+        CASE WHEN ps.signature_png IS NOT NULL AND ps.signature_png <> '' THEN true ELSE false END AS has_signature,
+        NULLIF(TRIM(ft.name), '') AS collected_by_tech_name
       FROM wallet_transactions wt
       LEFT JOIN ai_leads al ON al.id = wt.job_id
       LEFT JOIN customers crm
@@ -571,6 +587,7 @@ export async function listOwnerCollectedTransactionsForPhone(
           )
         )
       LEFT JOIN payment_slips ps ON ps.stripe_payment_intent_id = wt.stripe_payment_intent_id
+      LEFT JOIN field_technicians ft ON ft.portal_user_id = wt.user_id AND ft.user_id = ${uid}
       WHERE
         (al.user_id = ${uid} OR (wt.job_id IS NULL AND wt.user_id = ${uid}))
         AND (
@@ -612,9 +629,11 @@ export async function listOwnerCollectedTransactionsForPhone(
             NULLIF(TRIM(al.collected->>'vehicle_year'), '') AS vehicle_year,
             NULLIF(TRIM(al.collected->>'vehicle_make'), '') AS vehicle_make,
             NULLIF(TRIM(al.collected->>'vehicle_model'), '') AS vehicle_model,
-            NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type
+            NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type,
+            NULLIF(TRIM(ft.name), '') AS collected_by_tech_name
           FROM wallet_transactions wt
           LEFT JOIN ai_leads al ON al.id = wt.job_id
+          LEFT JOIN field_technicians ft ON ft.portal_user_id = wt.user_id AND ft.user_id = ${uid}
           WHERE
             (al.user_id = ${uid} OR (wt.job_id IS NULL AND wt.user_id = ${uid}))
             AND (
@@ -649,9 +668,11 @@ export async function listOwnerCollectedTransactionsForPhone(
               NULLIF(TRIM(al.collected->>'vehicle_year'), '') AS vehicle_year,
               NULLIF(TRIM(al.collected->>'vehicle_make'), '') AS vehicle_make,
               NULLIF(TRIM(al.collected->>'vehicle_model'), '') AS vehicle_model,
-              NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type
+              NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type,
+              NULLIF(TRIM(ft.name), '') AS collected_by_tech_name
             FROM wallet_transactions wt
             LEFT JOIN ai_leads al ON al.id = wt.job_id
+            LEFT JOIN field_technicians ft ON ft.portal_user_id = wt.user_id AND ft.user_id = ${uid}
             WHERE
               (al.user_id = ${uid} OR (wt.job_id IS NULL AND wt.user_id = ${uid}))
               AND right(regexp_replace(COALESCE(al.caller_e164, ''), '[^0-9]', '', 'g'), 10) = ${digits}
@@ -769,6 +790,10 @@ function mapOwnerCollectedRow(row: Record<string, unknown>): OwnerCollectedTrans
       row.reversal_reason === "DISPUTE" ||
       row.reversal_reason === "DISPUTE_WON"
         ? row.reversal_reason
+        : null,
+    collectedByTechName:
+      row.collected_by_tech_name != null && String(row.collected_by_tech_name).trim()
+        ? String(row.collected_by_tech_name).trim()
         : null,
   }
 }

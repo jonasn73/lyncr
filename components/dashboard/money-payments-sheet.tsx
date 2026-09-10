@@ -454,6 +454,7 @@ export function MoneyPaymentsSheet({
                     const subtitleParts = [
                       methodLabel(tx.paymentMethod),
                       tx.jobLabel,
+                      tx.collectedByTechName ? `Collected by ${tx.collectedByTechName}` : null,
                       tx.tipCents && tx.tipCents > 0
                         ? `Tip ${formatCollectedDollars(tx.tipCents)}`
                         : null,
@@ -697,6 +698,9 @@ function PaymentDetail({
         <DetailRow label="Method" value={methodLabel(tx.paymentMethod)} />
         <DetailRow label="When" value={formatWhen(tx.createdAt)} />
         {tx.jobLabel ? <DetailRow label="Job" value={tx.jobLabel} /> : null}
+        {tx.collectedByTechName ? (
+          <DetailRow label="Collected by" value={tx.collectedByTechName} />
+        ) : null}
         {tx.tipCents != null && tx.tipCents > 0 ? (
           <DetailRow label="Tip" value={formatCollectedDollars(tx.tipCents)} />
         ) : null}

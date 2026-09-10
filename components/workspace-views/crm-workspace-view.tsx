@@ -2653,6 +2653,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                           {" · "}
                           {paymentMethodLabel(tx.paymentMethod)}
                           {!tx.jobId ? " · Walk-up" : tx.jobLabel ? ` · ${tx.jobLabel}` : ""}
+                          {tx.collectedByTechName ? ` · Collected by ${tx.collectedByTechName}` : ""}
                         </p>
                       </div>
                       <span
