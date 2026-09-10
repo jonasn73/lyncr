@@ -1,12 +1,13 @@
 // POST /api/webhooks/telnyx/voice — Telnyx Call Control (Voice API v2) event pipeline.
 
-import { NextRequest, NextResponse } from "next/server"
+import { after, NextRequest, NextResponse } from "next/server"
 import { prefetchHoldMusicPlaybackContent } from "@/lib/hold-inline-audio"
 import {
   handleTelnyxCallControlVoiceWebhook,
   readInboundCallControlEnabled,
 } from "@/lib/telnyx-call-control-inbound"
 import { validateTelnyxRequest } from "@/lib/telnyx"
+import { alertOnInvalidTelnyxSignature } from "@/lib/telnyx-webhook-alerts"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
   const timestamp = req.headers.get("telnyx-timestamp") || ""
   if (!validateTelnyxRequest(raw, signature, timestamp)) {
     console.error("[telnyx/voice] rejected: invalid or missing webhook signature")
+    after(() => alertOnInvalidTelnyxSignature("webhooks/telnyx/voice", true))
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
   }
 

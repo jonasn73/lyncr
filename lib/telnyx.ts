@@ -7,6 +7,7 @@
 //   NEXT_PUBLIC_APP_URL     - Your deployed URL (webhook + Stripe return URLs)
 
 import { createPublicKey, verify as cryptoVerify } from "crypto"
+import { after } from "next/server"
 import { SITE_CANONICAL_URL } from "@/lib/brand"
 
 export { VoiceResponse } from "@/lib/texml"
@@ -73,12 +74,13 @@ export function validateTelnyxRequest(payload: string, signature: string, timest
 }
 
 /**
- * Fail-open signature check for Telnyx webhooks — logs a warning on a missing/invalid
- * signature but never blocks the request. TELNYX_PUBLIC_KEY is not yet configured in any
- * Vercel environment for this project (as of 2026-09-10), so enforcing rejection would drop
- * live call/SMS/porting traffic. Once the key (Telnyx Mission Control → Public Key) is added
- * to Production (and Preview), watch these warnings for a clean window, then switch the
- * caller to reject on `!validateTelnyxRequest(...)` instead of only warning.
+ * Fail-open signature check for Telnyx webhooks — logs a warning and pages platform admins
+ * (debounced — see lib/telnyx-webhook-alerts.ts) on a missing/invalid signature, but never
+ * blocks the request. TELNYX_PUBLIC_KEY went live in Production on 2026-09-10; the voice
+ * webhook has since been switched to enforce (reject) on a bad signature. The remaining
+ * routes here (status callback, porting, messaging) stay fail-open until each shows its own
+ * confirmed-clean window of real traffic — see app/api/webhooks/telnyx/voice/route.ts for the
+ * enforced version.
  */
 export function warnOnInvalidTelnyxSignature(
   headers: { get(name: string): string | null },
@@ -90,6 +92,12 @@ export function warnOnInvalidTelnyxSignature(
   const timestamp = headers.get("telnyx-timestamp") || ""
   if (!validateTelnyxRequest(rawBody, signature, timestamp)) {
     console.warn(`[telnyx] ${routeLabel}: missing/invalid webhook signature (not yet enforced)`)
+    // after() so this survives the function instance freezing once the route returns its
+    // response — a bare fire-and-forget promise here could get silently dropped.
+    after(async () => {
+      const { alertOnInvalidTelnyxSignature } = await import("@/lib/telnyx-webhook-alerts")
+      await alertOnInvalidTelnyxSignature(routeLabel, false)
+    })
   }
 }
 

@@ -19368,6 +19368,63 @@ export async function listPlatformAdminContacts(): Promise<PlatformAdminContact[
   }
 }
 
+/** 15 minutes between repeat pages for the same webhook-signature alert key. */
+const WEBHOOK_SIGNATURE_ALERT_COOLDOWN_MS = 15 * 60 * 1000
+
+/**
+ * Record one Telnyx webhook signature failure and decide whether to page platform admins.
+ * Always alerts the first time a given `alertKey` is ever seen; after that, at most once per
+ * WEBHOOK_SIGNATURE_ALERT_COOLDOWN_MS — event_count/first_event_at reset on each alert sent,
+ * so the alert text can say how many failures happened since the last page.
+ *
+ * Never throws on a missing table (e.g. a preview DB that hasn't run the migration yet) —
+ * alerting must never be why a webhook handler fails.
+ */
+export async function recordWebhookSignatureFailure(
+  alertKey: string
+): Promise<{ shouldAlert: boolean; eventCount: number; firstEventAt: string | null }> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      INSERT INTO webhook_signature_alerts (alert_key, event_count, first_event_at, last_event_at, updated_at)
+      VALUES (${alertKey}, 1, NOW(), NOW(), NOW())
+      ON CONFLICT (alert_key) DO UPDATE SET
+        event_count = webhook_signature_alerts.event_count + 1,
+        last_event_at = NOW(),
+        updated_at = NOW()
+      RETURNING event_count, first_event_at, last_alerted_at
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) return { shouldAlert: false, eventCount: 0, firstEventAt: null }
+    const lastAlertedAt = row.last_alerted_at ? new Date(String(row.last_alerted_at)) : null
+    const shouldAlert = !lastAlertedAt || Date.now() - lastAlertedAt.getTime() > WEBHOOK_SIGNATURE_ALERT_COOLDOWN_MS
+    return {
+      shouldAlert,
+      eventCount: Number(row.event_count ?? 1),
+      firstEventAt: row.first_event_at ? new Date(String(row.first_event_at)).toISOString() : null,
+    }
+  } catch (e) {
+    if (isUndefinedRelationError(e, "webhook_signature_alerts")) {
+      return { shouldAlert: false, eventCount: 0, firstEventAt: null }
+    }
+    throw e
+  }
+}
+
+/** Stamp an alert as sent and reset the counting window (called right after paging admins). */
+export async function markWebhookSignatureAlertSent(alertKey: string): Promise<void> {
+  const sql = getSql()
+  try {
+    await sql`
+      UPDATE webhook_signature_alerts
+      SET last_alerted_at = NOW(), event_count = 0, first_event_at = NULL, updated_at = NOW()
+      WHERE alert_key = ${alertKey}
+    `
+  } catch (e) {
+    if (!isUndefinedRelationError(e, "webhook_signature_alerts")) throw e
+  }
+}
+
 /** Unread chat + unread support email + open feedback for the /admin Support badge. */
 export async function getAdminSupportPulse(): Promise<AdminSupportPulse> {
   const sql = getSql()
