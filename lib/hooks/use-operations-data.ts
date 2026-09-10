@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import type { CallActivityContext } from "@/lib/types"
+import type { CallActivityContext, SmsFollowUpStatus } from "@/lib/types"
 import { LYNCR_ACTIVITY_REFRESH_EVENT } from "@/lib/lync-engine-bus"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
@@ -299,6 +299,9 @@ async function fetchOperationsSnapshot(bypassCache: boolean): Promise<Operations
           activityRaw && typeof activityRaw.intakeAction === "string"
             ? activityRaw
             : emptyActivityContext(),
+        smsFollowUpStatus: normalizeSmsFollowUpStatus(c.sms_follow_up_status),
+        smsFollowUpLastAt: c.sms_follow_up_last_at ? String(c.sms_follow_up_last_at) : null,
+        smsFollowUpPreview: c.sms_follow_up_preview ? String(c.sms_follow_up_preview) : null,
       }
     })
     : []
@@ -366,6 +369,12 @@ function normalizeCallType(value: unknown): UiCallType {
   return "incoming"
 }
 
+function normalizeSmsFollowUpStatus(value: unknown): SmsFollowUpStatus {
+  const s = String(value || "none")
+  if (s === "awaiting_reply" || s === "replied" || s === "resolved") return s
+  return "none"
+}
+
 function emptyActivityContext(): CallActivityContext {
   return {
     intakeAction: "No intake recorded",
@@ -383,7 +392,7 @@ function callsFingerprint(calls: UiCallRecord[]): string {
   return calls
     .map(
       (c) =>
-        `${c.id}|${c.callStatus}|${c.durationSeconds}|${c.answeredAt ?? ""}|${c.endedAt ?? ""}|${c.date}|${c.time}|${c.activity?.intakeAction ?? ""}|${c.activity?.leadId ?? ""}|${c.recordingUrl ?? ""}`
+        `${c.id}|${c.callStatus}|${c.durationSeconds}|${c.answeredAt ?? ""}|${c.endedAt ?? ""}|${c.date}|${c.time}|${c.activity?.intakeAction ?? ""}|${c.activity?.leadId ?? ""}|${c.recordingUrl ?? ""}|${c.smsFollowUpStatus}|${c.smsFollowUpLastAt ?? ""}`
     )
     .join(";")
 }
@@ -400,6 +409,9 @@ function normalizeUiCallRecord(c: UiCallRecord): UiCallRecord {
     answeredAt: c.answeredAt ?? null,
     endedAt: c.endedAt ?? null,
     activity: c.activity ?? emptyActivityContext(),
+    smsFollowUpStatus: c.smsFollowUpStatus ?? "none",
+    smsFollowUpLastAt: c.smsFollowUpLastAt ?? null,
+    smsFollowUpPreview: c.smsFollowUpPreview ?? null,
   }
 }
 

@@ -88,6 +88,9 @@ export async function getActivitySsrCalls(
       hasRecording: Boolean(c.has_recording),
       recordingUrl: c.recording_url ? String(c.recording_url) : null,
       activity: emptyActivity(),
+      smsFollowUpStatus: c.sms_follow_up_status ?? "none",
+      smsFollowUpLastAt: c.sms_follow_up_last_at ?? null,
+      smsFollowUpPreview: c.sms_follow_up_preview ?? null,
     }
   })
 }

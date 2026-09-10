@@ -24,6 +24,8 @@ type CustomerSmsComposerProps = {
   /** Business DID to send from (optional — server picks workspace line). */
   fromLine?: string | null
   organizationId?: string | null
+  /** Originating call — stamped on the sent text so a customer reply can surface as a follow-up. */
+  callLogId?: string | null
   className?: string
   /** Show the Quick SMS template list. */
   showQuickTemplates?: boolean
@@ -53,6 +55,7 @@ export function CustomerSmsComposer({
   customerName = null,
   fromLine = null,
   organizationId = null,
+  callLogId = null,
   className,
   showQuickTemplates = true,
   showRunningLate = true,
@@ -152,6 +155,8 @@ export function CustomerSmsComposer({
               organizationId && !organizationId.startsWith("legacy-")
                 ? organizationId
                 : undefined,
+            // Only the missed-call recovery composer flags a call as "awaiting reply".
+            call_log_id: isMissed && callLogId?.trim() ? callLogId.trim() : undefined,
           }),
         })
         const json = (await res.json().catch(() => ({}))) as { error?: string }
@@ -170,7 +175,7 @@ export function CustomerSmsComposer({
         setSending(false)
       }
     },
-    [fromLine, onSent, organizationId, toPhone, toast]
+    [callLogId, fromLine, isMissed, onSent, organizationId, toPhone, toast]
   )
 
   const sendRunningLate = useCallback(() => {

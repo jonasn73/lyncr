@@ -33,6 +33,8 @@ export async function POST(req: NextRequest) {
       organization_id?: string
       /** When set, stamp ai_leads sms_sent after a successful send (intake confirmation). */
       lead_id?: string
+      /** When set, flag this call as "awaiting_reply" for missed-call follow-up tracking. */
+      call_log_id?: string
     }
 
     const text = String(body.text ?? "").trim()
@@ -59,6 +61,7 @@ export async function POST(req: NextRequest) {
       text,
       organizationId: orgUuid,
       fromE164: fromE164 || null,
+      callLogId: String(body.call_log_id ?? "").trim() || null,
     })
 
     if (!sent.ok) {

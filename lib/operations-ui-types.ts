@@ -1,6 +1,6 @@
 /** Shared Activity row shape — safe for server + client (no "use client"). */
 
-import type { CallActivityContext } from "@/lib/types"
+import type { CallActivityContext, SmsFollowUpStatus } from "@/lib/types"
 
 export type UiCallType = "incoming" | "outgoing" | "missed" | "voicemail"
 
@@ -30,4 +30,8 @@ export interface UiCallRecord {
   recordingUrl: string | null
   /** Intake panel action + scheduling summary from /api/calls. */
   activity: CallActivityContext | null
+  /** Missed-call quick-SMS follow-up state (scripts/168) — default "none" when absent. */
+  smsFollowUpStatus: SmsFollowUpStatus
+  smsFollowUpLastAt: string | null
+  smsFollowUpPreview: string | null
 }

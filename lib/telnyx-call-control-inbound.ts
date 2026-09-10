@@ -62,6 +62,7 @@ import {
   resolveInboundCallLogSid,
 } from "@/lib/telnyx-call-control-call-log"
 import {
+  buildHoldFallbackAmdDetectionConfig,
   readInboundDialPreferredCodecs,
   readInboundDialRingbackAudioUrl,
   resolveAmdMinMachineAgeForRingSec,
@@ -727,6 +728,18 @@ async function stopCallerDialRingback(inboundCallControlId: string): Promise<voi
   await telnyxCallControlPlaybackStop(id).catch(() => undefined)
 }
 
+/**
+ * Dial reasons that ring someone's personal cell (tech, on-call tech, receptionist) rather
+ * than the owner's own main line. Only these get AMD-guarded — a carrier/personal voicemail
+ * pickup on one of these numbers must not be bridged in as if the person answered (#call-answered-gap).
+ * The owner's own line keeps the instant `bridge_on_answer` behavior from the 2026-09-05 change.
+ */
+const AMD_GUARDED_DIAL_REASONS = new Set<TelnyxCallControlDialReason>([
+  "oncall_tech",
+  "team_receptionist",
+  "busy_backup_recv",
+])
+
 async function dialTechnicianLeg(
   inboundCallControlId: string,
   state: TelnyxCallControlClientState,
@@ -755,21 +768,21 @@ async function dialTechnicianLeg(
   }
 
   const fallbackRaw = String(state.fallbackType ?? routing.fallback_type ?? "").toLowerCase()
-  // AMD used to gate every primary dial with fallback_type hold/ai/voicemail, holding both
-  // legs unbridged (dead air on her end, injected ringback on the caller's) for the entire
-  // detection window before connecting — unlike the owner's own number, which always bridges
-  // the instant the phone is answered. Product decision (2026-09-06): match the owner's
-  // instant-connect behavior here too, for every fallback type. Known accepted cost: a
-  // genuine no-answer whose carrier voicemail intercepts before ring_timeout_seconds elapses
-  // now bridges the caller into her personal voicemail greeting instead of reaching the Hold
-  // queue — the exact failure AMD existed to prevent. `amdGuard` / `call.machine.*.detection.ended`
-  // handling is kept alive downstream only for calls dialed before this change ships.
+  // 2026-09-06 dropped AMD from every primary dial to match the owner's instant-connect
+  // behavior — but on a personal-cell dial (tech / on-call tech / receptionist), that let a
+  // carrier/personal voicemail pickup get bridged in and logged as "answered" even though the
+  // person never picked up (#call-answered-gap). Restore AMD for those dial reasons only —
+  // the owner's own line keeps instant bridge_on_answer.
+  const useAmdGuard = Boolean(
+    state.dialReason && AMD_GUARDED_DIAL_REASONS.has(state.dialReason)
+  )
   const dialStartedAtMs = Date.now()
 
   const nextStatePayload: TelnyxCallControlClientState = {
     ...state,
     phase: "await_dial_end",
     inboundCallControlId,
+    amdGuard: useAmdGuard || undefined,
     dialStartedAtMs,
   }
   const nextState = encodeTelnyxCallControlState(nextStatePayload)
@@ -790,7 +803,13 @@ async function dialTechnicianLeg(
       fromE164: dialFrom,
       timeoutSecs: state.ringTimeoutSec ?? 30,
       clientState: nextState,
-      bridgeOnAnswer: true,
+      bridgeOnAnswer: !useAmdGuard,
+      ...(useAmdGuard
+        ? {
+            answeringMachineDetection: "detect",
+            answeringMachineDetectionConfig: buildHoldFallbackAmdDetectionConfig(),
+          }
+        : {}),
       // Same codec preference the legacy TeXML path already sends — Call Control's Dial
       // previously left this unset and silently fell back to connection defaults.
       preferredCodecs: readInboundDialPreferredCodecs(),
@@ -815,10 +834,11 @@ async function dialTechnicianLeg(
       outboundCallControlId: outboundCallControlId || null,
       toTail4: target.replace(/\D/g, "").slice(-4),
       fromTail4: dialFrom.replace(/\D/g, "").slice(-4),
-      // Honest dial plan for ops: timeout + confirmation this always bridges on answer now.
       timeoutSecs: state.ringTimeoutSec ?? 30,
       dialStartedAtMs,
-      bridgeOnAnswer: true,
+      bridgeOnAnswer: !useAmdGuard,
+      amdGuard: useAmdGuard,
+      dialReason: state.dialReason || null,
       fallbackType: fallbackRaw || null,
     })
   )

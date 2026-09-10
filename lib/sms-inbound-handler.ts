@@ -8,6 +8,7 @@ import {
   getDefaultOrganizationForOwner,
   getFieldTechnicianByPhone,
   insertSmsMessage,
+  markLatestAwaitingCallLogReplied,
   normalizePhoneNumberE164,
   resolvePendingSmsDisposition,
 } from "@/lib/db"
@@ -130,6 +131,12 @@ export async function processInboundTelnyxMessage(body: TelnyxMessagingWebhook):
     if (def && !def.id.startsWith("legacy-")) orgId = def.id
   }
 
+  // Flip a matching "awaiting_reply" missed-call text back to "replied" so Activity can
+  // surface "customer replied — call back?" instead of going quiet after the text is sent.
+  const followUpCallLogId = await markLatestAwaitingCallLogReplied(line.user_id, fromE164, text).catch(
+    () => null
+  )
+
   const saved = await insertSmsMessage({
     organization_id: orgId,
     owner_user_id: line.user_id,
@@ -141,6 +148,7 @@ export async function processInboundTelnyxMessage(body: TelnyxMessagingWebhook):
     customer_phone: fromE164,
     telnyx_message_id: telnyxMessageId,
     status: "received",
+    call_log_id: followUpCallLogId,
   })
 
   if (!saved) {

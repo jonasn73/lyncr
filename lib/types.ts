@@ -1610,6 +1610,8 @@ export interface SmsMessage {
   telnyx_message_id: string | null
   /** sent | delivered | failed | received | accepted_with_warning | … */
   status: string
+  /** Originating call this text follows up on, when sent from a missed-call context (scripts/168). */
+  call_log_id?: string | null
   created_at: string
   /** Set when Telnyx reports carrier delivery (scripts/119). */
   delivered_at?: string | null
@@ -1770,8 +1772,15 @@ export interface CallLog {
   post_dial_delay_ms?: number | null
   /** Operator SMS outcome when scripts/059 is applied (BOOKED, PENDING_TIME, …). */
   disposition?: string | null
+  /** Missed-call quick-SMS follow-up state (scripts/168). */
+  sms_follow_up_status?: SmsFollowUpStatus
+  sms_follow_up_last_at?: string | null
+  sms_follow_up_preview?: string | null
   created_at: string
 }
+
+/** Missed-call textback lifecycle (`call_logs.sms_follow_up_status`, scripts/168). */
+export type SmsFollowUpStatus = "none" | "awaiting_reply" | "replied" | "resolved"
 
 /** Intake + scheduling summary attached to a call row on Live Activity. */
 export interface CallActivityContext {

@@ -332,7 +332,7 @@ function classifyCall(call: UiCallRecord): ActivityCallStatus {
   return "missed"
 }
 
-type ActivityCallFilter = "all" | "missed" | "hold" | "press1"
+type ActivityCallFilter = "all" | "missed" | "hold" | "press1" | "follow_up"
 
 function isMissedActivityCall(call: UiCallRecord): boolean {
   if (call.type === "outgoing") return false
@@ -359,6 +359,11 @@ function isPress1FilterCall(call: UiCallRecord): boolean {
   if (call.type === "outgoing") return false
   const st = classifyCall(call)
   return st === "hold_press1" || st === "hold_press1_failed" || st === "hold_press1_skipped"
+}
+
+/** Missed-call textback still open — sent and waiting, or the customer replied (#missed-call-follow-up). */
+function isFollowUpFilterCall(call: UiCallRecord): boolean {
+  return call.smsFollowUpStatus === "awaiting_reply" || call.smsFollowUpStatus === "replied"
 }
 
 /** Same rules as the Lines HUD “Missed today” pill — local calendar day + shared missed detection. */
@@ -517,17 +522,125 @@ function CallBackButton({
   )
 }
 
+function formatFollowUpTime(iso: string | null): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+}
+
+/**
+ * Surfaces the missed-call textback loop that otherwise goes silent: a quick SMS goes out,
+ * the customer texts back, and — until now — nothing told the owner the reply even happened
+ * (#missed-call-follow-up). Shows the reply + a one-tap "Call now" so the owner can decide
+ * whether to close the loop by phone instead of more texting.
+ */
+function SmsFollowUpBanner({ call }: { call: UiCallRecord }) {
+  const { toast } = useToast()
+  const inbound = useInboundCallPanelOptional()
+  const [resolving, setResolving] = useState(false)
+  const [resolved, setResolved] = useState(false)
+  const status = call.smsFollowUpStatus
+  if (status === "none" || status === "resolved" || resolved) return null
+
+  const replied = status === "replied"
+  const href = buildTelHref(call.callerNumber)
+  const timeLabel = formatFollowUpTime(call.smsFollowUpLastAt)
+
+  const markHandled = async () => {
+    if (resolving) return
+    setResolving(true)
+    try {
+      const res = await fetch(`/api/calls/${encodeURIComponent(call.id)}/sms-follow-up-resolved`, {
+        method: "POST",
+        credentials: "include",
+      })
+      if (!res.ok) throw new Error("Could not update follow-up")
+      setResolved(true)
+    } catch {
+      toast({
+        title: "Could not update",
+        description: "Try marking this handled again in a moment.",
+        variant: "destructive",
+      })
+    } finally {
+      setResolving(false)
+    }
+  }
+
+  const callNow = (e: MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    openIntakeForActivityCall(inbound, call)
+    if (href) window.location.href = href
+  }
+
+  return (
+    <div
+      className={cn(
+        "space-y-2 rounded-xl border p-3",
+        replied ? "border-warning/40 bg-warning/10" : "border-info/25 bg-info/5"
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p
+            className={cn(
+              "text-2xs font-semibold uppercase tracking-wide",
+              replied ? "text-warning" : "text-info/80"
+            )}
+          >
+            {replied ? "Customer replied" : "Waiting on a reply"}
+          </p>
+          {call.smsFollowUpPreview ? (
+            <p className="mt-1 line-clamp-2 text-xs italic text-foreground/90">
+              “{call.smsFollowUpPreview}”
+            </p>
+          ) : null}
+        </div>
+        {timeLabel ? (
+          <span className="shrink-0 text-2xs font-medium tabular-nums text-muted-foreground">
+            {timeLabel}
+          </span>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {replied && href ? (
+          <button
+            type="button"
+            onClick={callNow}
+            className="inline-flex min-h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-warning/45 bg-warning/20 px-3 text-xs font-semibold text-warning hover:bg-warning/30"
+          >
+            <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            Call now
+          </button>
+        ) : null}
+        <button
+          type="button"
+          disabled={resolving}
+          onClick={() => void markHandled()}
+          className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-border/70 bg-background/50 px-3 text-xs font-semibold text-muted-foreground hover:bg-card/70 disabled:opacity-50"
+        >
+          Mark handled
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function ActivityCallFilterBar({
   filter,
   missedCount,
   holdCount,
   press1Count,
+  followUpCount,
   onChange,
 }: {
   filter: ActivityCallFilter
   missedCount: number
   holdCount: number
   press1Count: number
+  followUpCount: number
   onChange: (next: ActivityCallFilter) => void
 }) {
   return (
@@ -544,6 +657,13 @@ function ActivityCallFilterBar({
           badge: missedCount,
           tone: "amber",
           icon: <PhoneMissed className="h-3.5 w-3.5 shrink-0" aria-hidden />,
+        },
+        {
+          id: "follow_up",
+          label: "Needs follow-up",
+          badge: followUpCount,
+          tone: "amber",
+          icon: <MessageSquare className="h-3.5 w-3.5 shrink-0" aria-hidden />,
         },
         { id: "hold", label: "Hold", badge: holdCount, tone: "amber" },
         { id: "press1", label: "Press 1", badge: press1Count, tone: "amber" },
@@ -949,10 +1069,12 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
                   Messages
                 </Link>
               </div>
+              <SmsFollowUpBanner call={call} />
               <CustomerSmsComposer
                 toPhone={customerPhone}
                 fromLine={call.targetLineE164 || null}
                 organizationId={activeOrganizationId}
+                callLogId={call.id}
                 variant={isMissedLog ? "missed" : "follow_up"}
                 showRunningLate={!isMissedLog}
                 showQuickTemplates
@@ -1741,6 +1863,10 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
     () => scopedCalls.filter((c) => isPress1FilterCall(c)).length,
     [scopedCalls]
   )
+  const followUpCount = useMemo(
+    () => scopedCalls.filter((c) => isFollowUpFilterCall(c)).length,
+    [scopedCalls]
+  )
 
   const rows = useMemo(() => {
     const sorted = [...scopedCalls].sort((a, b) => {
@@ -1761,6 +1887,9 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
     }
     if (filter === "press1") {
       return filterActivityCallGroups(grouped, (c) => isPress1FilterCall(c))
+    }
+    if (filter === "follow_up") {
+      return filterActivityCallGroups(grouped, (c) => isFollowUpFilterCall(c))
     }
     return grouped
   }, [scopedCalls, filter])
@@ -1786,6 +1915,9 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
     if (filter === "press1") {
       return filterActivityCallGroups(grouped, (c) => isPress1FilterCall(c))
     }
+    if (filter === "follow_up") {
+      return filterActivityCallGroups(grouped, (c) => isFollowUpFilterCall(c))
+    }
     return grouped
   }, [rows, calls, filter])
 
@@ -1797,8 +1929,10 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
     filter === "hold" && displayRows.length === 0 && !loading && !waitingForLines
   const showPress1Empty =
     filter === "press1" && displayRows.length === 0 && !loading && !waitingForLines
+  const showFollowUpEmpty =
+    filter === "follow_up" && displayRows.length === 0 && !loading && !waitingForLines
   // Filter-specific empty replaces the generic “No calls yet” table empty (was a double flash).
-  const showFilterEmpty = showMissedEmpty || showHoldEmpty || showPress1Empty
+  const showFilterEmpty = showMissedEmpty || showHoldEmpty || showPress1Empty || showFollowUpEmpty
 
   useFlickerDebugLifecycle("ActivityWorkspaceBody", {
     loading,
@@ -1825,7 +1959,9 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
               ? "Hold queue"
               : filter === "press1"
                 ? "Press 1 bookings"
-                : "Activities"
+                : filter === "follow_up"
+                  ? "Needs follow-up"
+                  : "Activities"
         }
       />
       {/* Desktop-only shortcuts — kept out of the header so mobile never gets a status row under the title. */}
@@ -1851,6 +1987,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
         missedCount={missedCount}
         holdCount={holdCount}
         press1Count={press1Count}
+        followUpCount={followUpCount}
         onChange={onFilterChange}
       />
       {showingQuietLoad ? (
@@ -1885,6 +2022,15 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
               <p className="text-sm font-medium text-foreground">No Press 1 bookings yet</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 When a caller presses 1 for a booking text, it shows up here.
+              </p>
+            </div>
+          ) : null}
+          {showFollowUpEmpty ? (
+            <div className="rounded-2xl border border-border/80 bg-background/40 px-4 py-10 text-center">
+              <MessageSquare className="mx-auto mb-2 h-9 w-9 text-info/70" aria-hidden />
+              <p className="text-sm font-medium text-foreground">No open follow-ups</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Missed-call texts waiting on a reply — or that just got one — show up here.
               </p>
             </div>
           ) : null}

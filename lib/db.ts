@@ -5176,6 +5176,16 @@ function parseCallLogRow(row: Record<string, unknown>): CallLog {
     setup_duration_ms: row.setup_duration_ms == null ? null : Number(row.setup_duration_ms),
     post_dial_delay_ms: row.post_dial_delay_ms == null ? null : Number(row.post_dial_delay_ms),
     disposition: row.disposition != null ? String(row.disposition) : null,
+    sms_follow_up_status: (row.sms_follow_up_status
+      ? String(row.sms_follow_up_status)
+      : "none") as CallLog["sms_follow_up_status"],
+    sms_follow_up_last_at:
+      row.sms_follow_up_last_at instanceof Date
+        ? row.sms_follow_up_last_at.toISOString()
+        : row.sms_follow_up_last_at != null
+          ? String(row.sms_follow_up_last_at)
+          : null,
+    sms_follow_up_preview: row.sms_follow_up_preview != null ? String(row.sms_follow_up_preview) : null,
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
   }
 }
@@ -7361,6 +7371,7 @@ function parseSmsMessageRow(row: Record<string, unknown>): SmsMessage {
     customer_phone: String(row.customer_phone ?? ""),
     telnyx_message_id: row.telnyx_message_id != null ? String(row.telnyx_message_id) : null,
     status: String(row.status ?? "received"),
+    call_log_id: row.call_log_id != null ? String(row.call_log_id) : null,
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     delivered_at: iso(row.delivered_at),
     failed_at: iso(row.failed_at),
@@ -7379,6 +7390,7 @@ export async function insertSmsMessage(params: {
   customer_phone: string
   telnyx_message_id?: string | null
   status?: string
+  call_log_id?: string | null
 }): Promise<SmsMessage | null> {
   const sql = getSql()
   const id = crypto.randomUUID()
@@ -7386,18 +7398,117 @@ export async function insertSmsMessage(params: {
     const rows = await sql`
       INSERT INTO sms_messages (
         id, organization_id, owner_user_id, phone_number_id, direction,
-        from_number, to_number, body, customer_phone, telnyx_message_id, status, created_at
+        from_number, to_number, body, customer_phone, telnyx_message_id, status, call_log_id, created_at
       )
       VALUES (
         ${id}, ${params.organization_id}, ${params.owner_user_id}, ${params.phone_number_id ?? null},
         ${params.direction}, ${params.from_number}, ${params.to_number}, ${params.body},
-        ${params.customer_phone}, ${params.telnyx_message_id ?? null}, ${params.status ?? "received"}, now()
+        ${params.customer_phone}, ${params.telnyx_message_id ?? null}, ${params.status ?? "received"},
+        ${params.call_log_id ?? null}, now()
       )
       RETURNING *
     `
     return parseSmsMessageRow(rows[0] as Record<string, unknown>)
   } catch (e) {
     if (isMissingSmsMessagesTableError(e)) return null
+    throw e
+  }
+}
+
+/**
+ * Missed-call quick SMS just went out for this call — mark the call "awaiting_reply" so
+ * Activity can show whether the customer still needs a follow-up call (#missed-call-follow-up).
+ * Best-effort: swallowed if scripts/168 has not run yet (column missing).
+ */
+export async function markCallLogSmsFollowUpSent(callLogId: string, preview: string): Promise<void> {
+  const id = callLogId.trim()
+  if (!id) return
+  const sql = getSql()
+  try {
+    await sql`
+      UPDATE call_logs
+      SET
+        sms_follow_up_status = 'awaiting_reply',
+        sms_follow_up_last_at = now(),
+        sms_follow_up_preview = ${preview.slice(0, 300)}
+      WHERE id = ${id}
+    `
+  } catch (e) {
+    if (pgErrorCode(e) === "42703") return
+    throw e
+  }
+}
+
+/**
+ * A customer replied — find the most recent call for this owner+phone still waiting on a
+ * reply and flip it to "replied" so it surfaces as needing a callback decision.
+ */
+export async function markLatestAwaitingCallLogReplied(
+  ownerUserId: string,
+  customerPhoneE164: string,
+  preview: string
+): Promise<string | null> {
+  const phone = customerPhoneE164.trim()
+  if (!phone) return null
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      UPDATE call_logs
+      SET
+        sms_follow_up_status = 'replied',
+        sms_follow_up_last_at = now(),
+        sms_follow_up_preview = ${preview.slice(0, 300)}
+      WHERE id = (
+        SELECT id FROM call_logs
+        WHERE user_id = ${ownerUserId}
+          AND from_number = ${phone}
+          AND sms_follow_up_status = 'awaiting_reply'
+        ORDER BY created_at DESC
+        LIMIT 1
+      )
+      RETURNING id
+    `
+    return rows[0]?.id ? String(rows[0].id) : null
+  } catch (e) {
+    if (pgErrorCode(e) === "42703") return null
+    throw e
+  }
+}
+
+/** Owner marks a follow-up handled (called back, booked, or dismissed). */
+export async function resolveCallLogSmsFollowUp(callLogId: string, ownerUserId: string): Promise<boolean> {
+  const id = callLogId.trim()
+  if (!id) return false
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      UPDATE call_logs
+      SET sms_follow_up_status = 'resolved'
+      WHERE id = ${id} AND user_id = ${ownerUserId}
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (pgErrorCode(e) === "42703") return false
+    throw e
+  }
+}
+
+/** Open missed-call SMS follow-ups (awaiting a reply, or replied and awaiting a decision). */
+export async function listOpenSmsFollowUpsForOwner(ownerUserId: string, limit = 50): Promise<CallLog[]> {
+  const sql = getSql()
+  const cap = Math.min(Math.max(limit, 1), 200)
+  try {
+    const rows = await sql`
+      SELECT * FROM call_logs
+      WHERE user_id = ${ownerUserId}
+        AND sms_follow_up_status IN ('awaiting_reply', 'replied')
+      ORDER BY sms_follow_up_last_at DESC NULLS LAST, created_at DESC
+      LIMIT ${cap}
+    `
+    return rows.map((row) => parseCallLogRow(row as Record<string, unknown>))
+  } catch (e) {
+    if (pgErrorCode(e) === "42703") return []
     throw e
   }
 }

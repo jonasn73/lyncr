@@ -36,6 +36,9 @@ function makeCall(partial: Partial<UiCallRecord> & Pick<UiCallRecord, "id" | "ca
     hasRecording: false,
     recordingUrl: null,
     activity: null,
+    smsFollowUpStatus: "none",
+    smsFollowUpLastAt: null,
+    smsFollowUpPreview: null,
     ...partial,
   }
 }

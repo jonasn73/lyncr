@@ -4,6 +4,7 @@
 import {
   getActivePhoneNumberByE164,
   insertSmsMessage,
+  markCallLogSmsFollowUpSent,
   normalizePhoneNumberE164,
 } from "@/lib/db"
 import {
@@ -45,6 +46,8 @@ export async function sendAndLogWorkspaceCustomerSms(params: {
   text: string
   organizationId?: string | null
   fromE164?: string | null
+  /** Missed-call quick SMS sent from this call — flags it "awaiting_reply" for follow-up tracking. */
+  callLogId?: string | null
 }): Promise<WorkspaceCustomerSmsResult> {
   const toE164 = normalizePhoneNumberE164(params.toE164)
   const text = params.text.trim()
@@ -133,6 +136,7 @@ export async function sendAndLogWorkspaceCustomerSms(params: {
     })
   }
 
+  const callLogId = params.callLogId?.trim() || null
   const message = await insertSmsMessage({
     organization_id: orgFromLine || orgFromParam,
     owner_user_id: params.ownerUserId,
@@ -144,7 +148,14 @@ export async function sendAndLogWorkspaceCustomerSms(params: {
     customer_phone: toE164,
     telnyx_message_id: sent.message_id,
     status: sent.delivery_warning ? "accepted_with_warning" : "sent",
+    call_log_id: callLogId,
   })
+
+  if (callLogId) {
+    await markCallLogSmsFollowUpSent(callLogId, text).catch(() => {
+      /* best-effort — follow-up tracking must never block the send */
+    })
+  }
 
   return {
     ok: true,

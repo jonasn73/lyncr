@@ -114,6 +114,10 @@ export function operationsPaintToUiCalls(seed: OperationsPaintSeed): UiCallRecor
     ...c,
     recordingUrl: c.recordingUrl,
     activity: null,
+    // Not worth the cookie bytes for a pre-hydration paint — real status lands with the live fetch.
+    smsFollowUpStatus: "none",
+    smsFollowUpLastAt: null,
+    smsFollowUpPreview: null,
   }))
 }
 
