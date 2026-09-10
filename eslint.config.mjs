@@ -51,13 +51,16 @@ const eslintConfig = [
   {
     ignores: [
       "node_modules/**",
-      ".next/**",
+      "**/.next/**",
       "mobile/**",
       "Lyncr/**",
       "public/**",
       "scripts/**",
       "*.config.js",
       "*.config.mjs",
+      // Leftover git worktrees from past Claude Code agent runs (each is a full
+      // checkout with its own node_modules/.next) — not app source.
+      ".claude/**",
     ],
   },
   ...nextConfig,

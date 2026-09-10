@@ -46,7 +46,10 @@ jobs:
         working-directory: mobile
         run: npm run typecheck
 
-# Deliberately not running eslint here. It reports 292 errors on main today,
+# Deliberately not running eslint here. It reports ~305 errors on main today
+# (verified 2026-09-10 — the eslint.config.mjs ignores didn't exclude .claude/**,
+# so a naive run also picks up ~2,000 more from stale build output in leftover
+# .claude/worktrees/* checkouts; that's now fixed, this count is real source only),
 # almost all of them react-hooks/set-state-in-effect and react-hooks/refs, so a
 # blocking step would fail every pull request from the moment it landed and a
 # non-blocking one is a permanently red tick nobody reads. Add it once those two

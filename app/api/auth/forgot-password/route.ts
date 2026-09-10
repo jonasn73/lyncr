@@ -9,6 +9,7 @@ import { getAuthUserByEmail, userFacingDatabaseError } from "@/lib/db"
 import { createPasswordResetToken } from "@/lib/password-reset-token"
 import { getAppUrl } from "@/lib/telnyx"
 import { buildPasswordResetEmailPayload, sendPasswordResetEmail } from "@/lib/password-reset-email"
+import { checkRateLimit, clientIpFromHeaders, rateLimitedResponse } from "@/lib/rate-limit"
 
 const GENERIC_RESPONSE = {
   ok: true,
@@ -17,6 +18,9 @@ const GENERIC_RESPONSE = {
 
 export async function POST(req: NextRequest) {
   try {
+    const rateLimit = await checkRateLimit("auth-forgot-password", clientIpFromHeaders(req.headers))
+    if (rateLimit.limited) return rateLimitedResponse(rateLimit.retryAfterSeconds)
+
     const body = await req.json()
     const email = String(body?.email ?? "").trim().toLowerCase()
     if (!email) {

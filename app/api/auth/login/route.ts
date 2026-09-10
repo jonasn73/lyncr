@@ -15,9 +15,13 @@ import { isPlatformAdminUser } from "@/lib/platform-admin"
 import { isLyncrAdminUser } from "@/lib/lyncr-admin"
 import { postAuthPayload } from "@/lib/post-auth-redirect"
 import { recordAuditEvent } from "@/lib/audit-log"
+import { checkRateLimit, clientIpFromHeaders, rateLimitedResponse } from "@/lib/rate-limit"
 
 export async function POST(req: NextRequest) {
   try {
+    const rateLimit = await checkRateLimit("auth-login", clientIpFromHeaders(req.headers))
+    if (rateLimit.limited) return rateLimitedResponse(rateLimit.retryAfterSeconds)
+
     const body = await req.json()
     const email = String(body?.email ?? "").trim().toLowerCase()
     const password = String(body?.password ?? "")
