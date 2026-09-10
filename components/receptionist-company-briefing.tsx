@@ -248,49 +248,90 @@ export function CompanyBriefingCard({
   const script = `Thank you for calling ${businessName}, this is ${operator}, how can I help you?`
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-overlay shadow-black/50">
-        {/* Header — answer-as greeting */}
-        <div
-          className={cn(
-            "rounded-t-2xl border-b border-border p-6",
-            ringing ? "bg-success/30" : "bg-primary/10"
-          )}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <p className="flex items-center gap-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <span
-                className={cn(
-                  "h-2 w-2 rounded-full",
-                  ringing ? "animate-pulse bg-success" : "bg-primary"
-                )}
-                aria-hidden
-              />
-              Lyncr Company Briefing · {ringing ? "Incoming call" : "On call"}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <div
+        className="flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-overlay shadow-black/50"
+        style={{ maxHeight: "calc(100dvh - 2rem)" }}
+      >
+        {/* Scrollable body — everything except the phone controls, which stay pinned below so
+            Answer/Decline are never scrolled out of view during a live ring on a short phone
+            screen (a returning caller's facts list, or a long dispatch note, used to be able
+            to push them below the fold). */}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {/* Header — answer-as greeting */}
+          <div
+            className={cn(
+              "rounded-t-2xl border-b border-border p-6",
+              ringing ? "bg-success/30" : "bg-primary/10"
+            )}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="flex items-center gap-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <span
+                  className={cn(
+                    "h-2 w-2 rounded-full",
+                    ringing ? "animate-pulse bg-success" : "bg-primary"
+                  )}
+                  aria-hidden
+                />
+                Lyncr Company Briefing · {ringing ? "Incoming call" : "On call"}
+              </p>
+              <span className="text-xs text-muted-foreground">
+                {formatPhoneDisplay(callerNumber)}
+                {callerName ? ` · ${callerName}` : ""}
+              </span>
+            </div>
+
+            <p className="mt-3 text-2xl font-bold leading-tight tracking-tight text-foreground sm:text-3xl">
+              ANSWER AS:{" "}
+              <span className="text-success">
+                {loading && !briefing ? "…" : businessName}
+              </span>
             </p>
-            <span className="text-xs text-muted-foreground">
-              {formatPhoneDisplay(callerNumber)}
-              {callerName ? ` · ${callerName}` : ""}
-            </span>
+
+            <div className="mt-3 rounded-xl border border-success/25 bg-success/[0.06] px-4 py-3">
+              <p className="text-2xs font-semibold uppercase tracking-wide text-success">Opening script</p>
+              <p className="mt-1 text-sm leading-relaxed text-foreground">&ldquo;{script}&rdquo;</p>
+            </div>
+
+            <CallerIdentityStrip caller={caller} callerNumber={callerNumber} callerName={callerName} />
           </div>
 
-          <p className="mt-3 text-2xl font-bold leading-tight tracking-tight text-foreground sm:text-3xl">
-            ANSWER AS:{" "}
-            <span className="text-success">
-              {loading && !briefing ? "…" : businessName}
-            </span>
-          </p>
-
-          <div className="mt-3 rounded-xl border border-success/25 bg-success/[0.06] px-4 py-3">
-            <p className="text-2xs font-semibold uppercase tracking-wide text-success">Opening script</p>
-            <p className="mt-1 text-sm leading-relaxed text-foreground">&ldquo;{script}&rdquo;</p>
+          {/* Company cheat-sheet grid */}
+          <div className="grid gap-3 px-6 py-6 sm:grid-cols-3">
+            <CheatSheetTile
+              icon={<Clock className="h-3.5 w-3.5" aria-hidden />}
+              label="Hours"
+              value={briefing?.business_hours ?? null}
+              emptyHint={loading ? "Loading…" : "No hours set by owner yet."}
+              accent="text-info"
+            />
+            <CheatSheetTile
+              icon={<ClipboardList className="h-3.5 w-3.5" aria-hidden />}
+              label="Service Rules"
+              value={briefing?.service_rules ?? null}
+              emptyHint={loading ? "Loading…" : "No rates or policies set yet."}
+              accent="text-operator"
+            />
+            <CheatSheetTile
+              icon={<Megaphone className="h-3.5 w-3.5" aria-hidden />}
+              label="Live Owner Dispatch Notes"
+              value={briefing?.business_instructions ?? null}
+              emptyHint={loading ? "Loading…" : "No live dispatch notes from the owner right now."}
+              accent="text-warning"
+            />
           </div>
 
-          <CallerIdentityStrip caller={caller} callerNumber={callerNumber} callerName={callerName} />
+          {loading && !briefing ? (
+            <p className="flex items-center justify-center gap-2 border-t border-border px-6 py-3 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              Pulling company briefing…
+            </p>
+          ) : null}
         </div>
 
-        {/* Phone controls */}
-        <div className="flex items-center justify-center gap-3 p-6">
+        {/* Phone controls — pinned, always visible regardless of scroll position above */}
+        <div className="flex shrink-0 items-center justify-center gap-3 border-t border-border bg-card p-6">
           {ringing ? (
             <button
               type="button"
@@ -310,38 +351,6 @@ export function CompanyBriefingCard({
             {ringing ? "Decline" : "Hang up"}
           </button>
         </div>
-
-        {/* Company cheat-sheet grid */}
-        <div className="grid gap-3 px-6 pb-6 sm:grid-cols-3">
-          <CheatSheetTile
-            icon={<Clock className="h-3.5 w-3.5" aria-hidden />}
-            label="Hours"
-            value={briefing?.business_hours ?? null}
-            emptyHint={loading ? "Loading…" : "No hours set by owner yet."}
-            accent="text-info"
-          />
-          <CheatSheetTile
-            icon={<ClipboardList className="h-3.5 w-3.5" aria-hidden />}
-            label="Service Rules"
-            value={briefing?.service_rules ?? null}
-            emptyHint={loading ? "Loading…" : "No rates or policies set yet."}
-            accent="text-operator"
-          />
-          <CheatSheetTile
-            icon={<Megaphone className="h-3.5 w-3.5" aria-hidden />}
-            label="Live Owner Dispatch Notes"
-            value={briefing?.business_instructions ?? null}
-            emptyHint={loading ? "Loading…" : "No live dispatch notes from the owner right now."}
-            accent="text-warning"
-          />
-        </div>
-
-        {loading && !briefing ? (
-          <p className="flex items-center justify-center gap-2 border-t border-border px-6 py-3 text-xs text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            Pulling company briefing…
-          </p>
-        ) : null}
       </div>
     </div>
   )
