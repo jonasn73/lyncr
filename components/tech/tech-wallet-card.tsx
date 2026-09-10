@@ -18,6 +18,8 @@ type WalletTx = {
 type WalletPayload = {
   availableBalance: number
   pendingClearance: number
+  /** Owner-configured commission plan total (separate from cash collected on-site above). */
+  commissionEarned: number
   recentTransactions: WalletTx[]
 }
 
@@ -124,6 +126,22 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
           </p>
         </div>
       </div>
+
+      {data && data.commissionEarned > 0 ? (
+        <div className="px-4 pb-3">
+          <div className="rounded-xl border border-operator/20 bg-operator/10 px-3 py-3">
+            <p className="text-micro font-medium uppercase tracking-wider text-operator/80">
+              Commission Earned (all time)
+            </p>
+            <p className="mt-1 text-xl font-bold tracking-tight text-operator">
+              {formatUsd(data.commissionEarned)}
+            </p>
+            <p className="mt-1 text-2xs text-muted-foreground">
+              From your pay plan — separate from cash you've collected on-site above.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       <div className="px-4 pb-4">
         <p className="mb-2 text-micro font-semibold uppercase tracking-wider text-muted-foreground">
