@@ -155,6 +155,42 @@ function getSql(): ReturnType<typeof neon> {
   return cachedSql
 }
 
+/**
+ * Credit the call a lead came out of, so a receptionist commission has something to key
+ * on. Derived from the call rather than passed in, because the caller usually knows the
+ * call id and not who ended up answering it (`call_logs.routed_to_receptionist_id` does).
+ * Every lead-creation path must call this with its `callLogId` — skipping it is what
+ * silently drops a receptionist's booking commission (149).
+ */
+export async function attributeLeadToCallReceptionist(
+  leadId: string,
+  ownerUserId: string,
+  callLogId: string
+): Promise<void> {
+  const trimmedCallLogId = callLogId.trim()
+  if (!trimmedCallLogId) return
+  const sql = getSql()
+  try {
+    await sql`
+      UPDATE ai_leads l
+      SET source_call_log_id = cl.id,
+          booked_by_receptionist_id = cl.routed_to_receptionist_id
+      FROM call_logs cl
+      WHERE l.id = ${leadId}
+        AND cl.id = ${trimmedCallLogId}::uuid
+        AND cl.user_id = l.user_id
+        AND cl.user_id = ${ownerUserId}
+    `
+  } catch (e) {
+    const code = e && typeof e === "object" && "code" in e ? String((e as { code: unknown }).code) : ""
+    // 42703 = pre-149 (columns don't exist yet). 22P02 = the call id is not a uuid
+    // (sandbox / synthetic ids never have a real receptionist to attribute anyway).
+    if (code !== "42703" && code !== "22P02") {
+      console.warn("[intake] booking attribution failed:", e)
+    }
+  }
+}
+
 function formatAddress(params: CreateIntakeJobInput): string | null {
   const parts = [
     params.addressLine1?.trim(),
@@ -618,27 +654,8 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     `
   }
 
-  // Credit the call this job came out of, so a receptionist commission has something
-  // to key on. Derived from the call rather than passed in, because the caller knows
-  // the call id and not who ended up answering it. Ignored before migration 149.
   if (input.callLogId) {
-    try {
-      await sql`
-        UPDATE ai_leads l
-        SET source_call_log_id = cl.id,
-            booked_by_receptionist_id = cl.routed_to_receptionist_id
-        FROM call_logs cl
-        WHERE l.id = ${id}
-          AND cl.id = ${input.callLogId}::uuid
-          AND cl.user_id = l.user_id
-      `
-    } catch (e) {
-      const code = e && typeof e === "object" && "code" in e ? String((e as { code: unknown }).code) : ""
-      // 42703 = pre-149. 22P02 = the call id is not a uuid (sandbox / synthetic ids).
-      if (code !== "42703" && code !== "22P02") {
-        console.warn("[intake] booking attribution failed:", e)
-      }
-    }
+    await attributeLeadToCallReceptionist(id, input.ownerUserId, input.callLogId)
   }
 
   // Persist flat-price override columns (ignore if migration 109 not applied yet).

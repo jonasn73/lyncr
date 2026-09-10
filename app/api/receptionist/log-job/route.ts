@@ -26,6 +26,8 @@ import {
   setLeadScheduledAt,
   type LeadDisposition,
 } from "@/lib/db"
+import { attributeLeadToCallReceptionist } from "@/lib/create-intake-job"
+import { recordAuditEvent } from "@/lib/audit-log"
 import { DISPOSITION_LABEL, dispatchStateFor } from "@/lib/call-disposition"
 import { parseScheduledAtFromFields } from "@/lib/scheduler-utils"
 import { sendTechJobAssignedSms } from "@/lib/tech-job-assigned-sms"
@@ -124,6 +126,32 @@ export async function POST(req: NextRequest) {
     })
 
     await applyLeadDisposition(result.id, { disposition: status, dispatch_status, is_salvageable })
+
+    // This endpoint bypassed createUnassignedJobFromIntake entirely, so it never ran the
+    // attribution UPDATE that keys a receptionist's booking commission — a job logged here
+    // silently paid nobody. Same call every other intake path already makes.
+    if (callLogId) {
+      await attributeLeadToCallReceptionist(result.id, ctx.owner_user_id, callLogId)
+    }
+
+    // Also bypassed the audit trail every other intake path writes — /admin/audit had zero
+    // record of jobs logged through this endpoint.
+    void recordAuditEvent({
+      ownerUserId: ctx.owner_user_id,
+      actorUserId: portalUserId,
+      actorRole: "receptionist",
+      eventType: "receptionist.job_logged",
+      entityType: "job",
+      entityId: result.id,
+      detail: {
+        call_log_id: callLogId || null,
+        disposition: status,
+        dispatch_status,
+        is_salvageable,
+        business_type: businessType,
+        summary,
+      },
+    })
 
     const scheduledAt = parseScheduledAtFromFields(fields)
     if (scheduledAt) {

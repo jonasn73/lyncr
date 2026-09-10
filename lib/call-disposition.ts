@@ -14,6 +14,7 @@ import {
   setCallLogDisposition,
   type LeadDisposition,
 } from "@/lib/db"
+import { attributeLeadToCallReceptionist } from "@/lib/create-intake-job"
 import { publishOwnerEvent, type OwnerChannelEvent } from "@/lib/realtime/pusher-server"
 
 /** Numeric SMS reply codes → our disposition ENUM. */
@@ -120,6 +121,14 @@ export async function recordOperatorDisposition(params: {
     dispatch_status,
     is_salvageable,
   }).catch((e) => console.error("[call-disposition] applyLeadDisposition failed:", e))
+
+  // `captured_by_receptionist_id` above is JSONB display-only — this is the column
+  // settle-job.ts actually keys receptionist commission on. Without it, a call disposed
+  // via the SMS reply or phone wrapup path (both pass a real receptionistId) silently
+  // paid nobody, the same bug the in-app log-job endpoint had.
+  if (params.callLogId) {
+    await attributeLeadToCallReceptionist(leadId, params.userId, params.callLogId)
+  }
 
   // 3. Broadcast to the owner (best-effort; owner dashboard also polls).
   await publishOwnerEvent(params.userId, ownerEventFor(params.disposition), {
