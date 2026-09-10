@@ -14,6 +14,8 @@ export type AdminAuditFilters = {
   entityId: string | null
 }
 
+const AUTO_REFRESH_MS = 20_000
+
 export function useAdminAuditEvents() {
   const [filters, setFilters] = useState<AdminAuditFilters>({ ownerUserId: null, eventType: null, entityId: null })
   const [events, setEvents] = useState<AuditEventRow[]>([])
@@ -49,6 +51,14 @@ export function useAdminAuditEvents() {
     // Directory is loaded once for the account picker — not re-fetched on filter change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // The board was pure pull — an admin tracing a stuck flow had to keep mashing Refresh to see
+  // whether the next step actually landed. Silent (no spinner-flash) poll while the tab is open;
+  // 20s is frequent enough to feel live without hammering /api/admin/audit for a single viewer.
+  useEffect(() => {
+    const id = setInterval(() => void fetchEvents(filters, true), AUTO_REFRESH_MS)
+    return () => clearInterval(id)
+  }, [filters, fetchEvents])
 
   useEffect(() => {
     let cancelled = false
