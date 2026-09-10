@@ -119,9 +119,10 @@ export function WorkspaceStatCard({
     return (
       <div className={cn("rounded-xl border border-border/50 bg-card/70 px-3 py-3 sm:px-4", accent && accentClass)}>
         <p className="text-micro font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-        <p className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-foreground sm:text-2xl">
-          {value}
-        </p>
+        <AnimatedStatusLabel
+          value={value}
+          className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-foreground sm:text-2xl"
+        />
         {hint ? <p className="mt-0.5 hidden text-2xs text-muted-foreground sm:block">{hint}</p> : null}
       </div>
     )
@@ -130,7 +131,7 @@ export function WorkspaceStatCard({
     // eslint-disable-next-line no-restricted-syntax -- p-5 holds min-h-[5.75rem], a reserved height shared with the skeletons
     <div className={cn("min-h-[5.75rem] rounded-2xl border border-border bg-card/50 p-5", accent && accentClass)}>
       <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+      <AnimatedStatusLabel value={value} className="mt-2 text-2xl font-semibold tracking-tight text-foreground" />
       {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   )

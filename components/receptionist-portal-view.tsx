@@ -138,7 +138,12 @@ function LiveStatusStrip({ dashboard }: { dashboard: ReceptionistPortalDashboard
       )}
     >
       <span className="relative flex h-2.5 w-2.5 shrink-0" aria-hidden>
-        <span className={cn("relative inline-flex h-2.5 w-2.5 rounded-full", onCall ? "bg-success" : "bg-primary")} />
+        <span
+          className={cn(
+            "relative inline-flex h-2.5 w-2.5 rounded-full",
+            onCall ? "bg-success" : "animate-pulse bg-primary"
+          )}
+        />
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground">
