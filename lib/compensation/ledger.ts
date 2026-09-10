@@ -49,6 +49,8 @@ export interface EarningsLedgerRow {
   source_id: string | null
   amount_cents: number
   quantity: number
+  /** The PayComponent this row was computed from, or (for a PAYOUT row) {method, note, paid_by_user_id}. */
+  rate_snapshot: Record<string, unknown>
   earned_at: string
   pay_period_id: string | null
   reversed_by: string | null
@@ -74,6 +76,10 @@ function parseLedgerRow(row: Record<string, unknown>): EarningsLedgerRow {
     source_id: row.source_id ? String(row.source_id) : null,
     amount_cents: Number(row.amount_cents ?? 0),
     quantity: Number(row.quantity ?? 0),
+    rate_snapshot:
+      row.rate_snapshot && typeof row.rate_snapshot === "object"
+        ? (row.rate_snapshot as Record<string, unknown>)
+        : {},
     earned_at: isoOrNull(row.earned_at) ?? new Date(0).toISOString(),
     pay_period_id: row.pay_period_id ? String(row.pay_period_id) : null,
     reversed_by: row.reversed_by ? String(row.reversed_by) : null,
@@ -323,4 +329,87 @@ export async function reverseEarningRow(
   const reversal = parseLedgerRow(rows[0])
   await sql`UPDATE earnings_ledger SET reversed_by = ${reversal.id} WHERE id = ${ledgerRowId}`
   return reversal
+}
+
+export type WorkerPayoutMethod = "CASH" | "VENMO" | "ZELLE" | "CHECK" | "PAYROLL" | "OTHER"
+
+export interface RecordWorkerPayoutInput {
+  ownerUserId: string
+  organizationId?: string | null
+  ref: WorkerRef
+  workerUserId?: string | null
+  /** Positive dollars paid, in cents — stored as a negative ledger row. */
+  amountCents: number
+  method: WorkerPayoutMethod
+  note?: string | null
+  paidByUserId: string
+  paidAt: string
+}
+
+/**
+ * Record that the owner paid a worker's commission outside the app (cash, Venmo, check,
+ * payroll — Stripe never touches it). Written as a fresh negative row in the same
+ * earnings_ledger table pay-plan earnings land in, so getEarningsTotal() nets the two out
+ * into "amount owed right now" with no separate query. source_id is a new UUID each call —
+ * unlike recordEarningLines, this never needs ON CONFLICT DO NOTHING, since a payout has no
+ * natural external id to dedupe against and is a deliberate, one-off owner action.
+ */
+export async function recordWorkerPayout(input: RecordWorkerPayoutInput): Promise<EarningsLedgerRow> {
+  const sql = getSql()
+  const receptionistId = input.ref.role === "receptionist" ? input.ref.receptionist_id : null
+  const technicianId = input.ref.role === "field_tech" ? input.ref.field_technician_id : null
+  const amount = -Math.abs(Math.round(input.amountCents))
+  const rows = (await sql`
+    INSERT INTO earnings_ledger (
+      owner_user_id, organization_id, worker_role,
+      receptionist_id, field_technician_id, worker_user_id,
+      component_kind, source_kind, source_id,
+      amount_cents, quantity, rate_snapshot, earned_at
+    )
+    VALUES (
+      ${input.ownerUserId},
+      ${input.organizationId ?? null},
+      ${input.ref.role},
+      ${receptionistId},
+      ${technicianId},
+      ${input.workerUserId ?? null},
+      'PAYOUT',
+      'PAYOUT',
+      ${crypto.randomUUID()},
+      ${amount},
+      0,
+      ${JSON.stringify({
+        method: input.method,
+        note: input.note?.trim() || null,
+        paid_by_user_id: input.paidByUserId,
+      })}::jsonb,
+      ${input.paidAt}::timestamptz
+    )
+    RETURNING *
+  `) as Record<string, unknown>[]
+  return parseLedgerRow(rows[0])
+}
+
+/** Recorded payouts for one worker, newest first — the history list next to "owed now". */
+export async function listWorkerPayouts(ref: WorkerRef, limit = 20): Promise<EarningsLedgerRow[]> {
+  const sql = getSql()
+  const receptionistId = ref.role === "receptionist" ? ref.receptionist_id : null
+  const technicianId = ref.role === "field_tech" ? ref.field_technician_id : null
+  const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)))
+  try {
+    const rows = (await sql`
+      SELECT * FROM earnings_ledger
+      WHERE (
+          (${receptionistId}::uuid IS NOT NULL AND receptionist_id = ${receptionistId}::uuid)
+          OR (${technicianId}::uuid IS NOT NULL AND field_technician_id = ${technicianId}::uuid)
+        )
+        AND source_kind = 'PAYOUT'
+      ORDER BY earned_at DESC
+      LIMIT ${safeLimit}
+    `) as Record<string, unknown>[]
+    return rows.map(parseLedgerRow)
+  } catch (e) {
+    if (isMissingLedgerTable(e)) return []
+    throw e
+  }
 }

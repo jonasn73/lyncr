@@ -5,7 +5,7 @@
 // this sheet (their forms are non-trivial enough to keep as-is) — everything about one person
 // starts from tapping their row in the unified Team list.
 
-import { Loader2, Pencil, Send, ShieldCheck, Trash2 } from "lucide-react"
+import { Banknote, Loader2, Pencil, Send, ShieldCheck, Trash2 } from "lucide-react"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -35,6 +35,7 @@ export function TechnicianSettingsSheet({
   onToggleActive,
   onMoveWorkspace,
   onEditPay,
+  onViewPayouts,
   onEditAccess,
   onEditAccount,
   onResendInvite,
@@ -53,6 +54,7 @@ export function TechnicianSettingsSheet({
   onToggleActive: () => void
   onMoveWorkspace: (orgId: string | null) => void
   onEditPay: () => void
+  onViewPayouts: () => void
   onEditAccess: () => void
   onEditAccount: () => void
   onResendInvite: () => void
@@ -141,6 +143,24 @@ export function TechnicianSettingsSheet({
                   <p className={cn("mt-0.5 truncate text-xs", plan ? "text-muted-foreground" : "text-warning")}>
                     {plan?.summary ?? "Not set — tap to set"}
                   </p>
+                </div>
+                <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              </button>
+
+              {/* Earnings & payouts */}
+              <button
+                type="button"
+                onClick={onViewPayouts}
+                className="flex w-full items-center justify-between rounded-lg border border-border bg-background/40 px-3.5 py-3 text-left transition-colors hover:bg-muted"
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <Banknote className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">Earnings &amp; payouts</p>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      See what&rsquo;s owed and record a payout
+                    </p>
+                  </div>
                 </div>
                 <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
               </button>

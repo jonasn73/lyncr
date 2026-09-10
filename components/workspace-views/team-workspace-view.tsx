@@ -33,6 +33,7 @@ import {
 } from "@/components/team/team-member-account-editor"
 import { ReceptionistSettingsSheet } from "@/components/team/receptionist-settings-sheet"
 import { TechnicianSettingsSheet } from "@/components/team/technician-settings-sheet"
+import { WorkerPayoutDrawer, type WorkerPayoutTarget } from "@/components/compensation/worker-payout-drawer"
 import { AddTechnicianModal } from "@/components/team/add-technician-modal"
 import { TechInviteSmsAlert } from "@/components/team/tech-invite-sms-alert"
 import { TeamLiveRoster } from "@/components/workspace-views/team-live-roster"
@@ -252,6 +253,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
     { role: Role; id: string; name: string; capabilities: CapabilityFlags } | null
   >(null)
   const [accountTarget, setAccountTarget] = useState<(TeamMemberAccountTarget & { role: Role }) | null>(null)
+  const [payoutTarget, setPayoutTarget] = useState<WorkerPayoutTarget | null>(null)
 
   // One settings sheet per person, opened by tapping their row. Keyed by id (not a snapshot)
   // so it always reflects the latest members/techs row after Pay/Access/Account save.
@@ -1021,6 +1023,10 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
             components: plans[settingsMember.id]?.components ?? [],
           })
         }
+        onViewPayouts={() =>
+          settingsMember &&
+          setPayoutTarget({ kind: "receptionist", id: settingsMember.id, name: settingsMember.name })
+        }
         onEditAccess={() =>
           settingsMember &&
           setAccessTarget({ role: "receptionist", id: settingsMember.id, name: settingsMember.name, capabilities: { ...settingsMember.capabilities } })
@@ -1067,6 +1073,10 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
             components: plans[settingsTech.id]?.components ?? [],
           })
         }
+        onViewPayouts={() =>
+          settingsTech &&
+          setPayoutTarget({ kind: "field_tech", id: settingsTech.id, name: settingsTech.name })
+        }
         onEditAccess={() =>
           settingsTech &&
           setAccessTarget({ role: "field_tech", id: settingsTech.id, name: settingsTech.name, capabilities: { ...settingsTech.capabilities } })
@@ -1095,6 +1105,8 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
         }}
         onClose={() => setSettingsTarget(null)}
       />
+
+      <WorkerPayoutDrawer target={payoutTarget} onClose={() => setPayoutTarget(null)} />
 
       <AddTechnicianModal
         open={techModalOpen}
