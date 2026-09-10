@@ -22,8 +22,12 @@ export function AdminAccessGuard({ children }: { children: React.ReactNode }) {
         // admin@lyncr.app bootstrap) — see lib/platform-admin.ts globalPlatformSessionFields.
         // Checking that instead of re-deriving from email here means this guard stays correct
         // for any admin, not just the bootstrap one.
-        const json = (await res.json()) as { data?: { operator_access?: boolean; user?: { email?: string } } }
-        if (!json.data?.operator_access) {
+        // NOTE: it lives on data.user.operator_access, not data.operator_access (GET
+        // /api/auth/session nests the whole session payload under `user`) — reading the wrong
+        // level here always evaluated to false and sent every real admin bouncing to /dashboard,
+        // which correctly sends them right back to /admin: an infinite redirect loop.
+        const json = (await res.json()) as { data?: { user?: { email?: string; operator_access?: boolean } } }
+        if (!json.data?.user?.operator_access) {
           console.warn(
             `[lyncr-admin] UNAUTHORIZED — "${json.data?.user?.email ?? "unknown"}" is not a platform admin; redirecting to /dashboard`
           )
