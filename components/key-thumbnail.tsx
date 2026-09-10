@@ -7,6 +7,7 @@
 // pull the whole desktop intake panel's module graph into the tech console's bundle.
 
 import { useState } from "react"
+import Image from "next/image"
 import { isVolvoInsertFobikVehicle, isVolvoKeyVol05OptionId } from "@/lib/fcc-id-input"
 import { stripTiSkuPrefix } from "@/lib/transponder-island-sku"
 
@@ -180,14 +181,15 @@ export function KeyThumbnail({
 
   return (
     <div className="w-full overflow-hidden rounded-lg border border-border bg-card">
-      <div className="flex h-32 items-center justify-center">
+      <div className="relative flex h-32 items-center justify-center">
         {showImage ? (
-          // eslint-disable-next-line @next/next/no-img-element -- fccid.io / bundled key thumbnails
-          <img
+          <Image
             src={imageUrl!}
             alt={label}
+            fill
+            sizes="(min-width: 1024px) 160px, 33vw"
             loading="lazy"
-            className="h-full w-full object-contain p-2"
+            className="object-contain p-2"
             onError={() => setFailed(true)}
           />
         ) : (

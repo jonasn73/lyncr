@@ -8,8 +8,18 @@ const nextConfig = {
     // build reports "Skipping validation of types" and never looked.
     ignoreBuildErrors: false,
   },
+  // `unoptimized: true` used to be a no-op with real cost: nothing in this codebase imports
+  // next/image (grepped app/ and components/ — zero hits), so it configured a component that
+  // was never used, while the actual bandwidth concern the flag was meant to address (12.8k
+  // key photos, 174MB, served as plain <img>) got none of next/image's resizing/compression.
+  // components/key-thumbnail.tsx now uses next/image; fccid.io is the one external image
+  // host it can still hit before scripts/mirror-fcc-key-images.ts has mirrored a given FCC id
+  // locally (see lib/key-reference-image-mirror.ts) — everything else that component renders
+  // is same-origin (public/key-images/**). Other <img> usages (job/signature photos, support
+  // chat attachments on Vercel Blob) are unconverted for now — most are local blob: object
+  // URLs next/image can't take as a src anyway; add a remotePattern here first if that changes.
   images: {
-    unoptimized: true,
+    remotePatterns: [{ protocol: "https", hostname: "fccid.io" }],
   },
   // Tree-shake lucide icon imports across the dashboard client graph.
   experimental: {

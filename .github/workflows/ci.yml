@@ -46,6 +46,15 @@ jobs:
         working-directory: mobile
         run: npm run typecheck
 
+      # Non-blocking (continue-on-error): 5 known prod vulnerabilities as of 2026-09-10, both
+      # requiring a breaking major-version bump (@telnyx/webrtc, @stripe/terminal-js — live
+      # calling and card-present payments) that needs real regression testing, not
+      # `npm audit fix --force` on a whim. Visible on every run so it can't silently regress
+      # further; make it blocking once those two upgrades are done and reviewed.
+      - name: Dependency audit (informational)
+        continue-on-error: true
+        run: npm audit --omit=dev
+
   db-bootstrap:
     name: fresh database bootstrap
     runs-on: ubuntu-latest
