@@ -8,7 +8,8 @@
 import { after } from "next/server"
 import { NextRequest, NextResponse } from "next/server"
 import { processInboundTelnyxMessage, type TelnyxMessagingWebhook } from "@/lib/sms-inbound-handler"
-import { warnOnInvalidTelnyxSignature } from "@/lib/telnyx"
+import { validateTelnyxRequest } from "@/lib/telnyx"
+import { alertOnInvalidTelnyxSignature } from "@/lib/telnyx-webhook-alerts"
 
 export const runtime = "nodejs"
 
@@ -16,14 +17,22 @@ const ACK = NextResponse.json({ ok: true })
 
 export async function POST(req: NextRequest) {
   let body: TelnyxMessagingWebhook | null = null
+  let raw: string
   try {
-    const raw = await req.text()
-    warnOnInvalidTelnyxSignature(req.headers, raw, "webhooks/telnyx/messaging")
+    raw = await req.text()
     body = raw ? (JSON.parse(raw) as TelnyxMessagingWebhook) : null
   } catch {
     return ACK
   }
   if (!body) return ACK
+
+  const signature = req.headers.get("telnyx-signature-ed25519") || ""
+  const timestamp = req.headers.get("telnyx-timestamp") || ""
+  if (!validateTelnyxRequest(raw, signature, timestamp)) {
+    console.error("[telnyx/messaging webhook] rejected: invalid or missing webhook signature")
+    after(() => alertOnInvalidTelnyxSignature("webhooks/telnyx/messaging", true))
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
+  }
 
   after(async () => {
     try {

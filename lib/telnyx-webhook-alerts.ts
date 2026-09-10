@@ -5,12 +5,19 @@
 import { listPlatformAdminContacts, markWebhookSignatureAlertSent, recordWebhookSignatureFailure } from "@/lib/db"
 import { deliverPlatformHealthAlert } from "@/lib/platform-health-notify"
 
-/** The 4 Telnyx webhook routes with signature verification, and whether each rejects yet. */
+/**
+ * The Telnyx webhook routes with signature verification, and whether each rejects yet.
+ * All 4 real routes enforce as of 2026-09-10. messaging/webhook is a dormant duplicate of
+ * webhooks/telnyx/messaging (nothing in this app's own provisioning code points Telnyx at
+ * it — see lib/telnyx-messaging-config.ts) that's protected defensively in case anything
+ * was ever configured to use it by hand.
+ */
 export const TELNYX_WEBHOOK_SIGNATURE_ROUTES: { routeLabel: string; enforced: boolean }[] = [
   { routeLabel: "webhooks/telnyx/voice", enforced: true },
-  { routeLabel: "voice/telnyx/status", enforced: false },
-  { routeLabel: "webhooks/telnyx/porting", enforced: false },
-  { routeLabel: "webhooks/telnyx/messaging", enforced: false },
+  { routeLabel: "voice/telnyx/status", enforced: true },
+  { routeLabel: "webhooks/telnyx/porting", enforced: true },
+  { routeLabel: "webhooks/telnyx/messaging", enforced: true },
+  { routeLabel: "messaging/webhook", enforced: true },
 ]
 
 export function webhookSignatureAlertKey(routeLabel: string): string {

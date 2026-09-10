@@ -22,7 +22,8 @@ import {
 } from "@/lib/missed-call-telemetry"
 import { CAPTURE_STATUS_AI_FALLBACK_HANDLED, isHoldAutomationStatus } from "@/lib/inbound-time-capture"
 import { reportAiAssistantMinutesUsage } from "@/lib/ai-usage-billing"
-import { warnOnInvalidTelnyxSignature } from "@/lib/telnyx"
+import { validateTelnyxRequest } from "@/lib/telnyx"
+import { alertOnInvalidTelnyxSignature } from "@/lib/telnyx-webhook-alerts"
 import type { CallType } from "@/lib/types"
 
 export const runtime = "nodejs"
@@ -32,11 +33,15 @@ export async function POST(req: NextRequest) {
   // Clone before consuming the body as formData — .text() and .formData() each consume the
   // stream once, and the signature check needs the raw bytes without disturbing the existing
   // form parsing below.
-  req
-    .clone()
-    .text()
-    .then((raw) => warnOnInvalidTelnyxSignature(req.headers, raw, "voice/telnyx/status"))
-    .catch(() => {})
+  const raw = await req.clone().text()
+  const signature = req.headers.get("telnyx-signature-ed25519") || ""
+  const timestamp = req.headers.get("telnyx-timestamp") || ""
+  if (!validateTelnyxRequest(raw, signature, timestamp)) {
+    console.error("[voice/telnyx/status] rejected: invalid or missing webhook signature")
+    after(() => alertOnInvalidTelnyxSignature("voice/telnyx/status", true))
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
+  }
+
   const formData = await req.formData()
   // Prefer parent call SID when Telnyx posts dial-leg (Number) progress events.
   const callSid =
