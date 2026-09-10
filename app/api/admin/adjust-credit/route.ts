@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireLyncrAdmin } from "@/lib/admin-api-guard"
 import { adminAdjustProfileCarrierCredit } from "@/lib/db"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export async function POST(req: NextRequest) {
   const ctx = await requireLyncrAdmin(req)
@@ -21,6 +22,15 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await adminAdjustProfileCarrierCredit({ userId, amountUsd: amount })
+    void recordAuditEvent({
+      ownerUserId: userId,
+      actorUserId: ctx.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.credit_adjusted",
+      entityType: "user",
+      entityId: userId,
+      detail: { amount_usd: amount },
+    })
     return NextResponse.json({
       success: true,
       data: result,

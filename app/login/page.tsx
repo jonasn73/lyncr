@@ -30,6 +30,9 @@ export default function LoginPage() {
               user: {
                 email: "",
                 account_role: (ctx?.account_role as "owner" | "receptionist") ?? "owner",
+                // Admin status here comes from operator_access above, not this fabricated
+                // stand-in user — see lib/post-auth-redirect.ts's isAdmin/isOperator split.
+                is_platform_admin: false,
               },
             },
             next

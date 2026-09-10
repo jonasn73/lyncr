@@ -16,6 +16,7 @@ import { getAppUrl } from "@/lib/telnyx"
 import { buildReceptionistInviteEmailPayload, sendReceptionistInviteEmail } from "@/lib/invite-email"
 import { resolvePlatformSmsFromE164 } from "@/lib/platform-sms-sender"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export async function POST(req: NextRequest) {
   const ctx = await requireLyncrAdmin(req)
@@ -67,6 +68,15 @@ export async function POST(req: NextRequest) {
         const onboarding_url = `${appUrl}/onboarding?token=${encodeURIComponent(token)}`
         const payload = buildReceptionistInviteEmailPayload({ toEmail: target, onboardingUrl: onboarding_url })
         const result = await sendReceptionistInviteEmail(payload)
+        void recordAuditEvent({
+          ownerUserId: stubUserId,
+          actorUserId: ctx.userId,
+          actorRole: "platform_admin",
+          eventType: "admin.receptionist_invited",
+          entityType: "user",
+          entityId: stubUserId,
+          detail: { channel: "EMAIL", target, sent: result.sent },
+        })
 
         return NextResponse.json({
           data: {
@@ -102,6 +112,16 @@ export async function POST(req: NextRequest) {
           ? smsResult.error
           : smsResult.delivery_warning ?? undefined
 
+      void recordAuditEvent({
+        ownerUserId: null,
+        actorUserId: ctx.userId,
+        actorRole: "platform_admin",
+        eventType: "admin.receptionist_invited",
+        entityType: "invitation",
+        entityId: invitation.id,
+        detail: { channel: "SMS", target, sent: smsResult.ok },
+      })
+
       return NextResponse.json({
         data: {
           invite_id: invitation.id,
@@ -123,6 +143,15 @@ export async function POST(req: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 400 })
     }
+    void recordAuditEvent({
+      ownerUserId: null,
+      actorUserId: ctx.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.receptionist_invited",
+      entityType: "invitation",
+      entityId: result.invite_id,
+      detail: { channel: "EMAIL", target: result.email, sent: result.email_sent },
+    })
     return NextResponse.json({
       data: {
         invite_id: result.invite_id,

@@ -5,6 +5,7 @@ import { requireLyncrAdmin } from "@/lib/admin-api-guard"
 import { isReasonablePstnDialString, normalizePhoneNumberE164 } from "@/lib/db"
 import { inviteOperatorStub } from "@/lib/operator-onboarding"
 import { deliverOperatorInviteSms } from "@/lib/operator-invite-sms"
+import { recordAuditEvent } from "@/lib/audit-log"
 import type { OperatorAssignedWorkspace } from "@/lib/types"
 
 export async function POST(req: NextRequest) {
@@ -34,6 +35,15 @@ export async function POST(req: NextRequest) {
     })
 
     const delivered = await deliverOperatorInviteSms({ phone: normalizedPhone, name, token })
+    void recordAuditEvent({
+      ownerUserId: userId,
+      actorUserId: ctx.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.receptionist_invited",
+      entityType: "user",
+      entityId: userId,
+      detail: { channel: "SMS", target: normalizedPhone, sent: delivered.sms_sent },
+    })
 
     return NextResponse.json({
       data: {

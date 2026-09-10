@@ -34,7 +34,7 @@ describe("signup approval status", () => {
     expect(accountWaitPath("denied")).toBe("/account-denied")
     expect(
       resolvePostAuthPath({
-        user: { email: "a@b.com", account_role: "owner" },
+        user: { email: "a@b.com", account_role: "owner", is_platform_admin: false },
         account_status: "pending",
       })
     ).toBe("/waiting-approval")

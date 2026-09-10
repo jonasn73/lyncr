@@ -8,6 +8,7 @@ import {
   enableOperatorAdmin,
   getOperatorAdminRow,
 } from "@/lib/operator-onboarding"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 type RouteContext = { params: Promise<{ id: string }> }
 
@@ -40,6 +41,14 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     if (action === "disable") {
       const ok = await disableOperatorAdmin(id)
       if (!ok) return NextResponse.json({ error: "Operator not found." }, { status: 404 })
+      void recordAuditEvent({
+        ownerUserId: null,
+        actorUserId: ctx.userId,
+        actorRole: "platform_admin",
+        eventType: "admin.receptionist_disabled",
+        entityType: "receptionist",
+        entityId: id,
+      })
       const operator = await getOperatorAdminRow(id)
       return NextResponse.json({ data: { operator, message: "Operator disabled." } })
     }
@@ -47,6 +56,14 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     if (action === "enable") {
       const ok = await enableOperatorAdmin(id)
       if (!ok) return NextResponse.json({ error: "Operator not found." }, { status: 404 })
+      void recordAuditEvent({
+        ownerUserId: null,
+        actorUserId: ctx.userId,
+        actorRole: "platform_admin",
+        eventType: "admin.receptionist_enabled",
+        entityType: "receptionist",
+        entityId: id,
+      })
       const operator = await getOperatorAdminRow(id)
       return NextResponse.json({ data: { operator, message: "Operator re-enabled." } })
     }
@@ -66,6 +83,14 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
   try {
     const ok = await deleteOperatorAdmin(id)
     if (!ok) return NextResponse.json({ error: "Operator not found." }, { status: 404 })
+    void recordAuditEvent({
+      ownerUserId: null,
+      actorUserId: ctx.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.receptionist_deleted",
+      entityType: "receptionist",
+      entityId: id,
+    })
     return NextResponse.json({ data: { deleted: true } })
   } catch (e) {
     console.error("[admin/receptionists DELETE]", e)

@@ -6,6 +6,7 @@ import { neon } from "@neondatabase/serverless"
 import { requireLyncrAdmin } from "@/lib/admin-api-guard"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { ensureManualConnectPayoutSchedule } from "@/lib/stripe-connect"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -55,6 +56,16 @@ export async function POST(req: NextRequest) {
     const r = await ensureManualConnectPayoutSchedule(accountId)
     results.push({ accountId, interval: r.interval, updated: r.updated })
   }
+
+  void recordAuditEvent({
+    ownerUserId: null,
+    actorUserId: ctx.userId,
+    actorRole: "platform_admin",
+    eventType: "admin.connect_manual_payouts_enforced",
+    entityType: "stripe_connect_account",
+    entityId: one || "all",
+    detail: { account_count: results.length, updated_count: results.filter((r) => r.updated).length },
+  })
 
   return NextResponse.json({
     data: {

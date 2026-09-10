@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireLyncrAdmin } from "@/lib/admin-api-guard"
 import { getOperatorPayoutSnapshot, recordOperatorPayout } from "@/lib/db"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export const dynamic = "force-dynamic"
 
@@ -29,6 +30,15 @@ export async function POST(req: NextRequest) {
       minutesPaid: snapshot.total_minutes,
       note: body.note?.trim() || null,
       adminUserId: ctx.userId,
+    })
+    void recordAuditEvent({
+      ownerUserId: null,
+      actorUserId: ctx.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.operator_payout_recorded",
+      entityType: "receptionist",
+      entityId: receptionistId,
+      detail: { paid_usd: snapshot.accrued_usd, minutes_paid: snapshot.total_minutes, note: body.note?.trim() || null },
     })
 
     return NextResponse.json({

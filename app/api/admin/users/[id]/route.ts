@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requirePlatformAdmin } from "@/lib/admin-api-guard"
 import { adminSetUserPlatformAdminFlag, getAdminUserDetail } from "@/lib/db"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await requirePlatformAdmin(_req)
@@ -38,6 +39,17 @@ export async function PATCH(
       return NextResponse.json({ error: "Body must include is_platform_admin (boolean)" }, { status: 400 })
     }
     await adminSetUserPlatformAdminFlag(targetUserId, body.is_platform_admin)
+    // The most sensitive action in the console — this grants or revokes platform-admin
+    // access itself. Always log, regardless of what the "detail" convention is elsewhere.
+    void recordAuditEvent({
+      ownerUserId: targetUserId,
+      actorUserId: ctx.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.platform_admin_flag_changed",
+      entityType: "user",
+      entityId: targetUserId,
+      detail: { is_platform_admin: body.is_platform_admin },
+    })
     return NextResponse.json({ data: { ok: true, user_id: targetUserId, is_platform_admin: body.is_platform_admin } })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Update failed"

@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireLyncrAdmin } from "@/lib/admin-api-guard"
 import { adminToggleUserSubscription } from "@/lib/db"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export async function POST(req: NextRequest) {
   const ctx = await requireLyncrAdmin(req)
@@ -26,6 +27,15 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await adminToggleUserSubscription(userId, shouldActivate)
+    void recordAuditEvent({
+      ownerUserId: userId,
+      actorUserId: ctx.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.subscription_toggled",
+      entityType: "user",
+      entityId: userId,
+      detail: { active: shouldActivate },
+    })
     return NextResponse.json({
       success: true,
       data: result,

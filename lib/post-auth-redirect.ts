@@ -6,7 +6,7 @@ import { isLyncrAdminUser } from "@/lib/lyncr-admin"
 import { isPlatformAdminUser } from "@/lib/platform-admin"
 
 export type PostAuthContext = {
-  user?: Pick<User, "email" | "account_role"> | null
+  user?: Pick<User, "email" | "account_role" | "is_platform_admin"> | null
   operator_access?: boolean
   redirect?: string
   /** Shop approval: pending / denied send the owner to a wait page. */

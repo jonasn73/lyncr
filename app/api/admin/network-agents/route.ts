@@ -18,6 +18,7 @@ import {
 } from "@/lib/db"
 import { normalizeRoutingPoolSkillTag } from "@/lib/routing-pool-skills"
 import { provisionTelnyxSipCredential } from "@/lib/telnyx-sip-provisioning"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export async function GET(req: NextRequest) {
   const ctx = await requireLyncrAdmin(req)
@@ -84,6 +85,16 @@ export async function POST(req: NextRequest) {
     } else {
       console.warn("[admin/network-agents] SIP provisioning skipped:", provision.reason)
     }
+
+    void recordAuditEvent({
+      ownerUserId: null,
+      actorUserId: ctx.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.network_agent_created",
+      entityType: "receptionist",
+      entityId: agent.id,
+      detail: { name, skills },
+    })
 
     return NextResponse.json({ data: { agent: { ...agent, sip_username } } }, { status: 201 })
   } catch (error) {

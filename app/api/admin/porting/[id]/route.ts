@@ -23,6 +23,7 @@ import {
   resolveLiveTelnyxPortStatus,
 } from "@/lib/telnyx-porting-status"
 import { submitTelnyxPortingCorrections } from "@/lib/telnyx-lnp-update"
+import { recordAuditEvent } from "@/lib/audit-log"
 import {
   createTelnyxPortingOrderComment,
   fetchTelnyxPortingOrderById,
@@ -167,6 +168,31 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (hasComment && body.carrier_comment?.trim()) {
       await createTelnyxPortingOrderComment(telnyxOrderId, body.carrier_comment.trim())
     }
+
+    void recordAuditEvent({
+      ownerUserId: order.owner_user_id,
+      actorUserId: guard.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.porting_correction_submitted",
+      entityType: "porting_order",
+      entityId: id,
+      // Field names only, never values — account_number/pin/loa are carrier-auth secrets.
+      detail: {
+        fields_corrected: [
+          body.account_number?.trim() ? "account_number" : null,
+          body.pin?.trim() ? "pin" : null,
+          body.street_address?.trim() ? "street_address" : null,
+          body.city?.trim() ? "city" : null,
+          body.state?.trim() ? "state" : null,
+          body.postal_code?.trim() ? "postal_code" : null,
+          body.entity_name?.trim() ? "entity_name" : null,
+          body.authorized_person?.trim() ? "authorized_person" : null,
+          body.loa_base64?.trim() ? "loa" : null,
+          body.invoice_base64?.trim() ? "invoice" : null,
+        ].filter(Boolean),
+        carrier_comment_added: hasComment,
+      },
+    })
 
     const detail = await loadDeskDetail(id)
     return NextResponse.json({

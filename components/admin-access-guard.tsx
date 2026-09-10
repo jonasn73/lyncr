@@ -1,11 +1,10 @@
 "use client"
 
-// Layout already requires admin@lyncr.app. This only redirects if the session later fails.
-// Do not block first paint with a spinner — that flashed Home after a blank wait.
+// Layout already requires platform-admin access. This only redirects if the session later
+// fails. Do not block first paint with a spinner — that flashed Home after a blank wait.
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { isLyncrAdminEmail, LYNCR_ADMIN_EMAIL } from "@/lib/lyncr-admin"
 
 export function AdminAccessGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -19,11 +18,14 @@ export function AdminAccessGuard({ children }: { children: React.ReactNode }) {
           if (!cancelled) router.replace("/dashboard")
           return
         }
-        const json = (await res.json()) as { data?: { user?: { email?: string } } }
-        const email = json.data?.user?.email ?? ""
-        if (!isLyncrAdminEmail(email)) {
+        // operator_access is derived server-side from users.is_platform_admin (or the
+        // admin@lyncr.app bootstrap) — see lib/platform-admin.ts globalPlatformSessionFields.
+        // Checking that instead of re-deriving from email here means this guard stays correct
+        // for any admin, not just the bootstrap one.
+        const json = (await res.json()) as { data?: { operator_access?: boolean; user?: { email?: string } } }
+        if (!json.data?.operator_access) {
           console.warn(
-            `[lyncr-admin] UNAUTHORIZED — expected ${LYNCR_ADMIN_EMAIL}, got "${email}"; redirecting to /dashboard`
+            `[lyncr-admin] UNAUTHORIZED — "${json.data?.user?.email ?? "unknown"}" is not a platform admin; redirecting to /dashboard`
           )
           if (!cancelled) router.replace("/dashboard")
         }

@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireLyncrAdmin } from "@/lib/admin-api-guard"
 import { adminUpdateUserPhone, isReasonablePstnDialString, normalizePhoneNumberE164 } from "@/lib/db"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export async function PATCH(req: NextRequest) {
   const ctx = await requireLyncrAdmin(req)
@@ -26,6 +27,15 @@ export async function PATCH(req: NextRequest) {
     }
 
     const { phone } = await adminUpdateUserPhone(userId, newPhone)
+    void recordAuditEvent({
+      ownerUserId: userId,
+      actorUserId: ctx.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.user_phone_changed",
+      entityType: "user",
+      entityId: userId,
+      detail: { to: phone },
+    })
     return NextResponse.json({ data: { userId, phone } })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to update phone"

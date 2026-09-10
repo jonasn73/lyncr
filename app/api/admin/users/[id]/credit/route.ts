@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { adminAdjustUserCreditBalance } from "@/lib/db"
 import { requirePlatformAdmin } from "@/lib/admin-api-guard"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export async function POST(
   req: NextRequest,
@@ -31,6 +32,15 @@ export async function POST(
       actor_user_id: ctx.userId,
       reference: body?.reference != null ? String(body.reference) : null,
       meta: typeof body?.meta === "object" && body.meta != null ? (body.meta as Record<string, unknown>) : undefined,
+    })
+    void recordAuditEvent({
+      ownerUserId: targetUserId,
+      actorUserId: ctx.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.credit_adjusted",
+      entityType: "user",
+      entityId: targetUserId,
+      detail: { delta_cents: deltaCents, reason, reference: body?.reference ?? null },
     })
     return NextResponse.json({ data: result })
   } catch (e) {

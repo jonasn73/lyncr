@@ -9,6 +9,7 @@ import {
   MICHAEL_STRANDED_PLATFORM_CHARGE,
   remediatePlatformChargeToConnect,
 } from "@/lib/remediate-platform-charge-to-connect"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export const dynamic = "force-dynamic"
 
@@ -62,6 +63,21 @@ export async function POST(req: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 400 })
     }
+
+    void recordAuditEvent({
+      ownerUserId: usePreset ? MICHAEL_STRANDED_PLATFORM_CHARGE.ownerUserId : null,
+      actorUserId: ctx.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.platform_charge_remediated",
+      entityType: "stripe_charge",
+      entityId: chargeId,
+      detail: {
+        destination_account_id: destinationAccountId,
+        transfer_id: result.transferId,
+        amount_cents: result.amountCents,
+        already_transferred: result.alreadyTransferred,
+      },
+    })
 
     return NextResponse.json({
       data: {

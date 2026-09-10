@@ -5,6 +5,7 @@ import { getOrCreateTexmlApp, getInboundTexmlGreetVoiceUrl, getInboundTexmlRouti
 import { getOrCreateCallControlApp, getInboundCallControlWebhookUrl } from "@/lib/telnyx-call-control-config"
 import { readInboundCallControlEnabled } from "@/lib/telnyx-call-control-inbound"
 import { getAppUrl } from "@/lib/telnyx"
+import { recordAuditEvent } from "@/lib/audit-log"
 
 export async function POST(req: NextRequest) {
   const ctx = await requireLyncrAdmin(req)
@@ -24,6 +25,16 @@ export async function POST(req: NextRequest) {
       data.call_control_app_id = ccAppId
       data.call_control_webhook_url = getInboundCallControlWebhookUrl(appUrl)
     }
+    void recordAuditEvent({
+      ownerUserId: null,
+      actorUserId: ctx.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.texml_voice_config_synced",
+      entityType: "platform_config",
+      entityId: "texml_voice",
+      detail: data,
+    })
+
     return NextResponse.json({ data })
   } catch (error) {
     console.error("[lyncr] sync-texml-voice:", error)

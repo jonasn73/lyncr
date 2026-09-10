@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { requireLyncrAdmin } from "@/lib/admin-api-guard"
+import { recordAuditEvent } from "@/lib/audit-log"
 import { ALL_CAPABILITY_KEYS } from "@/lib/platform-account-grants"
 import {
   ADMIN_FEATURE_FLAGS,
@@ -179,6 +180,15 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
     try {
       const platform_grants = await setPlatformAccountGrant(id, capability, body.allowed)
+      void recordAuditEvent({
+        ownerUserId: id,
+        actorUserId: guard.userId,
+        actorRole: "platform_admin",
+        eventType: "admin.capability_grant_changed",
+        entityType: "user",
+        entityId: id,
+        detail: { capability, allowed: body.allowed },
+      })
       return NextResponse.json({ data: { platform_grants } })
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not update account access"
@@ -197,6 +207,15 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   try {
     const feature_flags = await setProfileFeatureFlag(id, flag, body.enabled)
+    void recordAuditEvent({
+      ownerUserId: id,
+      actorUserId: guard.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.feature_flag_changed",
+      entityType: "user",
+      entityId: id,
+      detail: { flag, enabled: body.enabled },
+    })
     return NextResponse.json({ data: { feature_flags } })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Could not update feature flag"
@@ -219,6 +238,14 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
     if (!released) {
       return NextResponse.json({ error: "Line not found or not active" }, { status: 404 })
     }
+    void recordAuditEvent({
+      ownerUserId: id,
+      actorUserId: guard.userId,
+      actorRole: "platform_admin",
+      eventType: "admin.phone_line_released",
+      entityType: "phone_number",
+      entityId: lineId,
+    })
     return NextResponse.json({ data: await loadControls(id) })
   } catch (e) {
     console.error("[admin/controls] DELETE:", e)
