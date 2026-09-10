@@ -142,7 +142,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       data: {
-        invoice,
+        // collect_payment lets a tech invoice a job; it doesn't imply customer_contact —
+        // don't hand back the number here if that capability is off.
+        invoice: actor.capabilities.customer_contact ? invoice : { ...invoice, customer_phone: null },
         card_capture_active: method === "card" && merchantConfigured,
       },
     })

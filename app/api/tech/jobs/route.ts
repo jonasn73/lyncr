@@ -30,7 +30,13 @@ export async function GET(req: NextRequest) {
 
   try {
     const tech = await getFieldTechnicianByPortalUserId(userId)
-    const jobs = await listJobsForTech(userId)
+    const rawJobs = await listJobsForTech(userId)
+    // Hiding the "call customer" button in the console is the courtesy, not the
+    // protection (lib/field-technician-capabilities.ts) — the number itself must not
+    // ship in the response when the owner has this capability turned off.
+    const jobs = actor.capabilities.customer_contact
+      ? rawJobs
+      : rawJobs.map((job) => ({ ...job, customer_phone: null }))
     const merchantConfigured = tech ? await getOwnerMerchantConfigured(tech.owner_user_id) : false
 
     const metrics = await getTechJobMetrics(userId)

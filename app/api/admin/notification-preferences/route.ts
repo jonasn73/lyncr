@@ -1,7 +1,13 @@
-// GET/PATCH /api/admin/notification-preferences — platform admin only (is_platform_admin = true).
+// GET/PATCH /api/admin/notification-preferences — platform admin only.
+//
+// Was gated on the raw users.is_platform_admin column while every other /api/admin/*
+// route (and /admin itself) gates on requireLyncrAdmin's email allowlist — two admin
+// grants that don't necessarily agree on who's an admin. Aligned to the same check
+// everything else uses so a user can't be an admin here but not anywhere else, or
+// vice versa.
 
 import { NextRequest, NextResponse } from "next/server"
-import { requireSessionUser } from "@/lib/admin-api-guard"
+import { requireLyncrAdmin } from "@/lib/admin-api-guard"
 import { updateAdminNotificationPreference } from "@/lib/db"
 import {
   isAdminNotificationPreferenceKey,
@@ -10,14 +16,9 @@ import {
 
 export const dynamic = "force-dynamic"
 
-function forbidden() {
-  return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-}
-
 export async function GET(req: NextRequest) {
-  const ctx = await requireSessionUser(req)
+  const ctx = await requireLyncrAdmin(req)
   if (ctx instanceof NextResponse) return ctx
-  if (!ctx.user.is_platform_admin) return forbidden()
 
   return NextResponse.json({
     data: {
@@ -27,9 +28,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const ctx = await requireSessionUser(req)
+  const ctx = await requireLyncrAdmin(req)
   if (ctx instanceof NextResponse) return ctx
-  if (!ctx.user.is_platform_admin) return forbidden()
 
   let body: { key?: unknown; enabled?: unknown }
   try {
