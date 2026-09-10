@@ -11,6 +11,7 @@ import {
   findWalletTransactionByPaymentIntent,
   recordWalletFee,
   settleWalletTransactionByPaymentIntent,
+  sumReversedForPaymentIntent,
   type WalletPaymentMethod,
   type WalletTransaction,
   type WalletTransactionStatus,
@@ -563,6 +564,62 @@ export async function createAdhocPaymentIntent(params: {
     stripeConnectAccountId: connect.accountId,
     status: intent.status,
   }
+}
+
+/**
+ * Owner-issued refund. This function's ONLY job is telling Stripe to refund — it does not touch
+ * wallet_transactions or commission. lib/wallet-reversals.ts's handleStripeChargeRefunded()
+ * (fired by the charge.refunded webhook) already idempotently reverses the wallet ledger,
+ * reverses the worker's commission, and texts the owner, whether the refund came from here or
+ * from Stripe's own dashboard — writing those side effects here too would double-reverse them.
+ *
+ * Does not refund Lyncr's application fee (Stripe's own default for a Direct Charge) — the
+ * processing service was rendered regardless of whether the customer's purchase was refunded.
+ */
+export async function refundCollectedCharge(params: {
+  ownerUserId: string
+  paymentIntentId: string
+  /** Cents. Omit for a full refund of whatever hasn't already been refunded. */
+  amountCents?: number
+}): Promise<{ refundId: string; amountCents: number }> {
+  const tx = await findWalletTransactionByPaymentIntent(params.paymentIntentId)
+  if (!tx) throw new Error("Payment not found")
+  if (tx.ownerUserId !== params.ownerUserId) throw new Error("Payment not found")
+  if (tx.status !== "COMPLETED") throw new Error("Only a completed charge can be refunded")
+  if (tx.paymentMethod === "CASH") throw new Error("Cash payments can't be refunded here")
+
+  const alreadyRefundedUsd = await sumReversedForPaymentIntent(params.paymentIntentId, "REFUND")
+  const maxRefundableCents = Math.round((tx.amount - alreadyRefundedUsd) * 100)
+  if (maxRefundableCents <= 0) throw new Error("This charge has already been fully refunded")
+
+  const requestedCents =
+    params.amountCents != null ? Math.round(params.amountCents) : maxRefundableCents
+  if (!Number.isFinite(requestedCents) || requestedCents <= 0) {
+    throw new Error("Enter a refund amount greater than $0")
+  }
+  if (requestedCents > maxRefundableCents) {
+    throw new Error(`Cannot refund more than $${(maxRefundableCents / 100).toFixed(2)} remaining`)
+  }
+
+  const { requireConnectReady, connectDirectChargeOptions } = await import("@/lib/stripe-connect")
+  const connect = await requireConnectReady(params.ownerUserId)
+  const stripe = getStripeClient()
+  const refund = await stripe.refunds.create(
+    { payment_intent: params.paymentIntentId, amount: requestedCents },
+    connectDirectChargeOptions(connect.accountId)
+  )
+
+  void recordAuditEvent({
+    ownerUserId: params.ownerUserId,
+    actorUserId: params.ownerUserId,
+    actorRole: "owner",
+    eventType: "payment.refunded",
+    entityType: "payment",
+    entityId: params.paymentIntentId,
+    detail: { amount_cents: requestedCents, refund_id: refund.id },
+  })
+
+  return { refundId: refund.id, amountCents: requestedCents }
 }
 
 /** Mark job completed (owner or assigned tech path). */

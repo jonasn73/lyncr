@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Phone,
   RefreshCw,
+  RotateCcw,
   Search,
   X,
 } from "lucide-react"
@@ -535,6 +536,7 @@ export function MoneyPaymentsSheet({
               tx={selected}
               onSendInvoice={() => openInvoice(selected)}
               onClose={() => onOpenChange(false)}
+              onRefunded={() => void load()}
             />
           ) : null}
 
@@ -662,17 +664,67 @@ function PaymentDetail({
   tx,
   onSendInvoice,
   onClose,
+  onRefunded,
 }: {
   tx: OwnerCollectedTransaction
   onSendInvoice: () => void
   onClose: () => void
+  onRefunded: () => void
 }) {
+  const { toast } = useToast()
   const amountCents = Math.round(tx.amount * 100)
   const canInvoice = tx.status === "COMPLETED" && Boolean(tx.stripePaymentIntentId)
   const feeNet =
     tx.paymentMethod !== "CASH" && tx.status === "COMPLETED"
       ? estimateLyncrNetFromGrossCents(amountCents)
       : null
+  // amount > 0 excludes reversal rows themselves — a refund shows up as its own negative-amount
+  // transaction elsewhere in the list, not as a flag on the original charge.
+  const canRefund =
+    tx.status === "COMPLETED" &&
+    tx.paymentMethod !== "CASH" &&
+    tx.amount > 0 &&
+    Boolean(tx.stripePaymentIntentId)
+
+  const [refundOpen, setRefundOpen] = useState(false)
+  const [refundAmount, setRefundAmount] = useState(() => (amountCents / 100).toFixed(2))
+  const [refunding, setRefunding] = useState(false)
+
+  async function submitRefund() {
+    const cents = Math.round(Number(refundAmount) * 100)
+    if (!Number.isFinite(cents) || cents <= 0) {
+      toast({ title: "Enter a refund amount greater than $0", variant: "destructive" })
+      return
+    }
+    setRefunding(true)
+    try {
+      const res = await fetch("/api/payments/refund", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stripePaymentIntentId: tx.stripePaymentIntentId, amountCents: cents }),
+      })
+      const json = (await res.json().catch(() => ({}))) as {
+        data?: { amountCents: number }
+        error?: string
+      }
+      if (!res.ok) throw new Error(json.error || "Could not issue refund")
+      toast({
+        title: `Refund of ${formatCollectedDollars(json.data?.amountCents ?? cents)} submitted`,
+        description: "May take a minute to show up in the list below.",
+      })
+      setRefundOpen(false)
+      onRefunded()
+    } catch (e) {
+      toast({
+        title: "Could not issue refund",
+        description: e instanceof Error ? e.message : undefined,
+        variant: "destructive",
+      })
+    } finally {
+      setRefunding(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -747,6 +799,62 @@ function PaymentDetail({
         <p className="text-center text-2xs leading-snug text-muted-foreground">
           Emails or texts a paid invoice page the customer can open.
         </p>
+      ) : null}
+
+      {canRefund ? (
+        refundOpen ? (
+          <div className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3">
+            <label className="block space-y-1.5">
+              <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Refund amount
+              </span>
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+                disabled={refunding}
+                className="h-11 w-full rounded-lg border border-border bg-background/70 px-3 text-sm text-foreground outline-none focus:border-destructive/50"
+              />
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={refunding}
+                onClick={() => setRefundOpen(false)}
+                className="h-11 flex-1 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={refunding}
+                onClick={() => void submitRefund()}
+                className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-destructive text-sm font-semibold text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+              >
+                {refunding ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                Confirm refund ${refundAmount || "0.00"}
+              </button>
+            </div>
+            <p className="text-2xs leading-snug text-muted-foreground">
+              This can&rsquo;t be undone. Lyncr&rsquo;s processing fee is not returned.
+            </p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setRefundAmount((amountCents / 100).toFixed(2))
+              setRefundOpen(true)
+            }}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-destructive/30 text-sm font-semibold text-destructive hover:bg-destructive/10"
+          >
+            <RotateCcw className="h-4 w-4" aria-hidden />
+            Refund
+          </button>
+        )
       ) : null}
     </div>
   )

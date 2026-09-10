@@ -37,6 +37,8 @@ const EVENT_TYPES = [
   "job.outcome_recorded",
   "payment.collected",
   "payment.failed",
+  "payment.refunded",
+  "payout.recorded",
   "admin.impersonate_start",
   "admin.impersonate_stop",
   "admin.credit_adjusted",
