@@ -9,6 +9,7 @@
 
 import type { FieldTechnicianCapabilities } from "@/lib/types"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { toast } from "sonner"
 import {
   MapPin,
   Phone,
@@ -199,13 +200,21 @@ export function TechConsole(props: {
     // Optimistic update so the toggle feels instant on a phone.
     setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, job_status: status } : j)))
     try {
-      await fetch(`/api/tech/jobs/${jobId}`, {
+      const res = await fetch(`/api/tech/jobs/${jobId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ status }),
       })
-    } catch {
+      if (!res.ok) {
+        // The optimistic update above already applied — without this, a rejected status
+        // change (e.g. the job isn't yours anymore) silently reverts on the next poll with
+        // no indication anything went wrong.
+        const json = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(json.error ?? "Could not update job status")
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not update job status — try again")
       load() // reconcile on failure
     } finally {
       setBusyId(null)
@@ -249,8 +258,12 @@ export function TechConsole(props: {
         throw new Error(json.error ?? "Could not claim job")
       }
       setPoolJobs((prev) => prev.filter((j) => j.id !== jobId))
+      toast.success("Job claimed — added to your list.")
       await load()
-    } catch {
+    } catch (e) {
+      // The server's specific reason (e.g. someone else already claimed it) was being
+      // built and then discarded here — surface it instead of failing silently.
+      toast.error(e instanceof Error ? e.message : "Could not claim job — try again")
       await load()
     } finally {
       setClaimBusyId(null)

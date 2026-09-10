@@ -19,9 +19,12 @@ import {
   Plus,
   Search,
   Star,
+  Users,
   Wrench,
   X,
 } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { EmptyState } from "@/components/ui/empty-state"
 import { buildTelHref } from "@/lib/phone-e164"
 import {
   flickerSafeSearchParamNames,
@@ -2985,15 +2988,21 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
           <div className="min-h-[18rem] p-2 lyncr-content-swap md:min-h-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
             {rows.length === 0 && !listSettled ? (
               // Quiet well — never show “No customers yet” before first fetch settles.
-              <div className="min-h-[18rem]" aria-busy="true" aria-label="Loading customers" />
+              <div className="space-y-2 p-1" aria-busy="true" aria-label="Loading customers">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full rounded-xl" />
+                ))}
+              </div>
             ) : error ? (
               <p className="px-2 py-6 text-center text-sm text-destructive">{error}</p>
             ) : rows.length === 0 ? (
-              <div className="flex min-h-[18rem] flex-col items-center gap-3 px-3 py-10 text-center">
-                <p className="text-sm font-medium text-foreground">
-                  {/* A name search that matches nothing is not the same as having nothing —
-                      saying "none exist" here reads as data loss on a filtered list. */}
-                  {nameSearchEmpty
+              <EmptyState
+                icon={Users}
+                className="min-h-[18rem]"
+                title={
+                  // A name search that matches nothing is not the same as having nothing —
+                  // saying "none exist" here reads as data loss on a filtered list.
+                  nameSearchEmpty
                     ? `No matches for “${(debounced || q).trim()}”`
                     : filter === "book_forms"
                       ? "No open book-form leads"
@@ -3001,10 +3010,10 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                         ? "Nobody's overdue right now"
                         : searchingPhone
                           ? "This number isn’t saved yet"
-                          : "No customers yet"}
-                </p>
-                <p className="max-w-xs text-xs text-muted-foreground">
-                  {nameSearchEmpty
+                          : "No customers yet"
+                }
+                description={
+                  nameSearchEmpty
                     ? filter === "all"
                       ? "Nobody here matches that search."
                       : "Nobody in this tab matches that search — clear it, or try another tab."
@@ -3014,29 +3023,31 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                         ? "Customers land here after 6 months without a completed job, or with an unpaid invoice."
                         : searchingPhone
                           ? "They show up here after a book form, intake, or Activity save."
-                          : "Save a caller from Activity or intake — they’ll show up here."}
-                </p>
-                {nameSearchEmpty ? (
-                  <button
-                    type="button"
-                    onClick={() => setQ("")}
-                    className="inline-flex h-9 items-center justify-center rounded-lg border border-info/40 bg-info/10 px-4 text-xs font-semibold text-info hover:bg-info/20"
-                  >
-                    Clear search
-                  </button>
-                ) : (
-                  <Link
-                    href={
-                      searchingPhone && (debounced || q).trim()
-                        ? `/dashboard/messages?phone=${encodeURIComponent((debounced || q).trim())}`
-                        : "/dashboard/activity"
-                    }
-                    className="inline-flex h-9 items-center justify-center rounded-lg border border-info/40 bg-info/10 px-4 text-xs font-semibold text-info hover:bg-info/20"
-                  >
-                    Open Activity
-                  </Link>
-                )}
-              </div>
+                          : "Save a caller from Activity or intake — they’ll show up here."
+                }
+                action={
+                  nameSearchEmpty ? (
+                    <button
+                      type="button"
+                      onClick={() => setQ("")}
+                      className="inline-flex h-9 items-center justify-center rounded-lg border border-info/40 bg-info/10 px-4 text-xs font-semibold text-info hover:bg-info/20"
+                    >
+                      Clear search
+                    </button>
+                  ) : (
+                    <Link
+                      href={
+                        searchingPhone && (debounced || q).trim()
+                          ? `/dashboard/messages?phone=${encodeURIComponent((debounced || q).trim())}`
+                          : "/dashboard/activity"
+                      }
+                      className="inline-flex h-9 items-center justify-center rounded-lg border border-info/40 bg-info/10 px-4 text-xs font-semibold text-info hover:bg-info/20"
+                    >
+                      Open Activity
+                    </Link>
+                  )
+                }
+              />
             ) : (
               <ul
                 className={cn(

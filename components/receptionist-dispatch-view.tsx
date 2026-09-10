@@ -12,12 +12,14 @@
 // possible follow-up once this is proven out.
 
 import { useCallback, useEffect, useState } from "react"
-import { RefreshCw, Truck } from "lucide-react"
+import { CalendarCheck, RefreshCw, Truck, Wrench } from "lucide-react"
 import { JobDetailDrawer } from "@/components/scheduler/job-detail-drawer"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { dayKeyLocal } from "@/lib/scheduler-utils"
 import { SCHEDULER_BADGE_STYLE, SCHEDULER_STATUS_LABEL, schedulerLifecyclePhase } from "@/lib/scheduler-job-status"
 import { cn } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
+import { EmptyState } from "@/components/ui/empty-state"
 import type { ActivePipelineJob, FieldTechnician, UnassignedPoolJob } from "@/lib/types"
 
 type PoolJobRow = UnassignedPoolJob | ActivePipelineJob
@@ -118,20 +120,20 @@ export function ReceptionistDispatchView() {
             setLoading(true)
             load()
           }}
-          className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-2xs font-medium text-muted-foreground hover:text-foreground"
+          className="inline-flex h-11 items-center gap-2 rounded-lg border border-border px-4 text-xs font-medium text-muted-foreground hover:text-foreground"
         >
-          <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+          <RefreshCw className="h-4 w-4" aria-hidden />
           Refresh
         </button>
       </div>
 
       {loading ? (
-        <div className="animate-pulse space-y-2" aria-hidden="true">
-          <div className="h-3 w-32 rounded bg-muted" />
+        <div className="space-y-2" aria-hidden="true">
+          <Skeleton className="h-3 w-32" />
           {[0, 1].map((i) => (
-            <div key={i} className="h-14 rounded-lg border border-border bg-card p-3">
-              <div className="h-3 w-1/2 rounded bg-muted" />
-              <div className="mt-2 h-2.5 w-1/3 rounded bg-muted" />
+            <div key={i} className="space-y-2 rounded-lg border border-border bg-card p-3">
+              <Skeleton className="h-3 w-1/2" />
+              <Skeleton className="h-2.5 w-1/3" />
             </div>
           ))}
         </div>
@@ -144,7 +146,7 @@ export function ReceptionistDispatchView() {
               Needs a tech ({unassigned.length})
             </p>
             {unassigned.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Nothing waiting on dispatch.</p>
+              <EmptyState icon={Wrench} title="Nothing waiting on dispatch." className="py-8" />
             ) : (
               <div className="space-y-2">
                 {unassigned.map((job) => (
@@ -159,7 +161,7 @@ export function ReceptionistDispatchView() {
               Assigned today ({assignedToday.length})
             </p>
             {assignedToday.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No jobs on today&apos;s board yet.</p>
+              <EmptyState icon={CalendarCheck} title="No jobs on today's board yet." className="py-8" />
             ) : (
               <div className="space-y-2">
                 {assignedToday.map((job) => (

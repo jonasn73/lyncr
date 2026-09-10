@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, ClipboardList, CreditCard, Loader2, MessageSquare, Send, Sparkles, UserRound } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   flickerSafeSearchParamNames,
   logFlicker,
@@ -981,7 +982,11 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
           <div className="min-h-0 flex-1 overflow-y-auto">
             {threads.length === 0 && (!inboxSettled || loading) ? (
               // Quiet well — never hide a non-empty list behind !inboxSettled.
-              <div className="h-full min-h-[12rem]" aria-busy="true" aria-label="Loading messages" />
+              <div className="min-h-[12rem] space-y-2 p-2" aria-busy="true" aria-label="Loading messages">
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton key={i} className="h-14 w-full rounded-lg" />
+                ))}
+              </div>
             ) : threads.length === 0 ? (
               <div className="flex h-full min-h-[12rem] flex-col items-center gap-3 px-6 py-16 text-center">
                 <MessageSquare className="h-9 w-9 text-muted-foreground/50" aria-hidden />

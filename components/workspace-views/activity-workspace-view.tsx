@@ -20,6 +20,7 @@ import {
 import { CustomerSmsComposer } from "@/components/messaging/customer-sms-composer"
 import { SendBookLinkButton } from "@/components/activity/send-book-link-sheet"
 import { cn } from "@/lib/utils"
+import { EmptyState } from "@/components/ui/empty-state"
 import { buildTelHref, toE164 } from "@/lib/phone-e164"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { isMissedCallRecord, isMissedCallTodayRecord, isIvrMenuHandler, type MissedCallRecordInput } from "@/lib/missed-call-telemetry"
@@ -1291,18 +1292,19 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
 
   if (rows.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
-        <p className="text-sm font-medium text-foreground">No calls yet</p>
-        <p className="max-w-xs text-xs text-muted-foreground">
-          When someone dials your business line, the call shows up here so you can continue in CRM.
-        </p>
-        <Link
-          href="/dashboard"
-          className="inline-flex h-9 items-center justify-center rounded-lg border border-primary/45 bg-primary/15 px-4 text-xs font-semibold text-primary hover:bg-primary/25"
-        >
-          Open Lines
-        </Link>
-      </div>
+      <EmptyState
+        icon={Phone}
+        title="No calls yet"
+        description="When someone dials your business line, the call shows up here so you can continue in CRM."
+        action={
+          <Link
+            href="/dashboard"
+            className="inline-flex h-9 items-center justify-center rounded-lg border border-primary/45 bg-primary/15 px-4 text-xs font-semibold text-primary hover:bg-primary/25"
+          >
+            Open Lines
+          </Link>
+        }
+      />
     )
   }
 
