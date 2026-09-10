@@ -3,7 +3,7 @@
 
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/server-session-user"
-import { isFieldTechUser } from "@/lib/field-tech-auth"
+import { getFieldTechContext, isFieldTechUser } from "@/lib/field-tech-auth"
 import { TechPortalChrome } from "@/components/tech/tech-portal-chrome"
 
 export const dynamic = "force-dynamic"
@@ -15,5 +15,9 @@ export default async function TechDashboardLayout({ children }: { children: Reac
   if (user.account_role === "receptionist") redirect("/receptionist")
   if (!isFieldTechUser(user)) redirect("/tech/login")
 
-  return <TechPortalChrome>{children}</TechPortalChrome>
+  // Null when this tech isn't linked to a roster yet — TechPortalChrome renders no nav in that
+  // case (page.tsx's own "Account not linked yet" fallback covers the experience instead).
+  const ctx = await getFieldTechContext(user.id)
+
+  return <TechPortalChrome capabilities={ctx?.technician.capabilities}>{children}</TechPortalChrome>
 }
