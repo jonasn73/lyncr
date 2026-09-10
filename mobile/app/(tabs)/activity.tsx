@@ -119,10 +119,10 @@ export default function ActivityScreen() {
       .finally(() => setLoading(false))
   }, [])
 
-  const missedCount = useMemo(() => calls.filter(isMissedCallToday).length, [calls])
+  const missedCount = useMemo(() => calls.filter((call) => isMissedCallToday(call)).length, [calls])
 
   const visibleCalls = useMemo(() => {
-    const list = filter === "missed" ? calls.filter(isMissedCallToday) : calls
+    const list = filter === "missed" ? calls.filter((call) => isMissedCallToday(call)) : calls
     return [...list].sort((a, b) => b.created_at.localeCompare(a.created_at))
   }, [calls, filter])
 

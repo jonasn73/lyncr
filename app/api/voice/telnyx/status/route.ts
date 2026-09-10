@@ -22,12 +22,21 @@ import {
 } from "@/lib/missed-call-telemetry"
 import { CAPTURE_STATUS_AI_FALLBACK_HANDLED, isHoldAutomationStatus } from "@/lib/inbound-time-capture"
 import { reportAiAssistantMinutesUsage } from "@/lib/ai-usage-billing"
+import { warnOnInvalidTelnyxSignature } from "@/lib/telnyx"
 import type { CallType } from "@/lib/types"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
 
 export async function POST(req: NextRequest) {
+  // Clone before consuming the body as formData — .text() and .formData() each consume the
+  // stream once, and the signature check needs the raw bytes without disturbing the existing
+  // form parsing below.
+  req
+    .clone()
+    .text()
+    .then((raw) => warnOnInvalidTelnyxSignature(req.headers, raw, "voice/telnyx/status"))
+    .catch(() => {})
   const formData = await req.formData()
   // Prefer parent call SID when Telnyx posts dial-leg (Number) progress events.
   const callSid =

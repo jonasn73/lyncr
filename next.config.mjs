@@ -32,18 +32,47 @@ const nextConfig = {
       },
     ]
   },
+  // Site-wide baseline security headers. No CSP here yet — this app loads Stripe, Telnyx
+  // WebRTC, Sentry, and a maps provider client-side, and a wrong script-src/connect-src would
+  // silently break payments or calling; that needs its own report-only rollout, tested against
+  // each of those integrations, not a blind addition alongside everything else here.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          // Nothing embeds Lyncr in a frame (grepped for iframe/widget usage — none found);
+          // the iframes in the codebase are ones Lyncr embeds (Stripe Elements, a sandboxed
+          // support-email preview), which this does not affect.
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // self only for the three features the app actually uses (dispatcher/tech location,
+          // Telnyx WebRTC calling, key-inventory photo capture); everything else denied.
+          {
+            key: "Permissions-Policy",
+            value: "geolocation=(self), camera=(self), microphone=(self), payment=(), usb=(), interest-cohort=()",
+          },
+          // No `preload`: submitting to browsers' HSTS preload list is a separate, deliberate,
+          // hard-to-reverse call — do that only if asked.
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+        ],
+      },
+    ]
+  },
 }
 
 export default withSentryConfig(nextConfig, {
   // Optional source-map upload — skip silently when SENTRY_AUTH_TOKEN is unset.
   silent: true,
   widenClientFileUpload: true,
-  // Both of these moved under `webpack` in @sentry/nextjs 10. Note that they
-  // only apply to webpack builds, and this project builds with Turbopack, so
-  // they no-op today -- including automaticVercelMonitors, which means the six
-  // crons in vercel.json are not getting Sentry monitors despite this asking
-  // for them. Kept in the correct place so the intent survives, but the
-  // monitoring gap needs a different mechanism.
+  // automaticVercelMonitors (below, webpack-only) no-ops on this project's Turbopack build,
+  // which left the crons in vercel.json with no Sentry monitors at all. _experimental.vercelCronsMonitoring
+  // is @sentry/nextjs's span-based alternative — it works under either bundler by watching for
+  // the `vercel-cron` user-agent header at request time instead of a build-time webpack plugin.
+  _experimental: {
+    vercelCronsMonitoring: true,
+  },
   webpack: {
     automaticVercelMonitors: true,
     treeshake: {

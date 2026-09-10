@@ -38,6 +38,14 @@ jobs:
       - name: Tests
         run: npm test
 
+      - name: Mobile install
+        working-directory: mobile
+        run: npm ci
+
+      - name: Mobile types
+        working-directory: mobile
+        run: npm run typecheck
+
 # Deliberately not running eslint here. It reports 292 errors on main today,
 # almost all of them react-hooks/set-state-in-effect and react-hooks/refs, so a
 # blocking step would fail every pull request from the moment it landed and a

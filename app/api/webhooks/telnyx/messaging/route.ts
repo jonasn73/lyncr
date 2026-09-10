@@ -8,6 +8,7 @@
 import { after } from "next/server"
 import { NextRequest, NextResponse } from "next/server"
 import { processInboundTelnyxMessage, type TelnyxMessagingWebhook } from "@/lib/sms-inbound-handler"
+import { warnOnInvalidTelnyxSignature } from "@/lib/telnyx"
 
 export const runtime = "nodejs"
 
@@ -16,10 +17,13 @@ const ACK = NextResponse.json({ ok: true })
 export async function POST(req: NextRequest) {
   let body: TelnyxMessagingWebhook | null = null
   try {
-    body = (await req.json()) as TelnyxMessagingWebhook
+    const raw = await req.text()
+    warnOnInvalidTelnyxSignature(req.headers, raw, "webhooks/telnyx/messaging")
+    body = raw ? (JSON.parse(raw) as TelnyxMessagingWebhook) : null
   } catch {
     return ACK
   }
+  if (!body) return ACK
 
   after(async () => {
     try {

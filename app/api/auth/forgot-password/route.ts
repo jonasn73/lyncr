@@ -1,9 +1,19 @@
-// POST /api/auth/forgot-password — issue a time-limited reset link (email delivery TBD).
+// POST /api/auth/forgot-password — email a time-limited reset link if the account exists.
+//
+// SECURITY: the response must never reveal whether the email matched an account, or contain
+// the reset token/URL — both would let anyone take over an account they only know the email
+// for. Always return the same generic message and deliver the link by email instead.
 
 import { NextRequest, NextResponse } from "next/server"
 import { getAuthUserByEmail, userFacingDatabaseError } from "@/lib/db"
 import { createPasswordResetToken } from "@/lib/password-reset-token"
 import { getAppUrl } from "@/lib/telnyx"
+import { buildPasswordResetEmailPayload, sendPasswordResetEmail } from "@/lib/password-reset-email"
+
+const GENERIC_RESPONSE = {
+  ok: true,
+  message: "If an account exists for that email, we've sent a link to reset your password.",
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,21 +25,24 @@ export async function POST(req: NextRequest) {
 
     const authUser = await getAuthUserByEmail(email)
     if (!authUser) {
-      return NextResponse.json({
-        ok: true,
-        message: "If an account exists for that email, you can use the reset link below.",
-      })
+      return NextResponse.json(GENERIC_RESPONSE)
     }
 
     const token = createPasswordResetToken(authUser.id)
     const base = getAppUrl().replace(/\/$/, "")
     const resetUrl = `${base}/reset-password?token=${encodeURIComponent(token)}`
 
-    return NextResponse.json({
-      ok: true,
-      message: "Use the link below to choose a new password. It expires in about one hour.",
+    const payload = buildPasswordResetEmailPayload({
+      toEmail: authUser.email,
+      name: authUser.name,
       resetUrl,
     })
+    const result = await sendPasswordResetEmail(payload)
+    if (!result.sent) {
+      console.error("[lyncr] forgot-password: email not sent", { userId: authUser.id, error: result.error })
+    }
+
+    return NextResponse.json(GENERIC_RESPONSE)
   } catch (error) {
     console.error("[lyncr] forgot-password:", error)
     const msg = error instanceof Error ? error.message : String(error)

@@ -6,6 +6,7 @@ import {
   handleTelnyxCallControlVoiceWebhook,
   readInboundCallControlEnabled,
 } from "@/lib/telnyx-call-control-inbound"
+import { warnOnInvalidTelnyxSignature } from "@/lib/telnyx"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest) {
   let body: Record<string, unknown>
   try {
     const raw = await req.text()
+    warnOnInvalidTelnyxSignature(req.headers, raw, "webhooks/telnyx/voice")
     body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })

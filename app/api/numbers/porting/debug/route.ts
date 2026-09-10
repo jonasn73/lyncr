@@ -1,5 +1,7 @@
-// Temporary debug endpoint — shows raw Telnyx porting data
-import { NextResponse } from "next/server"
+// Debug endpoint — shows raw Telnyx porting data (phone numbers, customer references).
+// Platform-admin only: this is carrier/customer data, not safe to expose publicly.
+import { NextRequest, NextResponse } from "next/server"
+import { requirePlatformAdmin } from "@/lib/admin-api-guard"
 
 const TELNYX_BASE = "https://api.telnyx.com/v2"
 
@@ -9,7 +11,9 @@ function getApiKey(): string {
   return key
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const ctx = await requirePlatformAdmin(req)
+  if (ctx instanceof NextResponse) return ctx
   try {
     const res = await fetch(
       `${TELNYX_BASE}/porting_orders?page[size]=50&sort=-created_at&include_phone_numbers=true`,
