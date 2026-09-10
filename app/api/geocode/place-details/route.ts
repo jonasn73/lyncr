@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { structuredAddressFromGoogle } from "@/lib/structured-address"
+import { checkRateLimit, rateLimitedResponse } from "@/lib/rate-limit"
 
 function googleKey(): string | null {
   return (
@@ -15,6 +16,9 @@ function googleKey(): string | null {
 export async function GET(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+
+  const rateLimit = await checkRateLimit("geocoding", userId)
+  if (rateLimit.limited) return rateLimitedResponse(rateLimit.retryAfterSeconds)
 
   const placeId = req.nextUrl.searchParams.get("place_id")?.trim() ?? ""
   if (!placeId) return NextResponse.json({ error: "place_id is required" }, { status: 400 })

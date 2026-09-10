@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { isStripeConfigured } from "@/lib/stripe-config"
 import { syncCollectPayLinkStatus } from "@/lib/job-pay-link"
+import { checkRateLimit, clientIpFromHeaders, rateLimitedResponse } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -11,6 +12,9 @@ export const runtime = "nodejs"
 type Body = { sessionId?: string }
 
 export async function POST(req: NextRequest) {
+  const rateLimit = await checkRateLimit("payments-public", clientIpFromHeaders(req.headers))
+  if (rateLimit.limited) return rateLimitedResponse(rateLimit.retryAfterSeconds)
+
   if (!isStripeConfigured()) {
     return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 })
   }

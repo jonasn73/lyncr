@@ -6,6 +6,7 @@ import {
   generateIntakeAiSuggestion,
   type IntakeAiSuggestInput,
 } from "@/lib/intake-ai-suggest"
+import { checkRateLimit, rateLimitedResponse } from "@/lib/rate-limit"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -14,6 +15,9 @@ export async function POST(req: NextRequest) {
   const actor = await resolveWorkspaceActor(req.headers.get("cookie"))
   if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const userId = actor.ownerUserId
+
+  const rateLimit = await checkRateLimit("ai", userId)
+  if (rateLimit.limited) return rateLimitedResponse(rateLimit.retryAfterSeconds)
 
   let body: Record<string, unknown> = {}
   try {

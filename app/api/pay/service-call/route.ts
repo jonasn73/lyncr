@@ -7,6 +7,7 @@ import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { getCollectPayLinkByToken, getUser } from "@/lib/db"
 import { getAppUrl } from "@/lib/telnyx"
 import { SERVICE_CALL_FEE_CENTS, SERVICE_CALL_FEE_DOLLARS } from "@/lib/service-call-fee"
+import { checkRateLimit, clientIpFromHeaders, rateLimitedResponse } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -131,6 +132,9 @@ type PostBody = {
 
 /** Save form fields onto the linked lead (when present), then return /pay/{token}. */
 export async function POST(req: NextRequest) {
+  const rateLimit = await checkRateLimit("payments-public", clientIpFromHeaders(req.headers))
+  if (rateLimit.limited) return rateLimitedResponse(rateLimit.retryAfterSeconds)
+
   const body = (await req.json().catch(() => ({}))) as PostBody
   const token = String(body.p ?? "").trim()
   if (!token || token.length < 6) {

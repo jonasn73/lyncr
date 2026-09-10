@@ -9,6 +9,7 @@ import {
 } from "@/lib/job-pay-link"
 import { ensureStripeWalletPaymentMethodDomains } from "@/lib/stripe-payment-method-domains"
 import { getCollectPayLinkByToken } from "@/lib/db"
+import { checkRateLimit, clientIpFromHeaders, rateLimitedResponse } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -160,6 +161,9 @@ export async function POST(
   req: NextRequest,
   ctx: { params: Promise<{ token: string }> }
 ) {
+  const rateLimit = await checkRateLimit("payments-public", clientIpFromHeaders(req.headers))
+  if (rateLimit.limited) return rateLimitedResponse(rateLimit.retryAfterSeconds)
+
   if (!isStripeConfigured()) {
     return NextResponse.json({ error: "Payments are not configured." }, { status: 503 })
   }

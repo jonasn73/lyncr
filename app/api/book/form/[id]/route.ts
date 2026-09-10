@@ -19,6 +19,7 @@ import {
   jobTypeFromBookFormKind,
   markIntakeBookLinkSubmitted,
 } from "@/lib/intake-book-link"
+import { checkRateLimit, clientIpFromHeaders, rateLimitedResponse } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -87,6 +88,9 @@ type PostBody = {
 }
 
 export async function POST(req: NextRequest, ctx: RouteCtx) {
+  const rateLimit = await checkRateLimit("booking", clientIpFromHeaders(req.headers))
+  if (rateLimit.limited) return rateLimitedResponse(rateLimit.retryAfterSeconds)
+
   const { id } = await ctx.params
   const link = await getIntakeBookLinkById(id)
   if (!link) {

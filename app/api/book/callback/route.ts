@@ -18,6 +18,7 @@ import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
 import { notifyOwnerBookFormSubmitted } from "@/lib/book-form-owner-alert"
 import { sendGotItHoldingCustomerSms } from "@/lib/got-it-customer-sms"
 import { toE164 } from "@/lib/phone-e164"
+import { checkRateLimit, clientIpFromHeaders, rateLimitedResponse } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -31,6 +32,9 @@ function readString(body: Record<string, unknown>, ...keys: string[]): string {
 }
 
 export async function POST(req: NextRequest) {
+  const rateLimit = await checkRateLimit("booking", clientIpFromHeaders(req.headers))
+  if (rateLimit.limited) return rateLimitedResponse(rateLimit.retryAfterSeconds)
+
   let body: Record<string, unknown> = {}
   try {
     body = (await req.json()) as Record<string, unknown>

@@ -36,6 +36,8 @@ const LIMITER_CONFIG = {
   // AI assistant / geocoding: metered third-party cost per call.
   ai: { limit: 20, windowSeconds: 60 },
   geocoding: { limit: 30, windowSeconds: 60 },
+  // Public, unauthenticated Stripe-touching endpoints (pay links, deposit checkout).
+  "payments-public": { limit: 15, windowSeconds: 60 },
 } as const
 
 export type RateLimiterName = keyof typeof LIMITER_CONFIG

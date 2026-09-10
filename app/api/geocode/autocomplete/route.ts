@@ -15,6 +15,7 @@ import {
   synthesizeAddressFromQuery,
   type AddressSuggestion,
 } from "@/lib/structured-address"
+import { checkRateLimit, rateLimitedResponse } from "@/lib/rate-limit"
 
 function googleKey(): string | null {
   return (
@@ -191,6 +192,9 @@ function scoreLocalSuggestion(s: AddressSuggestion, q: string): number {
 export async function GET(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+
+  const rateLimit = await checkRateLimit("geocoding", userId)
+  if (rateLimit.limited) return rateLimitedResponse(rateLimit.retryAfterSeconds)
 
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? ""
   const minLen = /^\d/.test(q) ? 2 : 3
