@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils"
 import { ScrollEdgeFade, useScrollEdges } from "@/components/dashboard-workspace-ui"
 import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
 import { HOPPER_DRAG_MIME } from "@/components/scheduler/job-pool-card"
+
+/** Dragging an already-scheduled appointment block (as opposed to an unassigned pool job). */
+const SCHEDULED_EVENT_DRAG_MIME = "application/x-lyncr-scheduled-event-id"
 import {
   useSchedulerMobileTimeline,
   useSchedulerTouchInteraction,
@@ -50,6 +53,9 @@ type TechnicianSwimlaneBoardProps = {
   highlightId?: string | null
   onSelectEvent?: (event: SchedulerEvent) => void
   onDropPoolJob?: (jobId: string, techUserId: string, hour24: number) => void
+  /** Drag an already-scheduled appointment block to a different tech and/or hour. Desktop-only —
+   *  see technician-swimlane-board.tsx's SwimlaneAppointmentBlock for why touch doesn't get this. */
+  onMoveScheduledJob?: (eventId: string, techUserId: string, hour24: number) => void
   onBookEmptySlot?: (techUserId: string, hour24: number) => void
   /** Mobile hopper card tapped — opens the technician assign overlay. */
   mobileAssignRequest?: MobileSchedulerAssignRequest | null
@@ -237,10 +243,13 @@ function eventCardStyle(ev: SchedulerEvent): string {
 function SwimlaneAppointmentBlock({
   ev,
   highlighted,
+  draggable,
   onSelect,
 }: {
   ev: SchedulerEvent
   highlighted?: boolean
+  /** Desktop/mouse only — dragging to a different tech/hour re-schedules it in place. */
+  draggable?: boolean
   onSelect?: () => void
 }) {
   const vehicle = formatVehicle(ev)
@@ -261,6 +270,15 @@ function SwimlaneAppointmentBlock({
       role={onSelect ? "button" : undefined}
       tabIndex={onSelect ? 0 : undefined}
       onClick={onSelect}
+      draggable={draggable}
+      onDragStart={
+        draggable
+          ? (e) => {
+              e.dataTransfer.setData(SCHEDULED_EVENT_DRAG_MIME, ev.id)
+              e.dataTransfer.effectAllowed = "move"
+            }
+          : undefined
+      }
       onKeyDown={
         onSelect
           ? (e) => {
@@ -274,6 +292,7 @@ function SwimlaneAppointmentBlock({
       className={cn(
         "absolute left-1.5 right-1.5 z-10 overflow-hidden rounded-lg border px-2 py-1 shadow-raised",
         onSelect ? cn("pointer-events-auto cursor-pointer", SCHEDULER_TIMELINE_CARD_HOVER) : "pointer-events-none",
+        draggable && "active:cursor-grabbing",
         highlighted && "ring-2 ring-primary ring-offset-1 ring-offset-background",
         eventCardStyle(ev)
       )}
@@ -463,6 +482,7 @@ export function TechnicianSwimlaneBoard({
   highlightId,
   onSelectEvent,
   onDropPoolJob,
+  onMoveScheduledJob,
   onBookEmptySlot,
   mobileAssignRequest,
   onMobileAssignRequestClear,
@@ -642,8 +662,12 @@ export function TechnicianSwimlaneBoard({
                                   e.preventDefault()
                                   setDragOverCell(null)
                                   const jobId = e.dataTransfer.getData(HOPPER_DRAG_MIME)
-                                  if (!jobId) return
-                                  onDropPoolJob?.(jobId, techUserId, hour)
+                                  if (jobId) {
+                                    onDropPoolJob?.(jobId, techUserId, hour)
+                                    return
+                                  }
+                                  const movedEventId = e.dataTransfer.getData(SCHEDULED_EVENT_DRAG_MIME)
+                                  if (movedEventId) onMoveScheduledJob?.(movedEventId, techUserId, hour)
                                 }
                           }
                         />
@@ -655,6 +679,7 @@ export function TechnicianSwimlaneBoard({
                         key={ev.id}
                         ev={ev}
                         highlighted={highlightId === ev.id}
+                        draggable={!touchInteraction}
                         onSelect={() => onSelectEvent?.(ev)}
                       />
                     ))}

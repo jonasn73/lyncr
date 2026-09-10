@@ -1108,11 +1108,19 @@ function SchedulerWorkspaceViewInner({
     ]
   )
 
-  function resolveDropHour(techUserId: string, preferredHour: number, durationMinutes: number): number {
+  function resolveDropHour(
+    techUserId: string,
+    preferredHour: number,
+    durationMinutes: number,
+    /** Excludes the event being moved from its own conflict check (a move-in-place isn't a conflict). */
+    excludeEventId?: string
+  ): number {
     const duration = durationMinutes || 60
     const preferredStart = dateAtLocalHour(selectedDay, preferredHour)
     const preferredEnd = preferredStart.getTime() + duration * 60000
-    const techEvents = dayEvents.filter((ev) => ev.assigned_tech_id === techUserId)
+    const techEvents = dayEvents.filter(
+      (ev) => ev.assigned_tech_id === techUserId && ev.id !== excludeEventId
+    )
 
     const conflict = techEvents.some((ev) => {
       const start = new Date(ev.scheduled_at).getTime()
@@ -1178,6 +1186,56 @@ function SchedulerWorkspaceViewInner({
       }
     } catch (e) {
       setGridScheduleError(e instanceof Error ? e.message : "Could not schedule job")
+    } finally {
+      setGridScheduleSaving(false)
+    }
+  }
+
+  /**
+   * Drag an already-scheduled appointment block to a different tech and/or hour. Reuses the same
+   * PATCH the job-detail-drawer's own tech/time save already calls — that route treats any body
+   * containing assigned_tech_id as a "full job edit" and requires customer_name/customer_phone,
+   * so those (and job_type/duration_minutes) ride along unchanged rather than just the two fields
+   * that actually moved.
+   */
+  async function moveScheduledJobToTechLane(eventId: string, techUserId: string, hour24: number) {
+    const event = dayEvents.find((ev) => ev.id === eventId)
+    if (!event || gridScheduleSaving) return
+    const currentHour = new Date(event.scheduled_at).getHours()
+    if (event.assigned_tech_id === techUserId && currentHour === hour24) return // dropped back in place
+
+    setGridScheduleError(null)
+    setGridScheduleSaving(true)
+    const hour = resolveDropHour(techUserId, hour24, event.duration_minutes, eventId)
+    const scheduledIso = dateAtLocalHour(selectedDay, hour).toISOString()
+    try {
+      const res = await fetch(`/api/owner/scheduler/${eventId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_name: event.customer_name ?? "",
+          customer_phone: event.customer_phone ?? "",
+          job_type: event.job_type ?? undefined,
+          duration_minutes: event.duration_minutes,
+          assigned_tech_id: techUserId,
+          scheduled_at: scheduledIso,
+          // updateOwnerSchedulerJob (lib/db.ts) is the one place these three don't fall back to
+          // "leave unchanged" when omitted — it nulls them out unconditionally. Every other
+          // optional field on that route IS guarded with `!== undefined`, just not these three.
+          vehicle_year: event.vehicle_year,
+          vehicle_make: event.vehicle_make,
+          vehicle_model: event.vehicle_model,
+        }),
+      })
+      const json = (await res.json()) as { error?: string; data?: { event?: SchedulerEvent } }
+      if (!res.ok) throw new Error(json.error ?? "Could not move job")
+      const updated = json.data?.event
+      if (!updated) throw new Error("No event returned")
+      handleAppointmentCreated(updated)
+      void mutateActivePipeline()
+    } catch (e) {
+      setGridScheduleError(e instanceof Error ? e.message : "Could not move job")
     } finally {
       setGridScheduleSaving(false)
     }
@@ -1618,6 +1676,7 @@ function SchedulerWorkspaceViewInner({
                     highlightId={highlightId}
                     onSelectEvent={openScheduledJobDrawer}
                     onDropPoolJob={schedulePoolOnTechLane}
+                    onMoveScheduledJob={moveScheduledJobToTechLane}
                     onBookEmptySlot={openManualCallFromScheduler}
                     mobileAssignRequest={mobileAssignRequest}
                     onMobileAssignRequestClear={() => setMobileAssignRequest(null)}
