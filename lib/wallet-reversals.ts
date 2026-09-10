@@ -9,6 +9,7 @@ import { recordWalletReversal, sumReversedForPaymentIntent, type WalletReversalR
 import { getOnboardingProfile, getUser } from "@/lib/db"
 import { resolveLeadAlertSmsRecipient } from "@/lib/lead-sms-recipient"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
+import { reverseJobEarnings } from "@/lib/compensation/settle-job"
 
 /**
  * Text the owner the instant money leaves (or returns to) the wallet outside of anything they
@@ -79,6 +80,13 @@ export async function handleStripeChargeRefunded(charge: Stripe.Charge): Promise
   })
   if (tx) {
     await notifyOwnerWalletReversal({ ownerUserId: tx.ownerUserId, amountUsd: outstanding, reason: "REFUND" })
+    // reverseJobEarnings existed for exactly this and had zero callers — a refunded job
+    // left the tech's/receptionist's commission on the books with the money already gone.
+    if (tx.jobId) {
+      await reverseJobEarnings(tx.jobId).catch((e) =>
+        console.warn("[wallet-reversals] commission reversal failed:", e)
+      )
+    }
   }
 }
 
