@@ -12317,7 +12317,7 @@ export async function setJobStatusForTech(
   techUserId: string,
   leadId: string,
   status: string
-): Promise<boolean> {
+): Promise<{ ok: boolean; previousStatus: string | null }> {
   const sql = getSql()
   const isTerminal =
     status === "completed" ||
@@ -12330,8 +12330,15 @@ export async function setJobStatusForTech(
   const dispatchMirror = status === "completed" ? "completed" : status
   // Any status move the tech makes implies he's seen the job — stamp acceptance if not
   // already set, so tapping Start Route doesn't require a redundant separate Accept tap.
+  // The `prev` CTE reads job_status as of statement start, before the UPDATE below takes
+  // effect — lets callers audit terminal transitions (job.outcome_recorded) without a
+  // separate round-trip.
   const rows = isTerminal
     ? await sql`
+        WITH prev AS (
+          SELECT job_status FROM ai_leads
+          WHERE id = ${leadId} AND assigned_tech_id = ${techUserId}
+        )
         UPDATE ai_leads
         SET
           job_status = ${status},
@@ -12350,15 +12357,22 @@ export async function setJobStatusForTech(
               ELSE '{}'::jsonb
             END
         WHERE id = ${leadId} AND assigned_tech_id = ${techUserId}
-        RETURNING id
+        RETURNING id, (SELECT job_status FROM prev) AS previous_status
       `
     : await sql`
+        WITH prev AS (
+          SELECT job_status FROM ai_leads
+          WHERE id = ${leadId} AND assigned_tech_id = ${techUserId}
+        )
         UPDATE ai_leads
         SET job_status = ${status}, accepted_at = coalesce(accepted_at, now())
         WHERE id = ${leadId} AND assigned_tech_id = ${techUserId}
-        RETURNING id
+        RETURNING id, (SELECT job_status FROM prev) AS previous_status
       `
-  return rows.length > 0
+  return {
+    ok: rows.length > 0,
+    previousStatus: rows[0]?.previous_status != null ? String(rows[0].previous_status) : null,
+  }
 }
 
 /** The tech's most recently assigned, not-yet-acknowledged job — for SMS reply-to-accept. */

@@ -18,6 +18,7 @@ import {
   setJobStatusForTech,
 } from "@/lib/db"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
+import { recordAuditEvent } from "@/lib/audit-log"
 import { onJobStateChange } from "@/lib/sms-pipeline"
 import { createWalletTransaction, walletStatusFromInvoice } from "@/lib/tech-wallet"
 import type { InvoiceLineItem, JobInvoice } from "@/lib/types"
@@ -104,7 +105,20 @@ export async function POST(req: NextRequest) {
     })
 
     // Completing the invoice closes out the job.
-    await setJobStatusForTech(userId, leadId, "completed").catch(() => {})
+    const statusResult = await setJobStatusForTech(userId, leadId, "completed").catch(
+      () => ({ ok: false, previousStatus: null }) as const
+    )
+    if (statusResult.ok && statusResult.previousStatus !== "completed") {
+      void recordAuditEvent({
+        ownerUserId: tech.owner_user_id,
+        actorUserId: userId,
+        actorRole: "field_tech",
+        eventType: "job.outcome_recorded",
+        entityType: "job",
+        entityId: leadId,
+        detail: { status: "completed", previous_status: statusResult.previousStatus, via: "invoice" },
+      })
+    }
 
     // Credit the tech wallet when payment was collected on-site (skip if Stripe already settled).
     if (collectNow && method !== "none" && total > 0 && !body.skipWalletCredit) {

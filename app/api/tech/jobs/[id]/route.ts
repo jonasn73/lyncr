@@ -8,6 +8,7 @@ import { after } from "next/server"
 import { resolveActor } from "@/lib/actor"
 import { getOwnerIdForLead, getUser, setJobStatusForTech } from "@/lib/db"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
+import { recordAuditEvent } from "@/lib/audit-log"
 import {
   sendDispatchEnRouteCustomerSms,
   sendDispatchOnSiteCustomerSms,
@@ -43,13 +44,27 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   try {
-    const ok = await setJobStatusForTech(userId, id, status)
+    const { ok, previousStatus } = await setJobStatusForTech(userId, id, status)
     if (!ok) return NextResponse.json({ error: "Job not found or not assigned to you" }, { status: 404 })
 
     // Tell the owner dashboard the job moved.
     const ownerId = await getOwnerIdForLead(id)
     if (ownerId) {
       await publishOwnerEvent(ownerId, "job-status-updated", { leadId: id, status }).catch(() => {})
+    }
+
+    // Mirrors the owner-side outcome audit (app/api/owner/jobs/[id]/status) — a tech directly
+    // completing a job from the field is the one status change admin/support needs a trail for.
+    if (status === "completed" && previousStatus !== "completed" && ownerId) {
+      void recordAuditEvent({
+        ownerUserId: ownerId,
+        actorUserId: userId,
+        actorRole: "field_tech",
+        eventType: "job.outcome_recorded",
+        entityType: "job",
+        entityId: id,
+        detail: { status, previous_status: previousStatus },
+      })
     }
 
     if (status === "en_route") {

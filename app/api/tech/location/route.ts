@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       if (geo && geo.job_status === "en_route") {
         const meters = haversineMeters(lat, lng, geo.customer_lat, geo.customer_lng)
         if (meters <= ARRIVAL_RADIUS_METERS) {
-          const ok = await setJobStatusForTech(userId, geo.leadId, "arrived")
+          const { ok } = await setJobStatusForTech(userId, geo.leadId, "arrived")
           if (ok) {
             arrivedLeadId = geo.leadId
             status = "on_site"
