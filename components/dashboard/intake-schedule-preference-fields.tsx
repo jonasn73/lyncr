@@ -4,6 +4,7 @@
 
 import { useMemo } from "react"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   buildBookDayOptions,
   buildBookTimeOptions,
@@ -155,41 +156,41 @@ export function IntakeSchedulePreferenceFields({
               <Label htmlFor="intake-availability-from" className="text-xs">
                 From
               </Label>
-              <select
-                id="intake-availability-from"
+              <Select
                 value={value.availabilityFrom}
-                onChange={(e) => {
-                  const from = e.target.value
-                  onChange({
-                    availabilityFrom: from,
-                    scheduledTime: from,
-                  })
-                }}
-                className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                onValueChange={(from) => onChange({ availabilityFrom: from, scheduledTime: from })}
               >
-                {TIME_OPTIONS.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="intake-availability-from" className="h-11 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIME_OPTIONS.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="intake-availability-to" className="text-xs">
                 To
               </Label>
-              <select
-                id="intake-availability-to"
+              <Select
                 value={value.availabilityTo}
-                onChange={(e) => onChange({ availabilityTo: e.target.value })}
-                className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                onValueChange={(v) => onChange({ availabilityTo: v })}
               >
-                {TIME_OPTIONS.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="intake-availability-to" className="h-11 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIME_OPTIONS.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

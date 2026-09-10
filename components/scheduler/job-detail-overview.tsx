@@ -14,6 +14,7 @@ import {
   UserRound,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { buildJobTechnicalSpecBlocks } from "@/lib/scheduler-job-spec-blocks"
 import { resolveJobScheduledAtIso } from "@/lib/scheduler-appointment-interaction"
@@ -376,35 +377,30 @@ export function JobDetailOverview({
             <label htmlFor="active-job-pipeline-status" className={SECTION_LABEL}>
               Status
             </label>
-            <div className="relative">
-              <select
+            <Select
+              disabled={saving || pipelineStatus === "completed"}
+              value={pipelineStatus}
+              onValueChange={(v) => onPipelineStatusChange(v as JobPipelineStatusId)}
+            >
+              <SelectTrigger
                 id="active-job-pipeline-status"
-                disabled={saving || pipelineStatus === "completed"}
-                value={pipelineStatus}
-                onChange={(e) =>
-                  onPipelineStatusChange(e.target.value as JobPipelineStatusId)
-                }
-                className={cn(
-                  SCHEDULER_INPUT,
-                  "min-h-[40px] w-full appearance-none py-2 pr-9 text-sm font-medium"
-                )}
+                className={cn(SCHEDULER_INPUT, "min-h-[40px] w-full text-sm font-medium")}
                 aria-label="Job pipeline status"
               >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
                 {/* Same word as header badge — avoid Done vs Completed split */}
                 {pipelineStatus === "completed" ? (
-                  <option value="completed">Done</option>
+                  <SelectItem value="completed">Done</SelectItem>
                 ) : null}
                 {JOB_PIPELINE_STATUS_OPTIONS.map((option) => (
-                  <option key={option.id} value={option.id}>
+                  <SelectItem key={option.id} value={option.id}>
                     {option.label}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
-              <ChevronDown
-                className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden
-              />
-            </div>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className={SCHEDULER_FIELD_STACK}>

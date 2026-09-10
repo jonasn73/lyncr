@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { IntakeScheduleDayAgenda } from "@/components/scheduler/intake-schedule-day-agenda"
 import {
   combineDateAndTime,
@@ -316,18 +317,18 @@ export function IntakeScheduleDialog({
 
                   <label className="grid gap-2 text-sm">
                     <span className="font-medium text-foreground">Time</span>
-                    <select
-                      className={fieldClass}
-                      value={timeValue}
-                      onChange={(e) => setTimeValue(e.target.value)}
-                      disabled={saving}
-                    >
-                      {timeSlotOptions.map((slot) => (
-                        <option key={slot.value} value={slot.value}>
-                          {slot.label}
-                        </option>
-                      ))}
-                    </select>
+                    <Select value={timeValue} onValueChange={setTimeValue} disabled={saving}>
+                      <SelectTrigger className={cn(fieldClass, "w-full")}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {timeSlotOptions.map((slot) => (
+                          <SelectItem key={slot.value} value={slot.value}>
+                            {slot.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </label>
                 </div>
 
@@ -348,34 +349,44 @@ export function IntakeScheduleDialog({
                 <div className="grid grid-cols-2 gap-3">
                   <label className="grid gap-2 text-sm">
                     <span className="font-medium text-foreground">Duration</span>
-                    <select
-                      className={fieldClass}
-                      value={durationMinutes}
-                      onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                    <Select
+                      value={String(durationMinutes)}
+                      onValueChange={(v) => setDurationMinutes(Number(v))}
                       disabled={saving}
                     >
-                      {SCHEDULER_DURATION_OPTIONS.map((o) => (
-                        <option key={o.minutes} value={o.minutes}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className={cn(fieldClass, "w-full")}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SCHEDULER_DURATION_OPTIONS.map((o) => (
+                          <SelectItem key={o.minutes} value={String(o.minutes)}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </label>
                   <label className="grid gap-2 text-sm">
                     <span className="font-medium text-foreground">Assign tech</span>
-                    <select
-                      className={cn(fieldClass, assignableTechs.length === 0 && "opacity-70")}
-                      value={assignedTechId}
-                      onChange={(e) => setAssignedTechId(e.target.value)}
+                    <Select
+                      value={assignedTechId || "__unassigned__"}
+                      onValueChange={(v) => setAssignedTechId(v.startsWith("__") ? "" : v)}
                       disabled={saving || assignableTechs.length === 0}
                     >
-                      <option value="">Unassigned</option>
-                      {assignableTechs.map((t) => (
-                        <option key={t.id} value={t.portal_user_id ?? ""}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger
+                        className={cn(fieldClass, "w-full", assignableTechs.length === 0 && "opacity-70")}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                        {assignableTechs.map((t) => (
+                          <SelectItem key={t.id} value={t.portal_user_id ?? `__no-login-${t.id}`}>
+                            {t.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </label>
                 </div>
 

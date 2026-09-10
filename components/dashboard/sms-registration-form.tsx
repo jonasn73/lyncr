@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { WorkspacePanel, workspaceFieldClass } from "@/components/dashboard-workspace-ui"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { SmsRegistrationStatusView } from "@/components/dashboard/sms-registration-status-view"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { readActiveOrganizationId } from "@/lib/workspace-organizations"
@@ -267,19 +268,18 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
       </label>
       <label className="block space-y-2">
         <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Business entity type</span>
-        <select
-          required
-          value={entityType}
-          onChange={(e) => setEntityType(e.target.value)}
-          className={cn(workspaceFieldClass, "appearance-none")}
-        >
-          <option value="">Select type…</option>
-          {SMS_ENTITY_TYPE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        <Select value={entityType || undefined} onValueChange={setEntityType}>
+          <SelectTrigger className={cn(workspaceFieldClass, "w-full")}>
+            <SelectValue placeholder="Select type…" />
+          </SelectTrigger>
+          <SelectContent>
+            {SMS_ENTITY_TYPE_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </label>
       <label className="block space-y-2">
         <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Tax ID / EIN</span>

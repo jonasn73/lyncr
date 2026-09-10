@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { ArrowRightLeft, Hourglass, Loader2, Pencil, Phone, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { PortingOrder } from "@/lib/types"
 import {
   Sheet,
@@ -483,22 +484,26 @@ export function ManageNumbersModal({
                       {showWorkspacePicker ? (
                         <label className="mt-2 block text-2xs text-muted-foreground">
                           Business
-                          <select
-                            value={line.organization_id ?? ""}
+                          <Select
+                            value={line.organization_id ?? "__unassigned__"}
                             disabled={releasingId != null}
-                            onChange={(e) => {
-                              const next = e.target.value.trim()
-                              void saveLineWorkspace(line.id, next ? next : null, line.organization_id)
+                            onValueChange={(v) => {
+                              const next = v === "__unassigned__" ? null : v
+                              void saveLineWorkspace(line.id, next, line.organization_id)
                             }}
-                            className="mt-1 w-full rounded-md border border-border bg-card/80 px-2 py-1 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
                           >
-                            <option value="">Unassigned</option>
-                            {realOrganizations.map((org) => (
-                              <option key={org.id} value={org.id}>
-                                {org.name}
-                              </option>
-                            ))}
-                          </select>
+                            <SelectTrigger className="mt-1 h-8 w-full text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                              {realOrganizations.map((org) => (
+                                <SelectItem key={org.id} value={org.id}>
+                                  {org.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </label>
                       ) : null}
                     </div>

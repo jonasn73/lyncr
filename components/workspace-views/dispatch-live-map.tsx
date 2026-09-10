@@ -12,6 +12,7 @@ import "@/app/leaflet-popup-overrides.css"
 import type { Map as LeafletMap, Marker } from "leaflet"
 import { IntakeMapDestinationBanner } from "@/components/dashboard/intake-map-destination-banner"
 import { WorkspacePanel } from "@/components/dashboard-workspace-ui"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import type { DispatchJob } from "@/lib/types"
 import {
@@ -1138,19 +1139,25 @@ export function DispatchLiveMap({
             Assign technician
           </label>
           <div className="mt-1 flex items-center gap-2">
-            <select
-              value={selectedJob.assigned_tech_id || ""}
-              onChange={(e) => void assign(selectedJob.id, e.target.value)}
+            <Select
+              value={selectedJob.assigned_tech_id || "__unassigned__"}
+              onValueChange={(v) => void assign(selectedJob.id, v.startsWith("__") ? "" : v)}
               disabled={technicians.length === 0 || savingId === selectedJob.id}
-              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-white outline-none focus:border-operator disabled:opacity-50"
             >
-              <option value="">{technicians.length === 0 ? "No techs yet" : "Unassigned"}</option>
-              {technicians.map((t) => (
-                <option key={t.id} value={t.portal_user_id || ""}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__unassigned__">
+                  {technicians.length === 0 ? "No techs yet" : "Unassigned"}
+                </SelectItem>
+                {technicians.map((t) => (
+                  <SelectItem key={t.id} value={t.portal_user_id || `__no-login-${t.id}`}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {savingId === selectedJob.id && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
           </div>
           {selectedJob.assigned_tech_name && (

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { Check, ChevronDown, ExternalLink, Info, KeyRound, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { isSmartOrProxKeyType, KeyThumbnail } from "@/components/key-thumbnail"
 import {
   lookupMykeysProProfile,
@@ -1758,27 +1759,31 @@ export function VehicleKeyInfoPanel({
 
       <label className="grid gap-1 text-2xs">
         <span className="font-medium text-foreground">Key style (confirm on vehicle)</span>
-        <select
-          className="h-9 rounded-lg border border-border/70 bg-background px-2 text-sm text-foreground"
+        <Select
           disabled={disabled}
           value={value?.keyStyle ?? KEY_STYLE_OPTIONS[5]}
-          onChange={(e) =>
+          onValueChange={(keyStyle) =>
             onChange({
               profileId: profile.id,
               fccId: profile.fcc_id,
               frequency: profile.frequency,
               chipset: profile.chipset,
-              keyStyle: e.target.value,
+              keyStyle,
               variantId: value?.variantId ?? null,
             })
           }
         >
-          {KEY_STYLE_OPTIONS.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-9 w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {KEY_STYLE_OPTIONS.map((opt) => (
+              <SelectItem key={opt} value={opt}>
+                {opt}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </label>
 
       {info.photo_disclaimer ? (

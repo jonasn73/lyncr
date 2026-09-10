@@ -5,6 +5,7 @@
 import { useMemo, useState } from "react"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   HOLD_MUSIC_DEFAULT_PRESET,
   HOLD_MUSIC_PRESETS,
@@ -52,11 +53,9 @@ export function HoldMusicPresetPicker({
         Classic US call-center hold while callers stay on the line. Royalty-free Muzak /
         soft jazz loops — Busy is never silent by default (Classic hold).
       </p>
-      <select
-        id={`${idPrefix}-preset`}
+      <Select
         value={selectValue === "default" ? HOLD_MUSIC_DEFAULT_PRESET : selectValue}
-        onChange={(e) => {
-          const v = e.target.value
+        onValueChange={(v) => {
           if (v === "custom") {
             setAdvancedOpen(true)
             // Keep prior custom URL if any; otherwise blank until they paste one.
@@ -65,15 +64,19 @@ export function HoldMusicPresetPicker({
           }
           onChange(holdMusicValueForPreset(v as HoldMusicPresetId))
         }}
-        className={cn(fieldClass, "min-h-11 px-3 py-2")}
       >
-        {HOLD_MUSIC_PRESETS.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.label}
-          </option>
-        ))}
-        <option value="custom">Custom URL…</option>
-      </select>
+        <SelectTrigger id={`${idPrefix}-preset`} className="min-h-11 w-full px-3 py-2">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {HOLD_MUSIC_PRESETS.map((p) => (
+            <SelectItem key={p.id} value={p.id}>
+              {p.label}
+            </SelectItem>
+          ))}
+          <SelectItem value="custom">Custom URL…</SelectItem>
+        </SelectContent>
+      </Select>
       <p className="hidden text-2xs text-muted-foreground md:block">
         {HOLD_MUSIC_PRESETS.find(
           (p) =>

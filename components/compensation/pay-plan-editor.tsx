@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   DEFAULT_ANSWERED_CALL_MIN_SECONDS,
   MICROS_PER_DOLLAR,
@@ -169,30 +170,34 @@ function ComponentRow({
                   />
                 </div>
                 <span className="text-sm text-muted-foreground">per</span>
-                <select
+                <Select
                   value={component.unit}
-                  aria-label="Time unit"
-                  onChange={(e) => onChange({ ...component, unit: e.target.value as TimeUnit })}
-                  className={cn(selectClass, "w-28")}
+                  onValueChange={(v) => onChange({ ...component, unit: v as TimeUnit })}
                 >
-                  {TIME_UNITS.map((u) => (
-                    <option key={u.value} value={u.value}>
-                      {u.label}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger aria-label="Time unit" className={cn(selectClass, "w-28")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIME_UNITS.map((u) => (
+                      <SelectItem key={u.value} value={u.value}>
+                        {u.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <span className="text-sm text-muted-foreground">of</span>
-                <select
+                <Select
                   value={component.basis}
-                  aria-label="Time basis"
-                  onChange={(e) =>
-                    onChange({ ...component, basis: e.target.value as "TALK" | "ON_SHIFT" })
-                  }
-                  className={cn(selectClass, "w-32")}
+                  onValueChange={(v) => onChange({ ...component, basis: v as "TALK" | "ON_SHIFT" })}
                 >
-                  <option value="TALK">talk time</option>
-                  <option value="ON_SHIFT">shift time</option>
-                </select>
+                  <SelectTrigger aria-label="Time basis" className={cn(selectClass, "w-32")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TALK">talk time</SelectItem>
+                    <SelectItem value="ON_SHIFT">shift time</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <p className="text-2xs text-muted-foreground">
                 Works out to {hourlyEquivalent(component.rate_micros, component.unit)} per hour
@@ -213,21 +218,21 @@ function ComponentRow({
                   />
                 </div>
                 <span className="text-sm text-muted-foreground">per</span>
-                <select
+                <Select
                   value={component.event}
-                  aria-label="Paid event"
-                  onChange={(e) =>
-                    onChange({
-                      ...component,
-                      event: e.target.value as typeof component.event,
-                    })
+                  onValueChange={(v) =>
+                    onChange({ ...component, event: v as typeof component.event })
                   }
-                  className={cn(selectClass, "w-40")}
                 >
-                  <option value="ANSWERED_CALL">answered call</option>
-                  <option value="BOOKED_JOB">booked job</option>
-                  <option value="COMPLETED_JOB">completed job</option>
-                </select>
+                  <SelectTrigger aria-label="Paid event" className={cn(selectClass, "w-40")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ANSWERED_CALL">answered call</SelectItem>
+                    <SelectItem value="BOOKED_JOB">booked job</SelectItem>
+                    <SelectItem value="COMPLETED_JOB">completed job</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               {component.event === "ANSWERED_CALL" ? (
                 <label className="flex items-center gap-2 text-2xs text-muted-foreground">
@@ -280,18 +285,21 @@ function ComponentRow({
                   </span>
                 </div>
                 <span className="text-sm text-muted-foreground">of</span>
-                <select
+                <Select
                   value={component.basis}
-                  aria-label="Commission basis"
-                  onChange={(e) =>
-                    onChange({ ...component, basis: e.target.value as typeof component.basis })
+                  onValueChange={(v) =>
+                    onChange({ ...component, basis: v as typeof component.basis })
                   }
-                  className={cn(selectClass, "w-48")}
                 >
-                  <option value="SUBTOTAL_EXCL_TAX">subtotal before tax</option>
-                  <option value="LABOR_ONLY">labor only (parts excluded)</option>
-                  <option value="COLLECTED_TOTAL">everything collected</option>
-                </select>
+                  <SelectTrigger aria-label="Commission basis" className={cn(selectClass, "w-48")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SUBTOTAL_EXCL_TAX">subtotal before tax</SelectItem>
+                    <SelectItem value="LABOR_ONLY">labor only (parts excluded)</SelectItem>
+                    <SelectItem value="COLLECTED_TOTAL">everything collected</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-2xs text-muted-foreground">
                 <span>Only when the job is</span>

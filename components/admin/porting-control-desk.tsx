@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { displayPortingMessageBody } from "@/lib/porting-display"
 
@@ -221,18 +222,19 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
         <>
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Transfer request</Label>
-            <select
-              className="w-full rounded-md border border-border bg-background px-2 py-2 text-sm text-foreground"
-              value={selectedId ?? ""}
-              onChange={(e) => setSelectedId(e.target.value || null)}
-            >
-              {orders.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.phone_number} · {o.status}
-                  {o.telnyx_status ? ` (${o.telnyx_status})` : ""}
-                </option>
-              ))}
-            </select>
+            <Select value={selectedId ?? undefined} onValueChange={(v) => setSelectedId(v || null)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Choose a transfer request" />
+              </SelectTrigger>
+              <SelectContent>
+                {orders.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.phone_number} · {o.status}
+                    {o.telnyx_status ? ` (${o.telnyx_status})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {detailLoading && !detail ? (

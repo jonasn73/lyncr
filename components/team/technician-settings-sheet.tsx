@@ -7,6 +7,7 @@
 
 import { Banknote, Loader2, Pencil, Send, ShieldCheck, Trash2 } from "lucide-react"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
@@ -116,19 +117,23 @@ export function TechnicianSettingsSheet({
               {showWorkspacePicker ? (
                 <label className="block rounded-lg border border-border bg-background/40 px-3.5 py-3">
                   <span className="text-sm font-medium text-foreground">Business</span>
-                  <select
-                    value={member.organization_id ?? ""}
+                  <Select
+                    value={member.organization_id ?? "__unassigned__"}
                     disabled={movingWorkspace}
-                    onChange={(e) => onMoveWorkspace(e.target.value.trim() || null)}
-                    className="mt-1.5 w-full rounded-md border border-border bg-card/80 px-2 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
+                    onValueChange={(v) => onMoveWorkspace(v === "__unassigned__" ? null : v)}
                   >
-                    <option value="">Unassigned</option>
-                    {organizations.map((org) => (
-                      <option key={org.id} value={org.id}>
-                        {org.name}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="mt-1.5 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                      {organizations.map((org) => (
+                        <SelectItem key={org.id} value={org.id}>
+                          {org.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </label>
               ) : null}
 

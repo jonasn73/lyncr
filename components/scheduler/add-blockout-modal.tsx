@@ -5,6 +5,7 @@
 import { useMemo, useState } from "react"
 import { Loader2, X } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
 import {
@@ -153,35 +154,35 @@ function AddBlockoutModalForm({
                 <label htmlFor="blockout-start" className="text-xs font-semibold text-foreground">
                   Start time
                 </label>
-                <select
-                  id="blockout-start"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className={cn(fieldClass, "h-11")}
-                >
-                  {timeOptions.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
+                <Select value={startTime} onValueChange={setStartTime}>
+                  <SelectTrigger id="blockout-start" className={cn(fieldClass, "h-11 w-full")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeOptions.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <label htmlFor="blockout-end" className="text-xs font-semibold text-foreground">
                   End time
                 </label>
-                <select
-                  id="blockout-end"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className={cn(fieldClass, "h-11")}
-                >
-                  {timeOptions.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
+                <Select value={endTime} onValueChange={setEndTime}>
+                  <SelectTrigger id="blockout-end" className={cn(fieldClass, "h-11 w-full")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeOptions.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           ) : null}

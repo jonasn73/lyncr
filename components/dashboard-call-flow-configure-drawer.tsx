@@ -28,6 +28,7 @@ import { formatPhoneDisplay, snapDashboardRingTimeoutSec } from "@/lib/dashboard
 import type { FallbackOption } from "@/lib/dashboard-routing-utils"
 import { HoldMusicPresetPicker } from "@/components/dashboard/hold-music-preset-picker"
 import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { WeeklyHoursDay } from "@/lib/account-weekly-hours"
 import { useAccountPresence } from "@/components/dashboard/account-presence-context"
 
@@ -564,24 +565,27 @@ export function DashboardCallFlowConfigureDrawer({
                                   Add a receptionist on the Team page first, then come back here.
                                 </p>
                               ) : (
-                                <select
-                                  id="configure-team-receptionist"
-                                  value={draft.selectedReceptionistId || ""}
-                                  onChange={(e) =>
-                                    setDraft((d) => ({
-                                      ...d,
-                                      selectedReceptionistId: e.target.value || null,
-                                    }))
+                                <Select
+                                  value={draft.selectedReceptionistId || undefined}
+                                  onValueChange={(v) =>
+                                    setDraft((d) => ({ ...d, selectedReceptionistId: v || null }))
                                   }
-                                  className={cn(fieldClass, "min-h-11")}
                                 >
-                                  {teamMembers.map((m) => (
-                                    <option key={m.id} value={m.id}>
-                                      {m.name}
-                                      {m.is_active ? "" : " (Unavailable)"}
-                                    </option>
-                                  ))}
-                                </select>
+                                  <SelectTrigger
+                                    id="configure-team-receptionist"
+                                    className={cn(fieldClass, "min-h-11 w-full")}
+                                  >
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {teamMembers.map((m) => (
+                                      <SelectItem key={m.id} value={m.id}>
+                                        {m.name}
+                                        {m.is_active ? "" : " (Unavailable)"}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                               )}
                               <p className="text-2xs text-muted-foreground">
                                 Available → rings them first. Unavailable → your phone if Available,
@@ -752,18 +756,18 @@ export function DashboardCallFlowConfigureDrawer({
                   <label htmlFor="configure-voice-persona" className="text-xs font-semibold text-foreground">
                     AI Voice Persona
                   </label>
-                  <select
-                    id="configure-voice-persona"
-                    value={draft.voice}
-                    onChange={(e) => setDraft((d) => ({ ...d, voice: e.target.value }))}
-                    className={cn(fieldClass, "min-h-11")}
-                  >
-                    {IVR_VOICE_PERSONA_OPTIONS.map((opt) => (
-                      <option key={opt.id} value={opt.id}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={draft.voice} onValueChange={(v) => setDraft((d) => ({ ...d, voice: v }))}>
+                    <SelectTrigger id="configure-voice-persona" className={cn(fieldClass, "min-h-11 w-full")}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {IVR_VOICE_PERSONA_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.id} value={opt.id}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <p className="text-2xs text-muted-foreground">
                     {IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === draft.voice)?.description ||
                       "Tone callers hear on greetings and hold prompts."}
@@ -957,20 +961,21 @@ export function DashboardCallFlowConfigureDrawer({
                   >
                     Timezone
                   </label>
-                  <select
-                    id="configure-hours-timezone"
+                  <Select
                     value={draft.hoursTimezone}
-                    onChange={(e) =>
-                      setDraft((d) => ({ ...d, hoursTimezone: e.target.value }))
-                    }
-                    className={cn(fieldClass, "min-h-11")}
+                    onValueChange={(v) => setDraft((d) => ({ ...d, hoursTimezone: v }))}
                   >
-                    {TIMEZONE_OPTIONS.map((tz) => (
-                      <option key={tz.id} value={tz.id}>
-                        {tz.label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger id="configure-hours-timezone" className={cn(fieldClass, "min-h-11 w-full")}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIMEZONE_OPTIONS.map((tz) => (
+                        <SelectItem key={tz.id} value={tz.id}>
+                          {tz.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -1050,26 +1055,26 @@ export function DashboardCallFlowConfigureDrawer({
                   >
                     On-call tech (after hours)
                   </label>
-                  <select
-                    id="configure-oncall-tech"
-                    value={draft.oncallTechnicianId || ""}
-                    onChange={(e) =>
-                      setDraft((d) => ({
-                        ...d,
-                        oncallTechnicianId: e.target.value || null,
-                      }))
+                  <Select
+                    value={draft.oncallTechnicianId || "__off__"}
+                    onValueChange={(v) =>
+                      setDraft((d) => ({ ...d, oncallTechnicianId: v === "__off__" ? null : v }))
                     }
-                    className={cn(fieldClass, "min-h-11")}
                   >
-                    <option value="">Off — use receptionist / hold menu</option>
-                    {techMembers
-                      .filter((t) => t.is_active)
-                      .map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                  </select>
+                    <SelectTrigger id="configure-oncall-tech" className={cn(fieldClass, "min-h-11 w-full")}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__off__">Off — use receptionist / hold menu</SelectItem>
+                      {techMembers
+                        .filter((t) => t.is_active)
+                        .map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            {t.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                   <p className="text-2xs leading-snug text-muted-foreground">
                     Rings this tech&apos;s cell during Closed / after-hours instead of your
                     receptionist or hold menu. No screen alert — have them save your business

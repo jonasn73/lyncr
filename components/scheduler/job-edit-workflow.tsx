@@ -17,6 +17,7 @@ import {
 } from "@/lib/scheduler-ui-tokens"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { VinLookupField } from "@/components/vin-lookup-field"
 import type { ServiceQuoteTypeId } from "@/lib/service-rate-card"
@@ -258,18 +259,21 @@ export function JobEditWorkflow({
                 <label className={labelClass} htmlFor="job-edit-service-type">
                   Service type
                 </label>
-                <select
-                  id="job-edit-service-type"
-                  className={inputClass}
+                <Select
                   value={serviceQuoteTypeId}
-                  onChange={(e) => onServiceTypeChange(e.target.value as ServiceQuoteTypeId)}
+                  onValueChange={(v) => onServiceTypeChange(v as ServiceQuoteTypeId)}
                 >
-                  {resolveJobIntakeOptions(industry).map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.label}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="job-edit-service-type" className={cn(inputClass, "w-full")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {resolveJobIntakeOptions(industry).map((entry) => (
+                      <SelectItem key={entry.id} value={entry.id}>
+                        {entry.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className={fieldBlockClass}>
