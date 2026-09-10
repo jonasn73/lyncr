@@ -5,6 +5,18 @@
 import { listPlatformAdminContacts, markWebhookSignatureAlertSent, recordWebhookSignatureFailure } from "@/lib/db"
 import { deliverPlatformHealthAlert } from "@/lib/platform-health-notify"
 
+/** The 4 Telnyx webhook routes with signature verification, and whether each rejects yet. */
+export const TELNYX_WEBHOOK_SIGNATURE_ROUTES: { routeLabel: string; enforced: boolean }[] = [
+  { routeLabel: "webhooks/telnyx/voice", enforced: true },
+  { routeLabel: "voice/telnyx/status", enforced: false },
+  { routeLabel: "webhooks/telnyx/porting", enforced: false },
+  { routeLabel: "webhooks/telnyx/messaging", enforced: false },
+]
+
+export function webhookSignatureAlertKey(routeLabel: string): string {
+  return `telnyx-webhook-signature:${routeLabel}`
+}
+
 /**
  * Record a signature failure for `routeLabel` and page admins if this is a new problem or the
  * cooldown has passed. Fire-and-forget from callers — never throws, so a webhook handler's
@@ -12,7 +24,7 @@ import { deliverPlatformHealthAlert } from "@/lib/platform-health-notify"
  */
 export async function alertOnInvalidTelnyxSignature(routeLabel: string, enforced: boolean): Promise<void> {
   try {
-    const alertKey = `telnyx-webhook-signature:${routeLabel}`
+    const alertKey = webhookSignatureAlertKey(routeLabel)
     const { shouldAlert, eventCount, firstEventAt } = await recordWebhookSignatureFailure(alertKey)
     if (!shouldAlert) return
 

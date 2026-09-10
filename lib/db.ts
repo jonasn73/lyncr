@@ -19425,6 +19425,36 @@ export async function markWebhookSignatureAlertSent(alertKey: string): Promise<v
   }
 }
 
+export type WebhookSignatureAlertRow = {
+  alert_key: string
+  event_count: number
+  first_event_at: string | null
+  last_event_at: string | null
+  last_alerted_at: string | null
+}
+
+/** All webhook-signature alert rows (one per route that has ever failed verification). */
+export async function listWebhookSignatureAlertState(): Promise<WebhookSignatureAlertRow[]> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT alert_key, event_count, first_event_at, last_event_at, last_alerted_at
+      FROM webhook_signature_alerts
+      ORDER BY last_event_at DESC NULLS LAST
+    `
+    return (rows as Record<string, unknown>[]).map((row) => ({
+      alert_key: String(row.alert_key),
+      event_count: Number(row.event_count ?? 0),
+      first_event_at: row.first_event_at ? new Date(String(row.first_event_at)).toISOString() : null,
+      last_event_at: row.last_event_at ? new Date(String(row.last_event_at)).toISOString() : null,
+      last_alerted_at: row.last_alerted_at ? new Date(String(row.last_alerted_at)).toISOString() : null,
+    }))
+  } catch (e) {
+    if (isUndefinedRelationError(e, "webhook_signature_alerts")) return []
+    throw e
+  }
+}
+
 /** Unread chat + unread support email + open feedback for the /admin Support badge. */
 export async function getAdminSupportPulse(): Promise<AdminSupportPulse> {
   const sql = getSql()
