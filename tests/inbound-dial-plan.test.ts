@@ -147,6 +147,7 @@ describe("on-call tech (166)", () => {
     expect(plan.reason).toBe("oncall_tech")
     expect(plan.dialTargetE164).toBe(jordan.phoneE164)
     expect(plan.primaryHop.type).toBe("oncall_tech")
+    expect(plan.technicianId).toBe(jordan.technicianId)
     expect(plan.ringsNowLabel).toBe(jordan.name)
     expect(plan.ifNoAnswerLabel).toBe("Hold queue")
   })
@@ -173,6 +174,7 @@ describe("on-call tech (166)", () => {
     })
     expect(plan.reason).toBe("busy_backup_recv")
     expect(plan.dialTargetE164).toBe(alex.phoneE164)
+    expect(plan.technicianId).toBeNull()
   })
 
   it("daytime busy (ON_JOB), not CLOSED — on-call tech does not fire, busy-backup still wins", () => {

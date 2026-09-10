@@ -57,6 +57,10 @@ export type TelnyxCallControlClientState = {
   dialReason?: TelnyxCallControlDialReason
   /** Private receptionist being dialed (Busy backup or team mode). */
   receptionistId?: string
+  /** After-hours on-call field tech being dialed (166, dialReason === "oncall_tech"). */
+  technicianId?: string
+  /** Tech's display name, stashed at dial time — resolveRoutedToLabel has no other way to get it. */
+  technicianName?: string
   /** Telnyx queue name (lyncr-{userId}) while on hold. */
   holdQueueName?: string
   /** Unix ms when this caller entered the hold loop (max-wait clock). */

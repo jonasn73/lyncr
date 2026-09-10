@@ -288,6 +288,7 @@ function isTelnyxAuthFailureMessage(error: string): boolean {
 function toCallControlDialFields(plan: InboundDialPlanResult): {
   dialTargetE164: string | null
   receptionistId: string | null
+  technicianId: string | null
   routedToName: string | null
   reason: TelnyxCallControlDialReason
 } {
@@ -295,6 +296,7 @@ function toCallControlDialFields(plan: InboundDialPlanResult): {
   return {
     dialTargetE164: plan.dialTargetE164,
     receptionistId: plan.receptionistId,
+    technicianId: plan.technicianId,
     routedToName: plan.routedToName,
     reason,
   }
@@ -584,6 +586,8 @@ async function continueAfterInboundGreeting(
     fallbackType: routing.fallback_type ?? state.fallbackType,
     dialReason: dialPlan.reason,
     receptionistId: dialPlan.receptionistId || undefined,
+    technicianId: dialPlan.technicianId || undefined,
+    technicianName: dialPlan.technicianId ? dialPlan.routedToName || undefined : undefined,
   }
 
   console.log(
@@ -1125,6 +1129,8 @@ async function handleCallInitiated(
           inboundCallControlId: callControlId,
           dialReason: dialPlan.reason,
           receptionistId: dialPlan.receptionistId || undefined,
+          technicianId: dialPlan.technicianId || undefined,
+          technicianName: dialPlan.technicianId ? dialPlan.routedToName || undefined : undefined,
         },
         routing
       )
@@ -1247,6 +1253,8 @@ async function handleCallAnswered(
     fallbackType: routing.fallback_type ?? state.fallbackType,
     dialReason: dialPlan.reason,
     receptionistId: dialPlan.receptionistId || undefined,
+    technicianId: dialPlan.technicianId || undefined,
+    technicianName: dialPlan.technicianId ? dialPlan.routedToName || undefined : undefined,
   }
 
   // Tell her console the instant the dial plan names her — before the caller's branded

@@ -54,6 +54,8 @@ export type InboundDialPlanResult = {
   /** PSTN to Dial right now — null means play the Busy / IVR menu. */
   dialTargetE164: string | null
   receptionistId: string | null
+  /** field_technicians.id when the primary hop is the after-hours on-call tech (166). */
+  technicianId: string | null
   routedToName: string | null
   reason: InboundDialReason
   /** True when Busy and an Available teammate owns first ring. */
@@ -185,6 +187,7 @@ function finish(
     | "presenceStatusLabel"
     | "dialTargetE164"
     | "receptionistId"
+    | "technicianId"
     | "routedToName"
     | "reason"
   > & {
@@ -228,6 +231,7 @@ function finish(
     ...partial,
     dialTargetE164: primary.phoneE164,
     receptionistId: primary.receptionistId,
+    technicianId: primary.technicianId ?? null,
     routedToName: primary.name,
     reason: primary.reason,
     busyBackupLive,

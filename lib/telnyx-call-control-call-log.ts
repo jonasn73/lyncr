@@ -61,9 +61,15 @@ function mapHangupCauseToStatus(hangupCause: string, hadConversation: boolean): 
   return hadConversation ? "completed" : "no-answer"
 }
 
-function resolveRoutedToLabel(
-  routing: NonNullable<Awaited<ReturnType<typeof getIncomingRoutingForVoiceWebhook>>>
+export function resolveRoutedToLabel(
+  routing: NonNullable<Awaited<ReturnType<typeof getIncomingRoutingForVoiceWebhook>>>,
+  state?: TelnyxCallControlClientState
 ): string {
+  // On-call tech (166) — bridged straight to their cell, never through `receptionists`.
+  // `routing` has no column for this, so the name is carried on `state` from dial time.
+  if (state?.dialReason === "oncall_tech" && state.technicianName?.trim()) {
+    return state.technicianName.trim()
+  }
   if (routing.selected_receptionist_id?.trim() && routing.receptionist_name?.trim()) {
     return routing.receptionist_name.trim()
   }
@@ -131,7 +137,7 @@ export async function persistCallControlBridged(
   const routedToName = fromQueue
     ? CAPTURE_STATUS_ANSWERED_FROM_QUEUE
     : routing
-      ? resolveRoutedToLabel(routing)
+      ? resolveRoutedToLabel(routing, state)
       : "Owner"
   try {
     // Tag Activity BEFORE call-answered Pusher so the client never sees “Hold Queue” as ANSWERED.
