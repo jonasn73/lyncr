@@ -29,6 +29,7 @@ export type SettingsModalsProfile = {
   email: string
   businessName: string
   companyUserId: string
+  industry: string
   smsLeadsEnabled: boolean
   smsLatestEnabled: boolean
   dispatchSmsPhone: string
@@ -42,6 +43,7 @@ const EMPTY_PROFILE: SettingsModalsProfile = {
   email: "",
   businessName: "",
   companyUserId: "",
+  industry: "",
   smsLeadsEnabled: false,
   smsLatestEnabled: false,
   dispatchSmsPhone: "",
@@ -98,10 +100,12 @@ export function DashboardSettingsModalsHost({
           }
         : { ...EMPTY_PROFILE }
 
+      // sessionSeed never carries industry (server snapshot omits it here) — always
+      // pull the session once so the industry picker shows the real saved value.
+      const sessionRes = await fetch("/api/auth/session", { credentials: "include" })
+      const sessionJson = sessionRes.ok ? await sessionRes.json() : null
+      const u = sessionJson?.data?.user
       if (!sessionSeed) {
-        const sessionRes = await fetch("/api/auth/session", { credentials: "include" })
-        const sessionJson = sessionRes.ok ? await sessionRes.json() : null
-        const u = sessionJson?.data?.user
         next = {
           ...EMPTY_PROFILE,
           name: String(u?.name ?? ""),
@@ -110,6 +114,7 @@ export function DashboardSettingsModalsHost({
           businessName: String(u?.business_name ?? "").trim() || "My Business",
         }
       }
+      next.industry = String(u?.industry ?? "generic")
       // Onboarding + email-recordings are independent — fetch together.
       const [onboardingResult, recRes] = await Promise.all([
         fetchOnboardingProfile()
@@ -264,6 +269,7 @@ export function DashboardSettingsModalsHost({
         initialName={profile.name}
         initialEmail={profile.email}
         initialBusinessName={profile.businessName}
+        initialIndustry={profile.industry}
         initialSmsLeadsEnabled={profile.smsLeadsEnabled}
         initialSmsLatestEnabled={profile.smsLatestEnabled}
         initialDispatchSmsPhone={profile.dispatchSmsPhone}

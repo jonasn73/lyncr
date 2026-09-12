@@ -32,7 +32,7 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
   const [businessName, setBusinessName] = useState("")
   const [ownerName, setOwnerName] = useState("")
   const [ownerPhone, setOwnerPhone] = useState("")
-  const [industry, setIndustry] = useState("generic")
+  const [industry, setIndustry] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -200,6 +200,9 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
                     required
                     className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground focus:border-primary focus:outline-none"
                   >
+                    <option value="" disabled>
+                      Select your industry…
+                    </option>
                     {SIGNUP_INDUSTRY_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}

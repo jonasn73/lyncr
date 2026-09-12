@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast"
 import { submitFormEvent } from "@/lib/form-keyboard"
 import { clearShopOriginCache } from "@/lib/hooks/use-shop-origin"
 import type { StructuredAddress } from "@/lib/structured-address"
+import { SIGNUP_INDUSTRY_OPTIONS } from "@/lib/business-industries"
 
 type Props = {
   open: boolean
@@ -30,6 +31,8 @@ type Props = {
   initialDispatchSmsPhone?: string
   initialEmailRecordingsEnabled?: boolean
   companyUserId?: string
+  /** users.industry — drives which intake wizard (vehicle fields, service types, etc.) shows on new calls. */
+  initialIndustry?: string
 }
 
 export function BusinessProfileModal({
@@ -43,10 +46,13 @@ export function BusinessProfileModal({
   initialDispatchSmsPhone = "",
   initialEmailRecordingsEnabled = false,
   companyUserId = "",
+  initialIndustry = "",
 }: Props) {
   const { toast } = useToast()
   // Local copy of the business name while the user edits it.
   const [businessName, setBusinessName] = useState(initialBusinessName)
+  // Industry / business type — drives which call-intake wizard shows (vehicle fields, etc.).
+  const [industry, setIndustry] = useState(initialIndustry)
   // SMS lead-alert toggle (instant texts for new leads).
   const [smsLeadsEnabled, setSmsLeadsEnabled] = useState(initialSmsLeadsEnabled)
   // SMS when Latest / recent activity needs attention.
@@ -72,6 +78,7 @@ export function BusinessProfileModal({
     setSmsLatestEnabled(initialSmsLatestEnabled)
     setDispatchSmsPhone(initialDispatchSmsPhone)
     setEmailRecordingsEnabled(initialEmailRecordingsEnabled)
+    setIndustry(initialIndustry)
   }, [
     open,
     initialBusinessName,
@@ -79,6 +86,7 @@ export function BusinessProfileModal({
     initialSmsLatestEnabled,
     initialDispatchSmsPhone,
     initialEmailRecordingsEnabled,
+    initialIndustry,
   ])
 
   // Shop address lives outside the profile props — pull the saved one when the sheet opens.
@@ -117,6 +125,7 @@ export function BusinessProfileModal({
         credentials: "include",
         body: JSON.stringify({
           business_name: trimmed,
+          ...(industry ? { industry } : {}),
           // Untouched field → omit the key entirely so the saved shop address survives.
           ...(shopTouched
             ? {
@@ -232,6 +241,28 @@ export function BusinessProfileModal({
                   })
                 }}
               />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Industry
+              </span>
+              <select
+                className={workspaceFieldClass}
+                value={industry}
+                onChange={(e) => setIndustry(e.target.value)}
+              >
+                {!industry ? <option value="">Select your industry…</option> : null}
+                {SIGNUP_INDUSTRY_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Controls which questions new-call intake asks (e.g. vehicle year / make / model
+                for locksmith and auto trades).
+              </p>
             </label>
 
             <div className="space-y-2">
