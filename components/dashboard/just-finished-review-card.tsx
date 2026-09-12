@@ -1522,7 +1522,10 @@ function LatestActionDetail({
                 ) : null}
               </div>
             ) : (
-              <div className="mt-1.5 max-h-[min(60dvh,28rem)] space-y-2 overflow-y-auto rounded-xl border border-border/50 bg-muted/10 px-3 py-3">
+              // No independent max-height/scroll here — the sheet's single outer
+              // scroll region (flex-1 below) handles it, so this never becomes a
+              // second, cramped scrollbox nested inside the first.
+              <div className="mt-1.5 space-y-2 rounded-xl border border-border/50 bg-muted/10 px-3 py-3">
                 {threadMessages.map((msg) => {
                   const outbound = msg.direction === "outbound"
                   const deliveryLabel = outbound ? formatSmsDeliveryLabel(msg) : null
