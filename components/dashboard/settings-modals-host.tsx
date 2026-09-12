@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
   OPEN_BILLING_MODAL_EVENT,
   OPEN_GET_PAID_MODAL_EVENT,
@@ -64,6 +64,8 @@ export function DashboardSettingsModalsHost({
   bootstrapEvent?: SettingsModalBootstrapEvent | null
 }) {
   const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const router = useRouter()
   const [profile, setProfile] = useState<SettingsModalsProfile>(() =>
     sessionSeed
       ? {
@@ -220,12 +222,29 @@ export function DashboardSettingsModalsHost({
 
   useEffect(() => {
     const tab = searchParams.get("tab")
+    if (!tab) return
     if (tab === "sms-registration") openCarrier()
     if (tab === "sms-automation") openSmsAutomation()
     if (tab === "business-profile") openBusiness()
     if (tab === "billing") openBilling()
     if (tab === "routing") openRouting()
-  }, [searchParams, openCarrier, openSmsAutomation, openBusiness, openBilling, openRouting])
+    // Consume the deep link immediately — otherwise a router refresh triggered by a save
+    // inside the modal (e.g. revalidatePath) re-runs this effect, sees `tab` still in the
+    // URL, and snaps the modal that save just closed back open.
+    const next = new URLSearchParams(searchParams.toString())
+    next.delete("tab")
+    const qs = next.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }, [
+    searchParams,
+    pathname,
+    router,
+    openCarrier,
+    openSmsAutomation,
+    openBusiness,
+    openBilling,
+    openRouting,
+  ])
 
   return (
     <>
