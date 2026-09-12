@@ -81,6 +81,7 @@ import {
   messagesForPhone,
 } from "@/lib/messages-thread-merge"
 import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
+import { DASHBOARD_PAGE_HREF } from "@/lib/dashboard-nav"
 
 const EMPTY_MESSAGES: SmsMessage[] = []
 
@@ -916,18 +917,36 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     <WorkspacePage className="gap-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:gap-6 md:pb-8">
       {/* Title row — fixed geometry whether a conversation is open or not */}
       <div className="flex min-w-0 items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p
-            className={cn(
-              "hidden min-h-[1rem] text-micro font-semibold uppercase tracking-[0.14em] text-primary md:block",
-              threadOpen && "invisible"
-            )}
-          >
-            SMS
-          </p>
-          <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl md:mt-1 md:text-3xl">
-            Messages
-          </h1>
+        <div className="flex min-w-0 items-start gap-2">
+          {/* Mobile only: Messages dropped off the bottom dock (it now hides on this
+              route so the thread gets that space), so this is the one way back to
+              Lines without a Back gesture. Hidden once a thread's open — that view's
+              own "Back to conversations" arrow handles the first step out. */}
+          {!threadOpen ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 w-9 shrink-0 p-0 md:hidden"
+              onClick={() => router.push(DASHBOARD_PAGE_HREF.dashboard)}
+              aria-label="Close Messages"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden />
+            </Button>
+          ) : null}
+          <div className="min-w-0">
+            <p
+              className={cn(
+                "hidden min-h-[1rem] text-micro font-semibold uppercase tracking-[0.14em] text-primary md:block",
+                threadOpen && "invisible"
+              )}
+            >
+              SMS
+            </p>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl md:mt-1 md:text-3xl">
+              Messages
+            </h1>
+          </div>
         </div>
         <Button
           type="button"
