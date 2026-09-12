@@ -30,14 +30,24 @@ type QueueCaller = {
   status: string
   enqueuedAt: string
   queueName: string
-  /** Phase-1 hold-queue intake answer, e.g. {intent_slug, intent_label} — empty until answered. */
+  /**
+   * Hold-queue intake answers, e.g. {intent_slug, intent_label} (Phase 1) plus any
+   * Phase-2 numeric follow-up as {<fieldKey>, <fieldKey>_label} — empty until answered.
+   */
   collected?: Record<string, unknown>
 }
 
-/** Human-readable line for whatever the caller answered on hold, or null if nothing yet. */
-function holdIntakeAnswerLabel(collected: Record<string, unknown> | undefined): string | null {
-  const label = collected?.intent_label
-  return typeof label === "string" && label.trim() ? label.trim() : null
+/** Every human-readable line captured for this caller so far — Phase 1 first, then follow-ups. */
+function holdIntakeAnswerLabels(collected: Record<string, unknown> | undefined): string[] {
+  if (!collected) return []
+  const labels: string[] = []
+  const intent = collected.intent_label
+  if (typeof intent === "string" && intent.trim()) labels.push(intent.trim())
+  for (const [key, value] of Object.entries(collected)) {
+    if (key === "intent_label" || !key.endsWith("_label")) continue
+    if (typeof value === "string" && value.trim()) labels.push(value.trim())
+  }
+  return labels
 }
 
 /** Light hold-queue rollup for Lines (today) — same as paint-seed type. */
@@ -344,12 +354,12 @@ export function HoldQueueWaitingCard({
                     </>
                   ) : null}
                 </p>
-                {/* Phase 1: what the caller said when asked on hold — before Answer is pressed. */}
-                {holdIntakeAnswerLabel(c.collected) ? (
-                  <p className="mt-1 text-2xs font-medium text-info">
-                    ● {holdIntakeAnswerLabel(c.collected)}
+                {/* What the caller said when asked on hold — before Answer is pressed. */}
+                {holdIntakeAnswerLabels(c.collected).map((line) => (
+                  <p key={line} className="mt-1 text-2xs font-medium text-info">
+                    ● {line}
                   </p>
-                ) : null}
+                ))}
                 {/* Plain guidance while Answer is locked so owners know what to do. */}
                 {answerLockedBriefly ? (
                   <p className="mt-1 text-2xs leading-snug text-muted-foreground">

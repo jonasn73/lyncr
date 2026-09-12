@@ -66,6 +66,7 @@ import {
   holdQueueIntakeValidDigits,
   resolveHoldQueueIntakeOption,
   resolveHoldQueueIntakePrompt,
+  type HoldQueueIntakeFollowUp,
   type HoldQueueIntakePrompt,
 } from "@/lib/hold-queue-intake-prompts"
 
@@ -604,10 +605,11 @@ async function startHoldRepromptGather(
 
   const promptCount = (state.holdPromptCount ?? 0) + 1
 
-  // Phase 1 smart hold: the very first reprompt cycle asks one industry-tailored
-  // question instead of the generic "press 1 for a text" line, if this account's
-  // industry has one configured. Every cycle after that (holdIntakeAsked already
-  // true) falls back to the generic reprompt exactly as before.
+  // Smart hold, in order of priority per reprompt cycle:
+  //  1) Phase 1 — one industry-tailored multiple-choice question (first cycle only).
+  //  2) Phase 2 — a numeric follow-up, only if Phase 1's answer queued one
+  //     (holdIntakeFollowUp), asked on the cycle right after.
+  //  3) the original generic "press 1 for a text" reprompt, unchanged.
   let intakePrompt: HoldQueueIntakePrompt | null = null
   if (!state.holdIntakeAsked) {
     try {
@@ -617,10 +619,14 @@ async function startHoldRepromptGather(
       console.warn(lyncrLog("telnyx-cc-hold-intake-industry-lookup-failed", { error: String(e) }))
     }
   }
+  const askFollowUp =
+    !intakePrompt && !state.holdIntakeFollowUpAsked && Boolean(state.holdIntakeFollowUp)
 
   const say = intakePrompt
     ? intakePrompt.text
-    : await buildHoldRepromptText({ ...state, holdPromptCount: promptCount }, callControlId)
+    : askFollowUp
+      ? state.holdIntakeFollowUp!.text
+      : await buildHoldRepromptText({ ...state, holdPromptCount: promptCount }, callControlId)
 
   // Same premium voice as the Busy gather.
   let speakVoice = state.holdSpeakVoice?.trim() || ""
@@ -643,6 +649,8 @@ async function startHoldRepromptGather(
     // Asked at most once per call — whether a prompt existed for this industry or not.
     holdIntakeAsked: true,
     holdAwaitingIntakeAnswer: Boolean(intakePrompt),
+    holdIntakeFollowUpAsked: askFollowUp ? true : state.holdIntakeFollowUpAsked,
+    holdAwaitingIntakeFollowUpAnswer: askFollowUp,
   }
 
   console.log(
@@ -652,16 +660,20 @@ async function startHoldRepromptGather(
       promptCount,
       textLen: say.length,
       intake: Boolean(intakePrompt),
+      intakeFollowUp: askFollowUp,
     })
   )
 
   const gatherRes = await telnyxCallControlGatherUsingSpeak(callControlId, {
     text: say,
     clientState: encodeTelnyxCallControlState(nextState),
-    maximumDigits: 1,
-    validDigits: intakePrompt ? holdQueueIntakeValidDigits(intakePrompt) : "1",
-    // Short window after the reminder — then back to music quickly.
-    timeoutMillis: 6_000,
+    maximumDigits: intakePrompt ? 1 : askFollowUp ? state.holdIntakeFollowUp!.maxDigits : 1,
+    // Follow-up wants any digit 0-9 (gather_using_speak's own default) — everything
+    // else keeps its original, narrower valid set unchanged.
+    validDigits: intakePrompt ? holdQueueIntakeValidDigits(intakePrompt) : askFollowUp ? undefined : "1",
+    // Follow-up (multi-digit) needs real time to dial digits; the plain single-digit
+    // reprompts stay quick so hold music resumes fast when nobody presses anything.
+    timeoutMillis: askFollowUp ? 10_000 : 6_000,
     // One short reminder only — never Telnyx’s default 3× replay.
     maximumTries: 1,
     voice: speakVoice || "Telnyx.NaturalHD.astra",
@@ -821,8 +833,10 @@ export async function abandonHoldQueue(callControlId: string): Promise<void> {
  * gather.ended answering the Phase-1 hold-queue intake question (not the plain
  * "press 1" reprompt). A matched digit is captured to call_queue.collected —
  * broadcasting it to Lines so the operator sees it before pressing Answer — then
- * acknowledged with a short "Got it" and hold music resumes. An unmatched digit or
- * timeout is skipped silently: no repeat pressure, caller just goes back to music.
+ * acknowledged with a short "Got it" and hold music resumes. If that option queues a
+ * Phase-2 numeric follow-up (e.g. model year), it's stashed on state for the very
+ * next reprompt cycle. An unmatched digit or timeout is skipped silently: no repeat
+ * pressure, caller just goes back to music.
  */
 async function handleHoldIntakeAnswer(
   callControlId: string,
@@ -834,12 +848,14 @@ async function handleHoldIntakeAnswer(
     holdAwaitingIntakeAnswer: false,
   }
 
-  let matched: { intentSlug: string; label: string } | null = null
+  let matched: { intentSlug: string; label: string; followUp?: HoldQueueIntakeFollowUp } | null = null
   try {
     const user = await getUser(state.userId)
     const prompt = resolveHoldQueueIntakePrompt(user?.industry)
     const option = prompt && digits ? resolveHoldQueueIntakeOption(prompt, digits) : null
-    if (option) matched = { intentSlug: option.intentSlug, label: option.label }
+    if (option) {
+      matched = { intentSlug: option.intentSlug, label: option.label, followUp: option.followUp }
+    }
   } catch (e) {
     console.warn(lyncrLog("telnyx-cc-hold-intake-resolve-failed", { error: String(e) }))
   }
@@ -850,6 +866,10 @@ async function handleHoldIntakeAnswer(
     )
     await startHoldMusicGather(callControlId, baseState)
     return
+  }
+
+  if (matched.followUp) {
+    baseState.holdIntakeFollowUp = matched.followUp
   }
 
   void mergeCallQueueCollected(callControlId, {
@@ -864,6 +884,57 @@ async function handleHoldIntakeAnswer(
   await telnyxCallControlSpeak(
     callControlId,
     "Got it, thanks — hang tight.",
+    encodeTelnyxCallControlState(baseState),
+    { voice: baseState.holdSpeakVoice }
+  ).catch(() => undefined)
+
+  await startHoldMusicGather(callControlId, baseState)
+}
+
+/**
+ * gather.ended answering the Phase-2 numeric follow-up (e.g. model year). Any digits
+ * at all are accepted as-is (a caller who only gets 3 of 4 digits in before the
+ * inter-digit timeout still gives the operator something useful) — captured to
+ * call_queue.collected under the option's fieldKey. No digits (timeout/skip) is
+ * silent, same "no repeat pressure" rule as Phase 1.
+ */
+async function handleHoldIntakeFollowUpAnswer(
+  callControlId: string,
+  state: TelnyxCallControlClientState,
+  digits: string
+): Promise<void> {
+  const baseState: TelnyxCallControlClientState = {
+    ...state,
+    holdAwaitingIntakeFollowUpAnswer: false,
+  }
+  const followUp = state.holdIntakeFollowUp
+
+  if (!digits || !followUp) {
+    console.log(
+      lyncrLog("telnyx-cc-hold-intake-followup-skipped", { callControlId, digits: digits || null })
+    )
+    await startHoldMusicGather(callControlId, baseState)
+    return
+  }
+
+  void mergeCallQueueCollected(callControlId, {
+    [followUp.fieldKey]: digits,
+    [`${followUp.fieldKey}_label`]: `${followUp.fieldLabel} ${digits}`,
+  }).catch((e) =>
+    console.warn(lyncrLog("telnyx-cc-hold-intake-followup-collect-failed", { error: String(e) }))
+  )
+
+  console.log(
+    lyncrLog("telnyx-cc-hold-intake-followup-captured", {
+      callControlId,
+      fieldKey: followUp.fieldKey,
+      digitsLen: digits.length,
+    })
+  )
+
+  await telnyxCallControlSpeak(
+    callControlId,
+    "Perfect, got it.",
     encodeTelnyxCallControlState(baseState),
     { voice: baseState.holdSpeakVoice }
   ).catch(() => undefined)
@@ -927,6 +998,14 @@ export async function handleHoldLoopGatherEnded(params: {
   // "leave the queue and text me a link" below.
   if (state.holdAwaitingIntakeAnswer) {
     await handleHoldIntakeAnswer(callControlId, state, digits)
+    return
+  }
+
+  // Same reasoning for the Phase-2 numeric follow-up — a 4-digit year must never be
+  // parsed as "press 1" just because it happens to start with a 1 (Telnyx only sends
+  // the full collected string here, so this checks state, not the digits themselves).
+  if (state.holdAwaitingIntakeFollowUpAnswer) {
+    await handleHoldIntakeFollowUpAnswer(callControlId, state, digits)
     return
   }
 

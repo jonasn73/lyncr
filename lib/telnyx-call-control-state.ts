@@ -116,6 +116,15 @@ export type TelnyxCallControlClientState = {
    * "press 1" (= leave queue via SMS) on the very next gather.ended.
    */
   holdAwaitingIntakeAnswer?: boolean
+  /**
+   * Phase-2 numeric follow-up queued by the option picked in Phase 1 (e.g. "type the
+   * model year") — carried on state until the next reprompt cycle asks it.
+   */
+  holdIntakeFollowUp?: { text: string; maxDigits: number; fieldKey: string; fieldLabel: string }
+  /** True once the Phase-2 follow-up has been asked (answered or skipped) — asked at most once. */
+  holdIntakeFollowUpAsked?: boolean
+  /** True only while a gather is waiting on the Phase-2 follow-up's numeric answer. */
+  holdAwaitingIntakeFollowUpAnswer?: boolean
 }
 
 export function encodeTelnyxCallControlState(state: TelnyxCallControlClientState): string {
