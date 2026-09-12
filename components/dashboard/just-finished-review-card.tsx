@@ -101,6 +101,20 @@ function bookFormVehicleLabel(item: LatestCustomerAction): string {
     .join(" ")
 }
 
+/**
+ * True when this alert's sheet shows a full SMS thread to answer — mirrors
+ * LatestActionDetail's own `showSmsThread`. Computed at the Sheet-sizing level
+ * (before LatestActionDetail mounts) so the sheet can open tall and fixed for
+ * a conversation instead of hugging content like the simpler alert types do.
+ */
+function isReplyThreadItem(item: LatestCustomerAction): boolean {
+  return (
+    (item.event === "replied" ||
+      (item.event === "job_finished" && Boolean(item.lastInbound))) &&
+    Boolean(item.customerPhone?.trim())
+  )
+}
+
 /** Last 10 digits — matches Messages inbox / Activity deep-links across formats. */
 function phoneMatchKey(phone: string): string {
   return phone.replace(/\D/g, "").slice(-10)
@@ -813,14 +827,19 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
 
       {/* Mount Sheet only while open — always-mounted Radix Sheet+Close button
           contributed to update-depth crashes when Latest refreshed (#185).
-          Compact bottom sheet (content height) — not a sparse full-screen drawer. */}
+          Compact bottom sheet (content height) — not a sparse full-screen drawer,
+          EXCEPT when there's a text thread to answer: that sheet opens tall and
+          fixed so the conversation gets real, dominant room instead of hugging
+          whatever little height the message count happens to need. */}
       {selected ? (
         <Sheet open onOpenChange={(open) => !open && setSelected(null)}>
           <SheetContent
             side="bottom"
             className={cn(
-              // Hug content; cap tall Needs-reply threads so the sheet never fills the viewport.
-              "flex h-auto max-h-[min(85dvh,40rem)] flex-col gap-0 overflow-hidden rounded-t-2xl border-border bg-[#101018] p-0",
+              "flex flex-col gap-0 overflow-hidden rounded-t-2xl border-border bg-[#101018] p-0",
+              isReplyThreadItem(selected)
+                ? "h-[min(88dvh,44rem)]"
+                : "h-auto max-h-[min(85dvh,40rem)]",
               "sm:mx-auto sm:max-w-lg",
               "pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
             )}
@@ -896,10 +915,7 @@ function LatestActionDetail({
     Boolean(item.completedJobId) &&
     (item.event === "job_finished" || Boolean(item.thanksReviewPending))
   // Full SMS history for reply detail; also when a finished job already has an inbound text.
-  const showSmsThread =
-    (item.event === "replied" ||
-      (item.event === "job_finished" && Boolean(item.lastInbound))) &&
-    Boolean(item.customerPhone?.trim())
+  const showSmsThread = isReplyThreadItem(item)
   const isPaidEvent = item.event === "customer_paid"
   const isBookEvent = item.event === "book_form"
   // Inline reply composer + chips whenever this sheet shows a customer text to answer.
@@ -1402,104 +1418,111 @@ function LatestActionDetail({
       </SheetHeader>
 
       {/* flex-1 + min-h-0 lets this region — not the outer sheet — absorb overflow,
-          so the composer footer below never gets clipped by the sheet's max-h. */}
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3">
-        {isBookEvent ? (
-          // Submitted fields front and center — not buried in “Continue intake”.
-          <section className="rounded-xl border border-warning/30 bg-warning/5 px-3 py-3">
-            <p className="text-micro font-semibold uppercase tracking-[0.12em] text-warning/90">
-              Customer booked
-            </p>
-            <dl className="mt-2 space-y-2 text-sm">
-              <div className="flex gap-2">
-                <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Name</dt>
-                <dd className="min-w-0 font-medium text-foreground">{item.customerName}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Phone</dt>
-                <dd className="min-w-0 text-foreground">{phoneLabel}</dd>
-              </div>
-              {bookService ? (
-                <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Service</dt>
-                  <dd className="min-w-0 font-medium text-foreground">{bookService}</dd>
-                </div>
-              ) : null}
-              {bookVehicle ? (
-                <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Vehicle</dt>
-                  <dd className="min-w-0 text-foreground">{bookVehicle}</dd>
-                </div>
-              ) : null}
-              {bookAddress ? (
-                <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Address</dt>
-                  <dd className="min-w-0 text-foreground">{bookAddress}</dd>
-                </div>
-              ) : null}
-              {bookWhen ? (
-                <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">When</dt>
-                  <dd className="min-w-0 text-foreground">{bookWhen}</dd>
-                </div>
-              ) : null}
-            </dl>
-          </section>
-        ) : (
-          <section>
-            <p className="text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Status
-            </p>
-            <ul className="mt-1.5 space-y-2">
-              {steps.map((step) => (
-                <li
-                  key={step.label}
-                  className={cn(
-                    "rounded-xl border px-3 py-2",
-                    step.done
-                      ? "border-success/25 bg-success/5"
-                      : step.label === "Needs reply"
-                        ? "border-info/35 bg-info/10"
-                        : "border-border/60 bg-muted/20"
-                  )}
-                >
-                  <p
-                    className={cn(
-                      "text-sm font-medium",
-                      step.done
-                        ? "text-success"
-                        : step.label === "Needs reply"
-                          ? "text-info"
-                          : "text-muted-foreground"
-                    )}
-                  >
-                    {step.done ? "✓ " : "○ "}
-                    {step.label}
-                  </p>
-                  {step.detail ? (
-                    <p className="mt-0.5 text-xs text-muted-foreground">{step.detail}</p>
+          so the composer footer below never gets clipped by the sheet's max-h.
+          While answering a text (showSmsThread), the Status recap is dropped and
+          Conversation becomes its own flex-1 pane below — the thread is the point,
+          so it gets the dominant share of this space instead of splitting it. */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {!showSmsThread ? (
+          <div className="min-h-0 shrink-0 space-y-3 overflow-y-auto overscroll-contain px-4 py-3">
+            {isBookEvent ? (
+              // Submitted fields front and center — not buried in “Continue intake”.
+              <section className="rounded-xl border border-warning/30 bg-warning/5 px-3 py-3">
+                <p className="text-micro font-semibold uppercase tracking-[0.12em] text-warning/90">
+                  Customer booked
+                </p>
+                <dl className="mt-2 space-y-2 text-sm">
+                  <div className="flex gap-2">
+                    <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Name</dt>
+                    <dd className="min-w-0 font-medium text-foreground">{item.customerName}</dd>
+                  </div>
+                  <div className="flex gap-2">
+                    <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Phone</dt>
+                    <dd className="min-w-0 text-foreground">{phoneLabel}</dd>
+                  </div>
+                  {bookService ? (
+                    <div className="flex gap-2">
+                      <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Service</dt>
+                      <dd className="min-w-0 font-medium text-foreground">{bookService}</dd>
+                    </div>
                   ) : null}
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+                  {bookVehicle ? (
+                    <div className="flex gap-2">
+                      <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Vehicle</dt>
+                      <dd className="min-w-0 text-foreground">{bookVehicle}</dd>
+                    </div>
+                  ) : null}
+                  {bookAddress ? (
+                    <div className="flex gap-2">
+                      <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Address</dt>
+                      <dd className="min-w-0 text-foreground">{bookAddress}</dd>
+                    </div>
+                  ) : null}
+                  {bookWhen ? (
+                    <div className="flex gap-2">
+                      <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">When</dt>
+                      <dd className="min-w-0 text-foreground">{bookWhen}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </section>
+            ) : (
+              <section>
+                <p className="text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Status
+                </p>
+                <ul className="mt-1.5 space-y-2">
+                  {steps.map((step) => (
+                    <li
+                      key={step.label}
+                      className={cn(
+                        "rounded-xl border px-3 py-2",
+                        step.done
+                          ? "border-success/25 bg-success/5"
+                          : step.label === "Needs reply"
+                            ? "border-info/35 bg-info/10"
+                            : "border-border/60 bg-muted/20"
+                      )}
+                    >
+                      <p
+                        className={cn(
+                          "text-sm font-medium",
+                          step.done
+                            ? "text-success"
+                            : step.label === "Needs reply"
+                              ? "text-info"
+                              : "text-muted-foreground"
+                        )}
+                      >
+                        {step.done ? "✓ " : "○ "}
+                        {step.label}
+                      </p>
+                      {step.detail ? (
+                        <p className="mt-0.5 text-xs text-muted-foreground">{step.detail}</p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </div>
+        ) : null}
 
         {showSmsThread ? (
-          <section>
-            <p className="text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-3 pt-3">
+            <p className="shrink-0 text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Conversation
             </p>
             {threadLoading ? (
-              <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="mt-2 flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Loading messages…
               </div>
             ) : threadError ? (
-              <p className="mt-2 text-xs text-destructive">{threadError}</p>
+              <p className="mt-2 shrink-0 text-xs text-destructive">{threadError}</p>
             ) : threadMessages.length === 0 ? (
               // Fallback: still show last pair from Latest if the feed is empty.
-              <div className="mt-2 space-y-2">
+              <div className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto pb-3">
                 {item.lastOutbound ? (
                   <div>
                     <p className="text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -1522,10 +1545,10 @@ function LatestActionDetail({
                 ) : null}
               </div>
             ) : (
-              // No independent max-height/scroll here — the sheet's single outer
-              // scroll region (flex-1 below) handles it, so this never becomes a
-              // second, cramped scrollbox nested inside the first.
-              <div className="mt-1.5 space-y-2 rounded-xl border border-border/50 bg-muted/10 px-3 py-3">
+              // This pane — not the sheet, not an ancestor — is the one scrollbox for
+              // the thread, and it's flex-1: it gets whatever room the sheet has left,
+              // which is a lot now that the sheet opens tall for reply threads.
+              <div className="mt-1.5 min-h-0 flex-1 space-y-2 overflow-y-auto rounded-xl border border-border/50 bg-muted/10 px-3 py-3">
                 {threadMessages.map((msg) => {
                   const outbound = msg.direction === "outbound"
                   const deliveryLabel = outbound ? formatSmsDeliveryLabel(msg) : null
@@ -1568,59 +1591,6 @@ function LatestActionDetail({
               </div>
             )}
           </section>
-        ) : null}
-
-        {/* Quick replies scroll with the thread instead of crowding the pinned
-            composer below — chips/AI drafts can run long with a busy thread. */}
-        {item.customerPhone && !isPaidEvent && !isBookEvent && showInlineReply ? (
-          <div className="space-y-2">
-            {/* Quick reply chips — tap fills composer (does not send). */}
-            {replySuggest.chips.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {replySuggest.chips.map((chip) => (
-                  <button
-                    key={chip.id}
-                    type="button"
-                    onClick={() => setReplyDraft(chip.body)}
-                    className="rounded-full border border-info/30 bg-info/10 px-3 py-1 text-2xs font-semibold text-info hover:bg-info/20"
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-
-            {/* Suggest reply → AI or rule-based drafts (still requires Send). */}
-            <button
-              type="button"
-              onClick={() => void suggestReply()}
-              disabled={suggestLoading || !lastInboundBody}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-operator/30 bg-operator/10 px-3 py-2 text-xs font-semibold text-operator hover:bg-operator/20 disabled:opacity-50"
-            >
-              {suggestLoading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Sparkles className="h-3.5 w-3.5" />
-              )}
-              Suggest reply
-            </button>
-
-            {/* Extra AI draft options if Suggest returned more than one. */}
-            {aiDrafts.length > 1 ? (
-              <div className="space-y-2">
-                {aiDrafts.map((draft, idx) => (
-                  <button
-                    key={`ai-draft-${idx}`}
-                    type="button"
-                    onClick={() => setReplyDraft(draft)}
-                    className="w-full rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-left text-2xs leading-snug text-foreground hover:bg-muted/40"
-                  >
-                    {draft}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
         ) : null}
       </div>
 
@@ -1703,6 +1673,63 @@ function LatestActionDetail({
         ) : null}
         {item.customerPhone && !isPaidEvent && !isBookEvent && showInlineReply ? (
           <div className="space-y-2">
+            {/* Quick replies — one compact row that scrolls sideways instead of
+                stacking vertically, so it never competes with the thread above
+                or the composer below for height. Tap fills the composer. */}
+            {replySuggest.chips.length > 0 || aiDrafts.length > 0 ? (
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                <button
+                  type="button"
+                  onClick={() => void suggestReply()}
+                  disabled={suggestLoading || !lastInboundBody}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-operator/30 bg-operator/10 px-3 py-1 text-2xs font-semibold text-operator hover:bg-operator/20 disabled:opacity-50"
+                  title="Suggest reply"
+                >
+                  {suggestLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3 w-3" />
+                  )}
+                  Suggest
+                </button>
+                {replySuggest.chips.map((chip) => (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() => setReplyDraft(chip.body)}
+                    className="shrink-0 whitespace-nowrap rounded-full border border-info/30 bg-info/10 px-3 py-1 text-2xs font-semibold text-info hover:bg-info/20"
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+                {aiDrafts.map((draft, idx) => (
+                  <button
+                    key={`ai-draft-${idx}`}
+                    type="button"
+                    onClick={() => setReplyDraft(draft)}
+                    title={draft}
+                    className="max-w-[200px] shrink-0 truncate rounded-full border border-border/50 bg-muted/20 px-3 py-1 text-left text-2xs text-foreground hover:bg-muted/40"
+                  >
+                    {draft}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void suggestReply()}
+                disabled={suggestLoading || !lastInboundBody}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-operator/30 bg-operator/10 px-3 py-2 text-xs font-semibold text-operator hover:bg-operator/20 disabled:opacity-50"
+              >
+                {suggestLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                Suggest reply
+              </button>
+            )}
+
             {/* Composer + Send — primary CTA stays on this sheet. */}
             <div className="rounded-xl border border-border/60 bg-muted/15 p-2">
               <textarea
