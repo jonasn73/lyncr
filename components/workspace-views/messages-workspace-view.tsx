@@ -31,6 +31,7 @@ import { useOwnerLatest } from "@/lib/hooks/use-owner-latest"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { useSettledListSurface } from "@/lib/hooks/use-settled-list-surface"
 import { useWorkspaceOrgId } from "@/lib/hooks/use-workspace-org-id"
+import { WORKSPACE_VIEWPORT_H } from "@/lib/mobile-shell"
 import { pickOpenCollectJobForPhone } from "@/lib/collect-job-match"
 import { openCollectPaymentModal } from "@/lib/settings-modals-events"
 import { markLatestReplySeen } from "@/lib/latest-seen"
@@ -959,8 +960,13 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
 
       <WorkspacePanel
         className={cn(
-          "flex h-[calc(100dvh-var(--shell-header-h)-var(--shell-dock-h)-8.5rem)] flex-col overflow-hidden bg-background shadow-none ring-0",
-          "md:h-[calc(100dvh-var(--shell-header-h)-12rem)]",
+          // Same full-height-tab-body math as Map/boards (WORKSPACE_VIEWPORT_H) —
+          // this view previously hardcoded its own, much larger subtraction
+          // (8.5rem/12rem vs the correct 3rem/4.5rem), leaving the thread pane
+          // far shorter than the screen actually had room for, especially on
+          // mobile where the extra ~5.5rem was pure wasted space above the dock.
+          WORKSPACE_VIEWPORT_H,
+          "flex flex-col overflow-hidden bg-background shadow-none ring-0",
           // Side-by-side only from lg, and only with a thread open: the reserved
           // conversation pane was ~65% of a 1280px screen sitting empty, and at 768px
           // the list was squeezed to ~240px. Below lg this stays push-navigation.
