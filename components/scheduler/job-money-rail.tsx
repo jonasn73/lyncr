@@ -322,9 +322,10 @@ export function JobMoneyRail({
             ) : (
               <Link2 className="mr-1 h-3.5 w-3.5 shrink-0" aria-hidden />
             )}
-            <span className="min-w-0 flex-1 truncate">
-              {depositLabel ? `Deposit ${depositLabel}` : "Deposit"}
-            </span>
+            {/* Amount-first, no "Deposit" prefix — on a narrow phone-width grid
+                column there's only room for one or the other, and the dollar
+                figure is what the owner actually needs to see at a glance. */}
+            <span className="min-w-0 flex-1 truncate">{depositLabel || "Deposit"}</span>
           </Button>
           <Button
             type="button"
