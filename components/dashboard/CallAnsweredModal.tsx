@@ -4668,51 +4668,49 @@ export function CallAnsweredModal({ enabled, ownerUserId, receptionistId }: Call
                               <legend className="px-1 text-sm font-semibold tracking-tight text-foreground">
                                 Customer &amp; quote
                               </legend>
-                              <div className="grid gap-3 rounded-xl border border-border/70 bg-card/40 p-3">
-                                <div className="space-y-2">
-                                  <Label htmlFor="manual-ac-display" className="text-xs">
-                                    Caller name <span className="text-primary">*</span>
-                                  </Label>
-                                  <Input
-                                    id="manual-ac-display"
-                                    value={form.displayName}
-                                    onChange={(e) => patchForm({ displayName: e.target.value })}
-                                    placeholder="Customer full name"
-                                    className="h-11 text-base"
-                                    autoFocus
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor="manual-ac-quote" className="text-xs">
-                                    Pitched quote ($)
-                                  </Label>
-                                  <Input
-                                    id="manual-ac-quote"
-                                    inputMode="decimal"
-                                    value={customPrice}
-                                    onChange={(e) => setCustomPrice(e.target.value)}
-                                    placeholder={
-                                      liveQuote.totalCents > 0
-                                        ? String(Math.round(liveQuote.totalCents / 100))
-                                        : "0"
-                                    }
-                                    className="h-11 font-mono text-base tabular-nums"
-                                  />
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                  {[form.addressLine1, form.city, form.postalCode].filter(Boolean).join(", ") ||
-                                    form.serviceAddress?.formatted ||
-                                    "—"}
-                                  {scheduleSummaryLabel ? (
-                                    <>
-                                      {" · "}
-                                      <span className="tabular-nums">{scheduleSummaryLabel}</span>
-                                    </>
-                                  ) : (
-                                    <span className="text-muted-foreground/80"> · Schedule next</span>
-                                  )}
-                                </p>
+                              <div className="space-y-2">
+                                <Label htmlFor="manual-ac-display" className="text-xs">
+                                  Caller name <span className="text-primary">*</span>
+                                </Label>
+                                <Input
+                                  id="manual-ac-display"
+                                  value={form.displayName}
+                                  onChange={(e) => patchForm({ displayName: e.target.value })}
+                                  placeholder="Customer full name"
+                                  className="h-12 text-base"
+                                  autoFocus
+                                />
                               </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="manual-ac-quote" className="text-xs">
+                                  Pitched quote ($)
+                                </Label>
+                                <Input
+                                  id="manual-ac-quote"
+                                  inputMode="decimal"
+                                  value={customPrice}
+                                  onChange={(e) => setCustomPrice(e.target.value)}
+                                  placeholder={
+                                    liveQuote.totalCents > 0
+                                      ? String(Math.round(liveQuote.totalCents / 100))
+                                      : "0"
+                                  }
+                                  className="h-12 font-mono text-base tabular-nums"
+                                />
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {[form.addressLine1, form.city, form.postalCode].filter(Boolean).join(", ") ||
+                                  form.serviceAddress?.formatted ||
+                                  "—"}
+                                {scheduleSummaryLabel ? (
+                                  <>
+                                    {" · "}
+                                    <span className="tabular-nums">{scheduleSummaryLabel}</span>
+                                  </>
+                                ) : (
+                                  <span className="text-muted-foreground/80"> · Schedule next</span>
+                                )}
+                              </p>
                             </fieldset>
                           ) : null}
 

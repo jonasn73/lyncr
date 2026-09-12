@@ -1521,7 +1521,7 @@ function LatestActionDetail({
                 ) : null}
               </div>
             ) : (
-              <div className="mt-1.5 max-h-[min(32dvh,14rem)] space-y-2 overflow-y-auto rounded-xl border border-border/50 bg-muted/10 px-3 py-3">
+              <div className="mt-1.5 max-h-[min(60dvh,28rem)] space-y-2 overflow-y-auto rounded-xl border border-border/50 bg-muted/10 px-3 py-3">
                 {threadMessages.map((msg) => {
                   const outbound = msg.direction === "outbound"
                   const deliveryLabel = outbound ? formatSmsDeliveryLabel(msg) : null
@@ -1698,9 +1698,9 @@ function LatestActionDetail({
               <textarea
                 value={replyDraft}
                 onChange={(e) => setReplyDraft(e.target.value)}
-                rows={2}
+                rows={3}
                 placeholder="Type a reply…"
-                className="w-full resize-none bg-transparent px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                className="w-full resize-y bg-transparent px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
               />
               <button
                 type="button"

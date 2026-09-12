@@ -312,17 +312,19 @@ export function JobMoneyRail({
             type="button"
             size="sm"
             variant="outline"
-            className="border-info/40 bg-info/10 px-2 text-info hover:bg-info/20"
+            className="min-w-0 border-info/40 bg-info/10 px-2 text-info hover:bg-info/20"
             disabled={saving || busy === "deposit" || depositCents < 50}
             onClick={() => void handleSendDeposit()}
-            title="Send deposit pay link by SMS"
+            title={depositLabel ? `Send deposit pay link (${depositLabel}) by SMS` : "Send deposit pay link by SMS"}
           >
             {busy === "deposit" ? (
-              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" aria-hidden />
+              <Loader2 className="mr-1 h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
             ) : (
-              <Link2 className="mr-1 h-3.5 w-3.5" aria-hidden />
+              <Link2 className="mr-1 h-3.5 w-3.5 shrink-0" aria-hidden />
             )}
-            {depositLabel ? `Deposit ${depositLabel}` : "Deposit"}
+            <span className="min-w-0 flex-1 truncate">
+              {depositLabel ? `Deposit ${depositLabel}` : "Deposit"}
+            </span>
           </Button>
           <Button
             type="button"

@@ -192,6 +192,9 @@ export function JobDetailOverview({
   // Already cancelled — hide/disable Cancel so it cannot look broken.
   const isJobCancelled = operatorPhase === "cancelled"
   const isJobReferred = operatorPhase === "referred"
+  // Any terminal phase locks every lifecycle action — a done job can't also be
+  // cancelled or referred, and vice versa.
+  const isJobTerminal = isJobDone || isJobCancelled || isJobReferred
   const notesPreview = jobNotes.trim()
     ? jobNotes.trim().replace(/\s+/g, " ")
     : "No notes yet"
@@ -494,46 +497,67 @@ export function JobDetailOverview({
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <button
                   type="button"
-                  // Already cancelled → disabled with clear label (not a dead tap).
-                  disabled={saving || isJobCancelled}
+                  // Any terminal phase (done/cancelled/referred) → disabled, not just "already cancelled".
+                  disabled={saving || isJobTerminal}
                   onClick={() => onQuickLifecycleAction("cancelled")}
                   className={cn(
                     ACTION_BTN,
-                    isJobCancelled
+                    isJobTerminal
                       ? "border-border/40 bg-muted/40 text-muted-foreground"
                       : "border-destructive/35 bg-destructive/10 text-destructive hover:bg-destructive/20"
                   )}
-                  title={isJobCancelled ? "This job is already cancelled" : "Cancel this job"}
+                  title={
+                    isJobCancelled
+                      ? "This job is already cancelled"
+                      : isJobTerminal
+                        ? "This job is already closed out — can't cancel it now"
+                        : "Cancel this job"
+                  }
                 >
                   <Ban className="h-3.5 w-3.5 opacity-90" aria-hidden />
                   {isJobCancelled ? "Cancelled" : "Cancel"}
                 </button>
                 <button
                   type="button"
-                  disabled={saving || isJobReferred}
+                  disabled={saving || isJobTerminal}
                   onClick={() => onQuickLifecycleAction("referred")}
                   className={cn(
                     ACTION_BTN,
-                    isJobReferred
+                    isJobTerminal
                       ? "border-border/40 bg-muted/40 text-muted-foreground"
                       : "border-operator/35 bg-operator/10 text-operator hover:bg-operator/20"
                   )}
-                  title={isJobReferred ? "Already marked referred" : "Mark as referred"}
+                  title={
+                    isJobReferred
+                      ? "Already marked referred"
+                      : isJobTerminal
+                        ? "This job is already closed out — can't refer it now"
+                        : "Mark as referred"
+                  }
                 >
                   <Share2 className="h-3.5 w-3.5 opacity-90" aria-hidden />
                   {isJobReferred ? "Referred ✓" : "Referred"}
                 </button>
                 <button
                   type="button"
-                  disabled={saving || isJobDone}
+                  disabled={saving || isJobTerminal}
                   onClick={() => onQuickLifecycleAction("completed")}
                   className={cn(
                     ACTION_BTN,
-                    "border-success/40 bg-success/15 text-success hover:bg-success/25"
+                    isJobTerminal
+                      ? "border-border/40 bg-muted/40 text-muted-foreground"
+                      : "border-success/40 bg-success/15 text-success hover:bg-success/25"
                   )}
+                  title={
+                    isJobDone
+                      ? "This job is already complete"
+                      : isJobTerminal
+                        ? "This job is already closed out — can't complete it now"
+                        : undefined
+                  }
                 >
                   <CheckCircle2 className="h-3.5 w-3.5 opacity-90" aria-hidden />
-                  Complete
+                  {isJobDone ? "Completed ✓" : "Complete"}
                 </button>
                 <button
                   type="button"
