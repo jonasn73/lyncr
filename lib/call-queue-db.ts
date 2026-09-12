@@ -35,6 +35,8 @@ export type CallQueueRow = {
   answered_by_user_id: string | null
   answered_at: string | null
   left_at: string | null
+  /** Answers captured while on hold (Phase 1: one intent question). Empty until 170 is applied. */
+  collected: Record<string, unknown>
 }
 
 function getSql() {
@@ -58,6 +60,11 @@ function isMissingHoldTuningColumn(e: unknown): boolean {
   return msg.includes("hold_max_wait_secs") || msg.includes("hold_reprompt_secs")
 }
 
+function isMissingCollectedColumn(e: unknown): boolean {
+  const msg = String((e as { message?: string })?.message || e || "").toLowerCase()
+  return msg.includes("collected") && (msg.includes("does not exist") || msg.includes("undefined_column"))
+}
+
 function mapRow(r: Record<string, unknown>): CallQueueRow {
   return {
     id: String(r.id),
@@ -74,6 +81,8 @@ function mapRow(r: Record<string, unknown>): CallQueueRow {
     answered_by_user_id: r.answered_by_user_id != null ? String(r.answered_by_user_id) : null,
     answered_at: r.answered_at != null ? String(r.answered_at) : null,
     left_at: r.left_at != null ? String(r.left_at) : null,
+    collected:
+      r.collected && typeof r.collected === "object" ? (r.collected as Record<string, unknown>) : {},
   }
 }
 
@@ -87,6 +96,7 @@ async function broadcastQueue(userId: string): Promise<void> {
         callerE164: w.caller_e164,
         enqueuedAt: w.enqueued_at,
         businessLineE164: w.business_line_e164,
+        collected: w.collected,
       })),
     })
   } catch (e) {
@@ -388,6 +398,41 @@ export async function updateCallQueueStatus(params: {
   } catch (e) {
     if (isMissingCallQueueTable(e)) return
     console.warn(lyncrLog("call-queue-status-update-failed", { error: String(e) }))
+  }
+}
+
+/**
+ * Merge an answer captured on hold into call_queue.collected (never overwrites the
+ * whole object — same coalesce-and-concat pattern as ai_leads.collected). Broadcasts
+ * the updated queue so Lines shows the answer before the operator presses Answer.
+ * No-ops quietly (never crashes the hold loop) if 170 hasn't been applied yet.
+ */
+export async function mergeCallQueueCollected(
+  callControlId: string,
+  patch: Record<string, unknown>
+): Promise<void> {
+  try {
+    const sql = getSql()
+    const rows = await sql`
+      UPDATE call_queue
+      SET
+        collected = coalesce(collected, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb,
+        updated_at = now()
+      WHERE call_control_id = ${callControlId}
+      RETURNING user_id
+    `
+    const userId = rows[0] ? String((rows[0] as { user_id: string }).user_id) : ""
+    if (userId) void broadcastQueue(userId)
+  } catch (e) {
+    if (isMissingCallQueueTable(e) || isMissingCollectedColumn(e)) {
+      console.warn(
+        lyncrLog("call-queue-collected-column-missing", {
+          hint: "Run scripts/170-hold-queue-intake-answers.sql in Neon",
+        })
+      )
+      return
+    }
+    console.warn(lyncrLog("call-queue-collected-merge-failed", { error: String(e) }))
   }
 }
 

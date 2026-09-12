@@ -31,6 +31,9 @@ export async function GET(req: NextRequest) {
           status: w.status,
           enqueuedAt: w.enqueued_at,
           queueName: w.queue_name,
+          // Phase-1 hold-queue intake answer (e.g. {intent_slug, intent_label}) — empty
+          // object until the caller answers, or until 170 is applied.
+          collected: w.collected,
         })),
         // Subtle Lines rollup — wait / Answer / press-1 / abandon (today).
         stats: stats

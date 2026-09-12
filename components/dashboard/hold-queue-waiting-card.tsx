@@ -30,6 +30,14 @@ type QueueCaller = {
   status: string
   enqueuedAt: string
   queueName: string
+  /** Phase-1 hold-queue intake answer, e.g. {intent_slug, intent_label} — empty until answered. */
+  collected?: Record<string, unknown>
+}
+
+/** Human-readable line for whatever the caller answered on hold, or null if nothing yet. */
+function holdIntakeAnswerLabel(collected: Record<string, unknown> | undefined): string | null {
+  const label = collected?.intent_label
+  return typeof label === "string" && label.trim() ? label.trim() : null
 }
 
 /** Light hold-queue rollup for Lines (today) — same as paint-seed type. */
@@ -336,6 +344,12 @@ export function HoldQueueWaitingCard({
                     </>
                   ) : null}
                 </p>
+                {/* Phase 1: what the caller said when asked on hold — before Answer is pressed. */}
+                {holdIntakeAnswerLabel(c.collected) ? (
+                  <p className="mt-1 text-2xs font-medium text-info">
+                    ● {holdIntakeAnswerLabel(c.collected)}
+                  </p>
+                ) : null}
                 {/* Plain guidance while Answer is locked so owners know what to do. */}
                 {answerLockedBriefly ? (
                   <p className="mt-1 text-2xs leading-snug text-muted-foreground">

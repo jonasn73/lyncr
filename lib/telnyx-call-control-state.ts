@@ -105,6 +105,17 @@ export type TelnyxCallControlClientState = {
   callerDisplayName?: string
   /** Unix ms when ai_assistant_start was issued — used to bill AI-conversation minutes accurately (`087`). */
   aiAssistantStartedAtMs?: number
+  /**
+   * True once the Phase-1 hold-queue intake question has been asked (answered, skipped,
+   * or the account's industry has no prompt configured) — asked at most once per call.
+   */
+  holdIntakeAsked?: boolean
+  /**
+   * True only while a gather is specifically waiting on the intake question's answer —
+   * disambiguates its digits (1/2/3 = which option) from the plain reprompt's single
+   * "press 1" (= leave queue via SMS) on the very next gather.ended.
+   */
+  holdAwaitingIntakeAnswer?: boolean
 }
 
 export function encodeTelnyxCallControlState(state: TelnyxCallControlClientState): string {

@@ -16,6 +16,7 @@ import {
   getAccountHoldSettings,
   getCallQueuePosition,
   getCallQueueStatusByCallControlId,
+  mergeCallQueueCollected,
   updateCallQueueStatus,
   upsertCallQueueWaiting,
 } from "@/lib/call-queue-db"
@@ -61,6 +62,12 @@ import {
   type TelnyxCallControlClientState,
 } from "@/lib/telnyx-call-control-state"
 import { getUser, updateCallLog } from "@/lib/db"
+import {
+  holdQueueIntakeValidDigits,
+  resolveHoldQueueIntakeOption,
+  resolveHoldQueueIntakePrompt,
+  type HoldQueueIntakePrompt,
+} from "@/lib/hold-queue-intake-prompts"
 
 type RoutingLike = { user_id: string; owner_phone?: string | null }
 
@@ -596,8 +603,24 @@ async function startHoldRepromptGather(
   await telnyxCallControlPlaybackStop(callControlId).catch(() => undefined)
 
   const promptCount = (state.holdPromptCount ?? 0) + 1
-  // Always the same short line (+ optional “you're next”); never HOLD_AWARE_BUSY_PROMPT again.
-  const say = await buildHoldRepromptText({ ...state, holdPromptCount: promptCount }, callControlId)
+
+  // Phase 1 smart hold: the very first reprompt cycle asks one industry-tailored
+  // question instead of the generic "press 1 for a text" line, if this account's
+  // industry has one configured. Every cycle after that (holdIntakeAsked already
+  // true) falls back to the generic reprompt exactly as before.
+  let intakePrompt: HoldQueueIntakePrompt | null = null
+  if (!state.holdIntakeAsked) {
+    try {
+      const user = await getUser(state.userId)
+      intakePrompt = resolveHoldQueueIntakePrompt(user?.industry)
+    } catch (e) {
+      console.warn(lyncrLog("telnyx-cc-hold-intake-industry-lookup-failed", { error: String(e) }))
+    }
+  }
+
+  const say = intakePrompt
+    ? intakePrompt.text
+    : await buildHoldRepromptText({ ...state, holdPromptCount: promptCount }, callControlId)
 
   // Same premium voice as the Busy gather.
   let speakVoice = state.holdSpeakVoice?.trim() || ""
@@ -617,6 +640,9 @@ async function startHoldRepromptGather(
     holdSegment: "reprompt",
     holdPromptCount: promptCount,
     holdSpeakVoice: speakVoice,
+    // Asked at most once per call — whether a prompt existed for this industry or not.
+    holdIntakeAsked: true,
+    holdAwaitingIntakeAnswer: Boolean(intakePrompt),
   }
 
   console.log(
@@ -625,6 +651,7 @@ async function startHoldRepromptGather(
       speakVoice: speakVoice || null,
       promptCount,
       textLen: say.length,
+      intake: Boolean(intakePrompt),
     })
   )
 
@@ -632,7 +659,7 @@ async function startHoldRepromptGather(
     text: say,
     clientState: encodeTelnyxCallControlState(nextState),
     maximumDigits: 1,
-    validDigits: "1",
+    validDigits: intakePrompt ? holdQueueIntakeValidDigits(intakePrompt) : "1",
     // Short window after the reminder — then back to music quickly.
     timeoutMillis: 6_000,
     // One short reminder only — never Telnyx’s default 3× replay.
@@ -791,6 +818,60 @@ export async function abandonHoldQueue(callControlId: string): Promise<void> {
 }
 
 /**
+ * gather.ended answering the Phase-1 hold-queue intake question (not the plain
+ * "press 1" reprompt). A matched digit is captured to call_queue.collected —
+ * broadcasting it to Lines so the operator sees it before pressing Answer — then
+ * acknowledged with a short "Got it" and hold music resumes. An unmatched digit or
+ * timeout is skipped silently: no repeat pressure, caller just goes back to music.
+ */
+async function handleHoldIntakeAnswer(
+  callControlId: string,
+  state: TelnyxCallControlClientState,
+  digits: string
+): Promise<void> {
+  const baseState: TelnyxCallControlClientState = {
+    ...state,
+    holdAwaitingIntakeAnswer: false,
+  }
+
+  let matched: { intentSlug: string; label: string } | null = null
+  try {
+    const user = await getUser(state.userId)
+    const prompt = resolveHoldQueueIntakePrompt(user?.industry)
+    const option = prompt && digits ? resolveHoldQueueIntakeOption(prompt, digits) : null
+    if (option) matched = { intentSlug: option.intentSlug, label: option.label }
+  } catch (e) {
+    console.warn(lyncrLog("telnyx-cc-hold-intake-resolve-failed", { error: String(e) }))
+  }
+
+  if (!matched) {
+    console.log(
+      lyncrLog("telnyx-cc-hold-intake-skipped", { callControlId, digits: digits || null })
+    )
+    await startHoldMusicGather(callControlId, baseState)
+    return
+  }
+
+  void mergeCallQueueCollected(callControlId, {
+    intent_slug: matched.intentSlug,
+    intent_label: matched.label,
+  }).catch((e) => console.warn(lyncrLog("telnyx-cc-hold-intake-collect-failed", { error: String(e) })))
+
+  console.log(
+    lyncrLog("telnyx-cc-hold-intake-captured", { callControlId, intentSlug: matched.intentSlug })
+  )
+
+  await telnyxCallControlSpeak(
+    callControlId,
+    "Got it, thanks — hang tight.",
+    encodeTelnyxCallControlState(baseState),
+    { voice: baseState.holdSpeakVoice }
+  ).catch(() => undefined)
+
+  await startHoldMusicGather(callControlId, baseState)
+}
+
+/**
  * gather.ended while phase is await_busy_hold_loop.
  * digit 1 → SMS leave; timeout → flip music ↔ re-prompt (or max-wait SMS).
  */
@@ -838,6 +919,14 @@ export async function handleHoldLoopGatherEnded(params: {
     gatherStatus === "call_hangup_bye"
   ) {
     await abandonHoldQueue(callControlId)
+    return
+  }
+
+  // This gather was the Phase-1 intake question, not the plain "press 1" reprompt —
+  // check first so a caller pressing "1" to mean "vehicle" never gets misread as
+  // "leave the queue and text me a link" below.
+  if (state.holdAwaitingIntakeAnswer) {
+    await handleHoldIntakeAnswer(callControlId, state, digits)
     return
   }
 
