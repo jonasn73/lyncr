@@ -22,6 +22,7 @@ import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import { formatSignedHeaderMoneyCents } from "@/lib/header-money-cache"
 import { NotificationCenter } from "@/components/layout/notification-center"
 import { useGlobalKeyPress } from "@/lib/hooks/use-global-key-press"
+import { useLyncEngineOptional } from "@/lib/lync-engine-context"
 import { DASHBOARD_PAGE_HREF, type PageId } from "@/lib/dashboard-nav"
 import { SHELL_ACRYLIC_SURFACE } from "@/lib/shell-chrome-styles"
 import { useFlickerDebugLifecycle, logFlicker, useFlickerScrollWatch } from "@/lib/debug/flicker-debug"
@@ -49,6 +50,9 @@ const AppShellHeader = memo(function AppShellHeader({
   /** Optional center slot (e.g. business workspace switcher). */
   headerCenter?: ReactNode
 }) {
+  const engine = useLyncEngineOptional()
+  const messagesBadge = engine?.messagesBadgeCount ?? 0
+
   return (
     <header
       className={cn(
@@ -107,17 +111,26 @@ const AppShellHeader = memo(function AppShellHeader({
         {useLinks ? (
           <AppNavCommandPalette enabled={useLinks} open={commandOpen} onOpenChange={onCommandOpenChange} />
         ) : null}
-        {/* Phone only: Messages is not on the bottom bar — one-tap from the header. */}
+        {/* Phone only: Messages moved off the bottom dock — one-tap from the header
+            instead, badged so an unanswered text stays just as hard to miss. */}
         {useLinks ? (
           <Button
             type="button"
             variant="outline"
             size="sm"
             asChild
-            className="h-9 w-9 shrink-0 border-border/80 bg-card/80 p-0 shadow-resting md:hidden"
+            className="relative h-9 w-9 shrink-0 border-border/80 bg-card/80 p-0 shadow-resting md:hidden"
           >
             <Link href={DASHBOARD_PAGE_HREF.messages} aria-label="Messages">
               <MessageSquare className="h-4 w-4" aria-hidden />
+              {messagesBadge > 0 ? (
+                <span
+                  className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 text-2xs font-bold leading-none text-warning-foreground shadow-[0_0_8px_rgba(251,191,36,0.7)]"
+                  aria-label={`${messagesBadge} texts awaiting reply`}
+                >
+                  {messagesBadge > 9 ? "9+" : messagesBadge}
+                </span>
+              ) : null}
             </Link>
           </Button>
         ) : onNavigate ? (
@@ -126,10 +139,18 @@ const AppShellHeader = memo(function AppShellHeader({
             variant="outline"
             size="sm"
             onClick={() => onNavigate("messages")}
-            className="h-9 w-9 shrink-0 border-border/80 bg-card/80 p-0 shadow-resting md:hidden"
+            className="relative h-9 w-9 shrink-0 border-border/80 bg-card/80 p-0 shadow-resting md:hidden"
             aria-label="Messages"
           >
             <MessageSquare className="h-4 w-4" aria-hidden />
+            {messagesBadge > 0 ? (
+              <span
+                className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 text-2xs font-bold leading-none text-warning-foreground shadow-[0_0_8px_rgba(251,191,36,0.7)]"
+                aria-label={`${messagesBadge} texts awaiting reply`}
+              >
+                {messagesBadge > 9 ? "9+" : messagesBadge}
+              </span>
+            ) : null}
           </Button>
         ) : null}
         {useLinks ? <NotificationCenter /> : null}
@@ -211,6 +232,14 @@ function AppShellInner({
   const [commandOpen, setCommandOpen] = useState(false)
   const handleCommandOpenChange = useCallback((open: boolean) => setCommandOpen(open), [])
 
+  // Messages moved off the mobile dock (lib/dashboard-nav.ts) onto the header icon.
+  // While actually on that route, the dock's persistent bottom bar is otherwise the
+  // single biggest chunk of screen a phone can hand back to a text thread — so on
+  // mobile only, drop the mobile bar and its reserved --shell-dock-h/safe-area
+  // padding entirely instead of leaving an unused strip of chrome under the thread.
+  const routePath = pathname ? pathname.split("?")[0] || pathname : pathname
+  const isMessagesRoute = Boolean(routePath && routePath.startsWith("/dashboard/messages"))
+
   useFlickerDebugLifecycle("AppShell", {
     pathname: pathname ?? "",
     accountHeaderKind: accountHeader?.kind ?? "none",
@@ -256,9 +285,14 @@ function AppShellInner({
   return (
     <div
       data-app-shell=""
-      className="flex h-dvh max-h-dvh overflow-hidden bg-background [--shell-header-h:3.25rem] [--shell-dock-h:calc(4rem+env(safe-area-inset-bottom,0px))] md:[--shell-dock-h:0px]"
+      className={cn(
+        "flex h-dvh max-h-dvh overflow-hidden bg-background [--shell-header-h:3.25rem] md:[--shell-dock-h:0px]",
+        isMessagesRoute
+          ? "[--shell-dock-h:0px]"
+          : "[--shell-dock-h:calc(4rem+env(safe-area-inset-bottom,0px))]"
+      )}
     >
-      <CommandDock useLinks={useLinks} onNavigate={onNavigate} />
+      <CommandDock useLinks={useLinks} onNavigate={onNavigate} hideMobileBar={isMessagesRoute} />
 
       <div className="flex min-w-0 flex-1 flex-col pl-0 md:pl-[4.25rem]">
         <AppShellHeader
@@ -278,8 +312,11 @@ function AppShellInner({
           className={cn(
             "min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y",
             "bg-gradient-to-b from-background to-muted/15",
-            // Clear the fixed mobile dock + Safari home-indicator so last content stays tappable
-            "pb-[calc(env(safe-area-inset-bottom,0px)+4rem)] md:pb-0"
+            // Clear the fixed mobile dock + Safari home-indicator so last content stays
+            // tappable — skipped on the messages route, where there's no dock to clear
+            // and this reserve would otherwise just be a dead scroll gutter under the
+            // thread (WORKSPACE_VIEWPORT_H already sizes the panel against --shell-dock-h).
+            isMessagesRoute ? "pb-0" : "pb-[calc(env(safe-area-inset-bottom,0px)+4rem)] md:pb-0"
           )}
         >
           {children}

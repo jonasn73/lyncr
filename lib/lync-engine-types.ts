@@ -26,6 +26,8 @@ export type LyncEnginePublicState = {
   linePhase: LyncLinePhase
   /** Unread missed calls for the Activities dock badge. */
   activityBadgeCount: number
+  /** Texts awaiting a reply — badges the header Messages icon (moved off the mobile dock). */
+  messagesBadgeCount: number
   realtimeConnected: boolean
   /** Clear the Activities nav badge (e.g. when visiting the tab). */
   clearActivityBadge: () => void

@@ -14,6 +14,7 @@ import {
 } from "react"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import { useOwnerLatest } from "@/lib/hooks/use-owner-latest"
 import { resolveCallerContext, type CallerContextMatch } from "@/lib/caller-context-engine"
 import { softInvalidateOperationsDataCache } from "@/lib/hooks/use-operations-data"
 import { injectAiTranscriptOnCallDisconnect } from "@/lib/call-transcript-stub"
@@ -101,6 +102,15 @@ export function LyncEngineProvider({ children }: { children: ReactNode }) {
   const [activeCalls, setActiveCalls] = useState<LyncEngineCall[]>([])
   const [activityBadgeCount, setActivityBadgeCount] = useState(0)
   const [realtimeConnected, setRealtimeConnected] = useState(false)
+
+  // Texts awaiting a reply — reuses Latest's existing poll/cache (no new realtime
+  // channel) so the header Messages icon can badge itself now that Messages is off
+  // the mobile dock.
+  const { items: latestItemsForBadge } = useOwnerLatest(activeOrganizationId)
+  const messagesBadgeCount = useMemo(
+    () => latestItemsForBadge.filter((item) => item.event === "replied").length,
+    [latestItemsForBadge]
+  )
 
   const activeCallsRef = useRef(activeCalls)
   activeCallsRef.current = activeCalls
@@ -348,6 +358,7 @@ export function LyncEngineProvider({ children }: { children: ReactNode }) {
       activeCalls,
       linePhase,
       activityBadgeCount,
+      messagesBadgeCount,
       realtimeConnected,
       clearActivityBadge,
       focusIntake,
@@ -357,6 +368,7 @@ export function LyncEngineProvider({ children }: { children: ReactNode }) {
       activeCalls,
       linePhase,
       activityBadgeCount,
+      messagesBadgeCount,
       realtimeConnected,
       clearActivityBadge,
       focusIntake,

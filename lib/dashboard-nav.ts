@@ -51,13 +51,16 @@ export const dashboardNavItems: DashboardNavItem[] = [
 
 /**
  * Mobile bottom bar — same relative order as the rail so muscle memory carries over.
- * Scheduler stays desktop-only (command dock / deep links); Messages is here because an
- * unanswered text costs money faster than anything else a phone user can reach.
+ * Scheduler stays desktop-only (command dock / deep links). Messages moved off the
+ * dock and onto its own header icon (see AppShellHeader) with an unread badge — a
+ * dedicated dock slot was one of five, permanently reserved, even when there was
+ * nothing to answer; the header icon is one tap from every screen AND gives back
+ * the dock's full height while a thread is actually open (see isMessagesRoute in
+ * AppShellInner).
  */
 export const mobileBottomNavItems: DashboardNavItem[] = [
   { id: "dashboard", label: "Lines", icon: Zap },
   { id: "activity", label: "Activity", icon: ClipboardList },
-  { id: "messages", label: "Messages", icon: MessageSquare },
   { id: "contacts", label: "Map", icon: Map },
   { id: "customers", label: "CRM", icon: ContactRound },
 ]

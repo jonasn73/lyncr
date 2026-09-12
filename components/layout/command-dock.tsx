@@ -164,10 +164,12 @@ const CommandDockInner = memo(function CommandDockInner({
   activePage,
   useLinks,
   onNavigate,
+  hideMobileBar,
 }: {
   activePage: PageId
   useLinks: boolean
   onNavigate?: (page: PageId) => void
+  hideMobileBar?: boolean
 }) {
   const engine = useLyncEngineOptional()
   const badgeCounts: Partial<Record<PageId, number>> | undefined =
@@ -200,26 +202,28 @@ const CommandDockInner = memo(function CommandDockInner({
         </nav>
       </aside>
 
-      <nav
-        className={cn(
-          "fixed bottom-0 left-0 right-0 z-50 flex flex-col border-t border-border bg-background md:hidden",
-          "pb-[env(safe-area-inset-bottom,0px)]"
-        )}
-        role="navigation"
-        aria-label="Main navigation"
-      >
-        <div className="relative flex h-16 w-full items-center justify-around">
-          <DockNavItems
-            items={mobileBottomNavItems}
-            activePage={activePage}
-            useLinks={useLinks}
-            onNavigate={onNavigate}
-            orientation="horizontal"
-            hrefOverrides={DASHBOARD_MOBILE_PAGE_HREF}
-            badgeCounts={badgeCounts}
-          />
-        </div>
-      </nav>
+      {hideMobileBar ? null : (
+        <nav
+          className={cn(
+            "fixed bottom-0 left-0 right-0 z-50 flex flex-col border-t border-border bg-background md:hidden",
+            "pb-[env(safe-area-inset-bottom,0px)]"
+          )}
+          role="navigation"
+          aria-label="Main navigation"
+        >
+          <div className="relative flex h-16 w-full items-center justify-around">
+            <DockNavItems
+              items={mobileBottomNavItems}
+              activePage={activePage}
+              useLinks={useLinks}
+              onNavigate={onNavigate}
+              orientation="horizontal"
+              hrefOverrides={DASHBOARD_MOBILE_PAGE_HREF}
+              badgeCounts={badgeCounts}
+            />
+          </div>
+        </nav>
+      )}
     </>
   )
 })
@@ -227,10 +231,21 @@ const CommandDockInner = memo(function CommandDockInner({
 export const CommandDock = memo(function CommandDock({
   useLinks,
   onNavigate,
+  hideMobileBar,
 }: {
   useLinks: boolean
   onNavigate?: (page: PageId) => void
+  /** Drop the mobile bottom bar entirely (e.g. on the Messages route) so its
+   *  --shell-dock-h reservation goes back to the page instead of sitting empty. */
+  hideMobileBar?: boolean
 }) {
   const activePage = useDashboardActivePage()
-  return <CommandDockInner activePage={activePage} useLinks={useLinks} onNavigate={onNavigate} />
+  return (
+    <CommandDockInner
+      activePage={activePage}
+      useLinks={useLinks}
+      onNavigate={onNavigate}
+      hideMobileBar={hideMobileBar}
+    />
+  )
 })
