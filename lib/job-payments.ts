@@ -734,17 +734,20 @@ export async function confirmJobPaymentIntent(
         stripePaymentIntentId: intent.id,
       })
     }
-    if (jobId && kind !== "adhoc_payment") {
-      const job = await getJobPaymentContext(jobId)
-      if (job) await markJobCompletedForPayment(job)
-      // Completed and paid in the same breath — the moment a job-shaped pay component
-      // becomes owed. Backgrounded so a ledger write cannot fail a confirmed payment;
-      // the row is deduped, so a webhook retry settles it once.
-      const { settleJobEarningsInBackground } = await import("@/lib/compensation/settle-job")
-      settleJobEarningsInBackground(jobId)
-    }
+    // Everything below only makes sense once the wallet ledger actually landed on COMPLETED —
+    // a stale/FAILED row that couldn't settle (schema missing, race lost) must not mark the job
+    // completed or log a "payment collected" audit event on every retry of this PaymentIntent.
+    if (transaction?.status === "COMPLETED") {
+      if (jobId && kind !== "adhoc_payment") {
+        const job = await getJobPaymentContext(jobId)
+        if (job && job.jobStatus !== "completed") await markJobCompletedForPayment(job)
+        // Completed and paid in the same breath — the moment a job-shaped pay component
+        // becomes owed. Backgrounded so a ledger write cannot fail a confirmed payment;
+        // the row is deduped, so a webhook retry settles it once.
+        const { settleJobEarningsInBackground } = await import("@/lib/compensation/settle-job")
+        settleJobEarningsInBackground(jobId)
+      }
 
-    if (transaction) {
       void recordAuditEvent({
         ownerUserId: transaction.ownerUserId ?? transaction.userId,
         actorUserId: null,
