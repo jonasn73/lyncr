@@ -18,6 +18,8 @@ export type CollectPaymentModalOpenDetail = {
   startAdhoc?: boolean
   /** Open Collect on this open job (CRM / Messages unpaid path). */
   jobId?: string
+  /** Active shop — carried into walk-up charges so their LTV stays shop-scoped in CRM. */
+  organizationId?: string
 }
 /** Ask the header wallet chip to re-fetch Stripe Available / Pending. */
 export const REFRESH_HEADER_MONEY_EVENT = "lyncr-refresh-header-money"

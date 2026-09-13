@@ -409,6 +409,7 @@ export async function createJobPaymentIntent(params: {
       paymentMethod: params.walletMethod,
       stripePaymentIntentId: intent.id,
       ownerUserId: params.job.ownerUserId,
+      organizationId: params.job.organizationId,
     },
     intent.id,
     alreadyCharged
@@ -457,6 +458,8 @@ export async function createAdhocPaymentIntent(params: {
    * Confirms one PI for service + tax + tip — nothing charged at key-in.
    */
   paymentMethodId?: string | null
+  /** Shop this walk-up charge belongs to, when known (migration 171). */
+  organizationId?: string | null
 }): Promise<CreateJobPaymentIntentResult> {
   if (!isStripeConfigured()) {
     throw new Error("Stripe is not configured (STRIPE_SECRET_KEY)")
@@ -545,6 +548,7 @@ export async function createAdhocPaymentIntent(params: {
       customerPhone: customerPhone || null,
       customerName: customerName || null,
       ownerUserId: params.ownerUserId,
+      organizationId: params.organizationId ?? null,
     },
     intent.id,
     alreadyCharged

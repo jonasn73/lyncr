@@ -44,6 +44,8 @@ type Body = {
    * When set, the server creates+confirms the PI — nothing was charged at key-in.
    */
   paymentMethodId?: string
+  /** Active shop for a walk-up (no-job) charge — ignored when jobId is set. */
+  organizationId?: string
 }
 
 export async function POST(req: NextRequest) {
@@ -108,6 +110,7 @@ export async function POST(req: NextRequest) {
     const tipCents = Math.max(0, Math.round(Number(body.tipCents) || 0))
     const chargeCents = subtotalCents + taxCents + tipCents
     const paymentMethodId = String(body.paymentMethodId ?? "").trim() || undefined
+    const organizationId = String(body.organizationId ?? "").trim() || null
 
     try {
       const result = await createAdhocPaymentIntent({
@@ -121,6 +124,7 @@ export async function POST(req: NextRequest) {
         taxCents,
         tipCents,
         paymentMethodId,
+        organizationId,
       })
       return NextResponse.json({
         data: {

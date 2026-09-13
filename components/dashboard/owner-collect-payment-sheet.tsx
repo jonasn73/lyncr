@@ -494,6 +494,8 @@ export function OwnerCollectPaymentSheet({
     startAdhoc?: boolean
     /** When set, open TechPaymentModal for this job once the list loads. */
     jobId?: string
+    /** Active shop — carried into walk-up charges so their LTV stays shop-scoped in CRM. */
+    organizationId?: string
   } | null
 }) {
   const { toast } = useToast()
@@ -1249,6 +1251,7 @@ export function OwnerCollectPaymentSheet({
       tipCents: selectedTipCents(),
       ...(name ? { customerName: name } : {}),
       ...(phone ? { customerPhone: phone } : {}),
+      ...(prefill?.organizationId ? { organizationId: prefill.organizationId } : {}),
     }
   }
 
@@ -1525,6 +1528,7 @@ export function OwnerCollectPaymentSheet({
           note: adhocNote.trim() || "Service",
           customerName: payLinkName.trim() || undefined,
           phone: payLinkPhone.trim(),
+          ...(prefill?.organizationId ? { organizationId: prefill.organizationId } : {}),
         }),
       })
       const json = (await res.json()) as {

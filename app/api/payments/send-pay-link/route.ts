@@ -30,6 +30,8 @@ type Body = {
   lineItems?: { label?: string; amountCents?: number }[]
   /** When true, expire unpaid Waiting links for this job before creating the new one. */
   cancelWaitingLinks?: boolean
+  /** Active shop for a walk-up (no-job) charge — ignored when jobId is set. */
+  organizationId?: string
 }
 
 export async function POST(req: NextRequest) {
@@ -118,6 +120,7 @@ export async function POST(req: NextRequest) {
       customerEmail: channel === "email" ? body.email : body.email || undefined,
       customerPhone: body.phone,
       lineSummary,
+      organizationId: wantAdhoc ? String(body.organizationId ?? "").trim() || null : null,
     })
 
     const businessLabel = user.business_name?.trim() || user.name?.trim() || "Lyncr"
