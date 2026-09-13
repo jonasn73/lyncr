@@ -20,9 +20,10 @@ Pick a preset under **Lines → Greetings → Hold music**. **Custom URL…** (A
 1. Busy gather speaks the full greeting **once** (`maximum_tries: 1`). Telnyx’s default is 3 — that used to replay Busy three times before music.
 2. On timeout / stay on the line → **`playback_start` with cached inline base64 immediately** (in parallel with routing DB), then Neon `call_queue` for Lines Answer.
 3. Soft-hold does **not** use Telnyx `enqueue` (that delayed/cleared media). Answer bridges by stored `call_control_id`.
-4. About every **60 seconds**, a **short** reminder once (`maximum_tries: 1`): “You're still in line. Press 1 to book by text…” with the **same NaturalHD / persona voice** as Busy, then music resumes. Never a second full Busy greeting.
+4. First reminder fires sooner — **18 seconds** (`HOLD_FIRST_REPROMPT_MS` in `lib/hold-queue.ts`), so an industry intake question (`lib/hold-queue-intake-prompts.ts`) doesn't sit behind a full minute of music. Every reminder after that is the normal **45–90 second** cadence, once (`maximum_tries: 1`): “You're still in line. Press 1 to book by text…” with the **same NaturalHD / persona voice** as Busy, then music resumes. Never a second full Busy greeting.
 5. Optional: upload the WAV in Telnyx Mission Control → Media and set `LYNCR_HOLD_MUSIC_MEDIA_NAME=lyncr-hold-calm`.
 6. Caller hangup (`gatherStatus=call_hangup`) does **not** enter hold.
+7. Only the very first music segment plays the ~7.5s low-latency `hold-calm-short.wav` inline clip (fastest possible start after Busy ends). Every resume after that reaches for the account's real, longer preset (`hold-calm.wav` or the chosen Lines → Greetings → Hold music option) first, falling back to the short clip only if that fails.
 
 Files must be public HTTPS that Telnyx can GET (e.g. `https://lyncr.app/audio/hold-calm.wav`).
 
