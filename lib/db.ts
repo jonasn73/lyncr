@@ -6471,7 +6471,7 @@ export async function listCrmCustomersForUser(
   if (digitKeys.length > 0) {
     try {
       const { sumWalkUpCompletedCentsByPhoneDigits } = await import("@/lib/owner-collected")
-      walkUpByDigits = await sumWalkUpCompletedCentsByPhoneDigits(userId, digitKeys)
+      walkUpByDigits = await sumWalkUpCompletedCentsByPhoneDigits(userId, digitKeys, orgId)
     } catch (e) {
       console.warn("[listCrmCustomersForUser] walk-up LTV failed", e)
     }
@@ -7890,9 +7890,11 @@ export type CollectPayLinkRow = {
   receipt_sent_at: string | null
   created_at: string
   expires_at: string
+  /** Shop this pay link was created from, when known (migration 171). */
+  organization_id: string | null
 }
 
-/** Persist a short pay-link token (scripts/113 + 135). Session may be null until tip. */
+/** Persist a short pay-link token (scripts/113 + 135 + 171). Session may be null until tip. */
 export async function insertCollectPayLink(params: {
   token: string
   stripeSessionId?: string | null
@@ -7910,6 +7912,8 @@ export async function insertCollectPayLink(params: {
   customerName?: string | null
   customerPhone?: string | null
   customerEmail?: string | null
+  /** Shop this charge belongs to, when known — carried into Stripe metadata at finalize. */
+  organizationId?: string | null
 }): Promise<CollectPayLinkRow | null> {
   const sql = getSql()
   const subtotal = Math.max(0, Math.round(params.subtotalCents ?? params.chargeCents))
@@ -7917,12 +7921,13 @@ export async function insertCollectPayLink(params: {
   const tip = Math.max(0, Math.round(params.tipCents ?? 0))
   const phone = normalizePhoneNumberE164(params.customerPhone ?? "") || ""
   const email = (params.customerEmail ?? "").trim().toLowerCase().slice(0, 160)
+  const organizationId = params.organizationId?.trim() || null
   try {
     const rows = await sql`
       INSERT INTO collect_pay_links (
         token, stripe_session_id, owner_user_id, acting_user_id, tech_user_id, job_id,
         charge_cents, subtotal_cents, tax_cents, tip_cents, note, line_summary,
-        business_label, customer_name, customer_phone, customer_email
+        business_label, customer_name, customer_phone, customer_email, organization_id
       )
       VALUES (
         ${params.token}, ${params.stripeSessionId ?? null}, ${params.ownerUserId ?? null},
@@ -7931,7 +7936,7 @@ export async function insertCollectPayLink(params: {
         ${(params.note ?? "").trim().slice(0, 120)},
         ${(params.lineSummary ?? "").trim().slice(0, 120)},
         ${(params.businessLabel ?? "").trim()}, ${(params.customerName ?? "").trim()},
-        ${phone}, ${email}
+        ${phone}, ${email}, ${organizationId}
       )
       RETURNING *
     `
@@ -7940,9 +7945,9 @@ export async function insertCollectPayLink(params: {
     return parseCollectPayLinkRow(row)
   } catch (e) {
     if (isMissingCollectPayLinksTableError(e)) return null
-    // Pre-migration 135: insert with legacy columns only.
+    // Pre-migration 171/135: insert with legacy columns only.
     const msg = e instanceof Error ? e.message : String(e)
-    if (!/column|subtotal|tip_cents|customer_phone|tech_user/i.test(msg)) throw e
+    if (!/column|subtotal|tip_cents|customer_phone|tech_user|organization_id/i.test(msg)) throw e
     try {
       const rows = await sql`
         INSERT INTO collect_pay_links (
@@ -8167,6 +8172,7 @@ function parseCollectPayLinkRow(row: Record<string, unknown>): CollectPayLinkRow
           : null,
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     expires_at: row.expires_at instanceof Date ? row.expires_at.toISOString() : String(row.expires_at),
+    organization_id: row.organization_id != null ? String(row.organization_id) : null,
   }
 }
 

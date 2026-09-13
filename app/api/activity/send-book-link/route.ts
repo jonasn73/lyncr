@@ -157,6 +157,16 @@ export async function POST(req: NextRequest) {
   let venmoIncluded = false
   let dynamicMethods = false
 
+  // Resolve the shop from the called DID (same pattern as /api/book/callback) — without
+  // this, sendAndLogWorkspaceCustomerSms hard-blocks on any account with more than one
+  // shop rather than guess which business's line to send from, and this account has 2.
+  // Also carried into the walk-up Collect charge so its LTV stays shop-scoped in CRM.
+  const businessLineRecord = businessLine ? await getActivePhoneNumberByE164(businessLine) : null
+  const organizationId =
+    businessLineRecord?.organization_id && !businessLineRecord.organization_id.startsWith("legacy-")
+      ? businessLineRecord.organization_id
+      : null
+
   try {
     if (feeMode !== "none") {
       const lineSummary =
@@ -172,6 +182,7 @@ export async function POST(req: NextRequest) {
         note: note || lineSummary,
         customerName,
         lineSummary,
+        organizationId,
       })
       payToken = checkout.payToken
       venmoIncluded = Boolean(checkout.venmoIncluded)
@@ -206,15 +217,6 @@ export async function POST(req: NextRequest) {
       quoteCents,
       operatorNote: note || null,
     })
-
-    // Resolve the shop from the called DID (same pattern as /api/book/callback) — without
-    // this, sendAndLogWorkspaceCustomerSms hard-blocks on any account with more than one
-    // shop rather than guess which business's line to send from, and this account has 2.
-    const businessLineRecord = businessLine ? await getActivePhoneNumberByE164(businessLine) : null
-    const organizationId =
-      businessLineRecord?.organization_id && !businessLineRecord.organization_id.startsWith("legacy-")
-        ? businessLineRecord.organization_id
-        : null
 
     const sent = await sendAndLogWorkspaceCustomerSms({
       ownerUserId: userId,

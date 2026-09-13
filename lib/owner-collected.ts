@@ -699,12 +699,15 @@ export async function listOwnerCollectedTransactionsForPhone(
  */
 export async function sumWalkUpCompletedCentsByPhoneDigits(
   ownerUserId: string,
-  digitKeys: string[]
+  digitKeys: string[],
+  /** Active shop — a walk-up charge with no organization_id (pre-171, or unattributed) still counts everywhere. */
+  organizationId?: string | null
 ): Promise<Map<string, number>> {
   const out = new Map<string, number>()
   const uid = ownerUserId.trim()
   const keys = digitKeys.filter((d) => d.length >= 10)
   if (!uid || keys.length === 0) return out
+  const orgId = organizationId?.trim() || null
 
   const sql = neon(resolveNeonDatabaseUrl())
   try {
@@ -719,6 +722,7 @@ export async function sumWalkUpCompletedCentsByPhoneDigits(
         -- Negative reversal rows carry the original's null job_id, so a refunded walk-up
         -- lowers that customer's lifetime value instead of counting forever.
         AND right(regexp_replace(COALESCE(wt.customer_phone, ''), '[^0-9]', '', 'g'), 10) = ANY(${keys})
+        AND (${orgId}::uuid IS NULL OR wt.organization_id IS NULL OR wt.organization_id = ${orgId}::uuid)
       GROUP BY 1
     `) as Record<string, unknown>[]
 

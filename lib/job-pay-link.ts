@@ -90,6 +90,11 @@ export async function createCollectPayLinkCheckout(params: {
   /** Phone the link was / will be texted to — used for auto SMS receipt. */
   customerPhone?: string | null
   lineSummary?: string | null
+  /**
+   * Shop this charge belongs to, when known and there's no job to derive it from (walk-up /
+   * adhoc). Ignored when jobId is set — the job's own organization_id wins there.
+   */
+  organizationId?: string | null
 }): Promise<CreatePayLinkResult> {
   if (!isStripeConfigured()) {
     throw new Error("Stripe is not configured (STRIPE_SECRET_KEY)")
@@ -101,6 +106,7 @@ export async function createCollectPayLinkCheckout(params: {
   const jobId = (params.jobId ?? "").trim() || null
   let ownerUserId = params.actingUserId
   let techUserId = params.actingUserId
+  let organizationId = params.organizationId?.trim() || null
 
   if (jobId) {
     const job = await getJobPaymentContext(jobId)
@@ -114,6 +120,7 @@ export async function createCollectPayLinkCheckout(params: {
       techUserId = params.actingUserId
     }
     if (!techUserId) throw new Error("Assign a technician before sending a pay link")
+    organizationId = job.organizationId
   }
 
   // Ensure Connect is ready before we SMS a link the customer cannot pay on.
@@ -149,6 +156,7 @@ export async function createCollectPayLinkCheckout(params: {
     customerName,
     customerPhone,
     customerEmail,
+    organizationId,
   }).catch((e) => {
     console.warn("[pay-link] collect_pay_links insert failed:", e)
     throw new Error(
@@ -255,6 +263,7 @@ export async function finalizeCollectPayLinkWithTip(params: {
   const businessLabel = (row.business_label || "").trim() || "Your service provider"
   const subtotalCents = Math.max(0, Math.round(row.subtotal_cents || baseCents - (row.tax_cents || 0)))
   const taxCents = Math.max(0, Math.round(row.tax_cents || 0))
+  const organizationId = (row.organization_id || "").trim()
   const commissionCents = await walletCommissionCentsForJob({
     jobId,
     chargeCents,
@@ -334,6 +343,7 @@ export async function finalizeCollectPayLinkWithTip(params: {
       lyncr_kind: lyncrKind,
       stripe_connect_account_id: connect.accountId,
       lyncr_application_fee_cents: String(applicationFeeAmount),
+      organization_id: organizationId,
     },
     payment_intent_data: {
       application_fee_amount: applicationFeeAmount,
@@ -359,6 +369,7 @@ export async function finalizeCollectPayLinkWithTip(params: {
         pay_token: payToken,
         stripe_connect_account_id: connect.accountId,
         lyncr_application_fee_cents: String(applicationFeeAmount),
+        organization_id: organizationId,
       },
     },
     return_url: `${appUrl}/pay/thanks?session_id={CHECKOUT_SESSION_ID}`,
@@ -479,6 +490,7 @@ export async function fulfillCollectPayLinkFromCheckout(
   const ownerUserId = (meta.owner_user_id || meta.user_id || "").trim()
   const techUserId = (meta.tech_user_id || ownerUserId).trim()
   const payToken = (meta.pay_token || "").trim()
+  const organizationId = (meta.organization_id || "").trim() || null
   const commissionCents = Math.max(
     0,
     Math.round(Number(meta.commission_cents) || Number(meta.charge_cents) || 0)
@@ -505,6 +517,7 @@ export async function fulfillCollectPayLinkFromCheckout(
         customerPhone: (meta.customer_phone || "").trim() || null,
         customerName: (meta.customer_name || "").trim() || null,
         ownerUserId: ownerUserId || null,
+        organizationId,
       })
     } catch (e) {
       // checkout.session.completed and payment_intent.succeeded can race for the same pay-link
@@ -740,6 +753,7 @@ export async function fulfillCollectPayLinkFromPaymentIntent(
   const jobId = (meta.job_id || "").trim() || null
   const ownerUserId = (meta.owner_user_id || "").trim()
   const techUserId = (meta.tech_user_id || ownerUserId).trim()
+  const organizationId = (meta.organization_id || "").trim() || null
   const commissionCents = Math.max(
     0,
     Math.round(Number(meta.commission_cents) || intent.amount || 0)
@@ -764,6 +778,7 @@ export async function fulfillCollectPayLinkFromPaymentIntent(
         customerPhone: (meta.customer_phone || "").trim() || null,
         customerName: (meta.customer_name || "").trim() || null,
         ownerUserId: ownerUserId || null,
+        organizationId,
       })
     } catch (e) {
       // checkout.session.completed and payment_intent.succeeded can race for the same pay-link

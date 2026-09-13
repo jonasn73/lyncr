@@ -27,6 +27,8 @@ export type JobPaymentContext = {
   jobStatus: string | null
   /** Authoritative charge in USD cents from the job record (null if unset). */
   expectedChargeCents: number | null
+  /** Shop this job belongs to, when known (migration 171 threads this into wallet_transactions). */
+  organizationId: string | null
 }
 
 function getSql() {
@@ -112,7 +114,8 @@ export async function getJobPaymentContext(jobId: string): Promise<JobPaymentCon
         job_status,
         collected,
         final_booked_total_cents,
-        calculated_total_cents
+        calculated_total_cents,
+        organization_id
       FROM ai_leads
       WHERE id = ${id}
       LIMIT 1
@@ -140,6 +143,7 @@ export async function getJobPaymentContext(jobId: string): Promise<JobPaymentCon
       assignedTechId: row.assigned_tech_id != null ? String(row.assigned_tech_id) : null,
       jobStatus: row.job_status != null ? String(row.job_status) : null,
       expectedChargeCents,
+      organizationId: row.organization_id != null ? String(row.organization_id) : null,
     }
   } catch (e) {
     // Older DBs without flat-price columns — retry without them.
@@ -147,7 +151,7 @@ export async function getJobPaymentContext(jobId: string): Promise<JobPaymentCon
     if (!msg.includes("final_booked") && !msg.includes("calculated_total")) throw e
 
     const rows = await sql`
-      SELECT id, user_id, assigned_tech_id, job_status, collected
+      SELECT id, user_id, assigned_tech_id, job_status, collected, organization_id
       FROM ai_leads
       WHERE id = ${id}
       LIMIT 1
@@ -163,6 +167,7 @@ export async function getJobPaymentContext(jobId: string): Promise<JobPaymentCon
       ownerUserId: String(row.user_id),
       assignedTechId: row.assigned_tech_id != null ? String(row.assigned_tech_id) : null,
       jobStatus: row.job_status != null ? String(row.job_status) : null,
+      organizationId: row.organization_id != null ? String(row.organization_id) : null,
       expectedChargeCents: pickPositiveCents(
         collected.final_booked_total_cents,
         collected.quoted_price_cents,

@@ -13,6 +13,7 @@ const baseJob = (expected: number | null): JobPaymentContext => ({
   assignedTechId: "tech-1",
   jobStatus: "arrived",
   expectedChargeCents: expected,
+  organizationId: null,
 })
 
 describe("normalizeJobPaymentMethod", () => {

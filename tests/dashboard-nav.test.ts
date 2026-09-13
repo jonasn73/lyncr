@@ -6,15 +6,15 @@ describe("dashboard nav", () => {
     expect(dashboardNavItems.some((i) => i.id === "scheduler")).toBe(true)
   })
 
-  it("hides Scheduler from mobile bottom nav (Lines · Activity · Messages · Map · CRM)", () => {
+  it("hides Scheduler from mobile bottom nav (Lines · Activity · Map · CRM — Messages moved to the header)", () => {
     expect(mobileBottomNavItems.map((i) => i.id)).toEqual([
       "dashboard",
       "activity",
-      "messages",
       "contacts",
       "customers",
     ])
     expect(mobileBottomNavItems.some((i) => i.id === "scheduler")).toBe(false)
+    expect(mobileBottomNavItems.some((i) => i.id === "messages")).toBe(false)
   })
 
   it("orders the rail by the path a call travels — Lines first, Settings last", () => {

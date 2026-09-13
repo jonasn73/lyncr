@@ -240,6 +240,8 @@ export async function createWalletTransaction(params: {
   /** The business this money belongs to (migration 155). Ignored when the column is missing. */
   ownerUserId?: string | null
   entryType?: WalletEntryType
+  /** Shop this charge belongs to, when known (migration 171). Ignored when column is missing. */
+  organizationId?: string | null
 }): Promise<WalletTransaction | null> {
   const sql = getSql()
   const id = crypto.randomUUID()
@@ -250,13 +252,14 @@ export async function createWalletTransaction(params: {
   const customerName = (params.customerName ?? "").trim().slice(0, 80) || null
   const ownerUserId = (params.ownerUserId ?? "").trim() || null
   const entryType = params.entryType ?? "CHARGE"
+  const organizationId = (params.organizationId ?? "").trim() || null
 
   try {
     try {
       await sql`
         INSERT INTO wallet_transactions
           (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id,
-           customer_phone, customer_name, owner_user_id, entry_type, created_at)
+           customer_phone, customer_name, owner_user_id, entry_type, organization_id, created_at)
         VALUES
           (
             ${id},
@@ -270,17 +273,18 @@ export async function createWalletTransaction(params: {
             ${customerName},
             ${ownerUserId},
             ${entryType},
+            ${organizationId},
             now()
           )
       `
     } catch (inner) {
       if (pgErrorCode(inner) !== "42703") throw inner
-      // Pre-migration 155: owner_user_id / entry_type columns missing.
+      // Pre-migration 171: organization_id column missing.
       try {
         await sql`
           INSERT INTO wallet_transactions
             (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id,
-             customer_phone, customer_name, created_at)
+             customer_phone, customer_name, owner_user_id, entry_type, created_at)
           VALUES
             (
               ${id},
@@ -292,27 +296,52 @@ export async function createWalletTransaction(params: {
               ${params.stripePaymentIntentId?.trim() || null},
               ${customerPhone},
               ${customerName},
+              ${ownerUserId},
+              ${entryType},
               now()
             )
         `
-      } catch (inner2) {
-        // Pre-migration 124: customer_phone / customer_name columns missing too.
-        if (pgErrorCode(inner2) !== "42703") throw inner2
-        await sql`
-          INSERT INTO wallet_transactions
-            (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id, created_at)
-          VALUES
-            (
-              ${id},
-              ${params.userId},
-              ${params.jobId},
-              ${amount},
-              ${params.status},
-              ${params.paymentMethod},
-              ${params.stripePaymentIntentId?.trim() || null},
-              now()
-            )
-        `
+      } catch (inner1b) {
+        if (pgErrorCode(inner1b) !== "42703") throw inner1b
+        // Pre-migration 155: owner_user_id / entry_type columns missing too.
+        try {
+          await sql`
+            INSERT INTO wallet_transactions
+              (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id,
+               customer_phone, customer_name, created_at)
+            VALUES
+              (
+                ${id},
+                ${params.userId},
+                ${params.jobId},
+                ${amount},
+                ${params.status},
+                ${params.paymentMethod},
+                ${params.stripePaymentIntentId?.trim() || null},
+                ${customerPhone},
+                ${customerName},
+                now()
+              )
+          `
+        } catch (inner2) {
+          // Pre-migration 124: customer_phone / customer_name columns missing too.
+          if (pgErrorCode(inner2) !== "42703") throw inner2
+          await sql`
+            INSERT INTO wallet_transactions
+              (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id, created_at)
+            VALUES
+              (
+                ${id},
+                ${params.userId},
+                ${params.jobId},
+                ${amount},
+                ${params.status},
+                ${params.paymentMethod},
+                ${params.stripePaymentIntentId?.trim() || null},
+                now()
+              )
+          `
+        }
       }
     }
 
