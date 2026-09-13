@@ -22,6 +22,7 @@ import {
 } from "@/lib/call-queue-db"
 import { getAccountPresence } from "@/lib/account-presence"
 import {
+  HOLD_FIRST_REPROMPT_MS,
   HOLD_REPROMPT_DEFAULT,
   holdLongWaitAlertMs,
   holdMaxConcurrent,
@@ -110,6 +111,18 @@ function holdElapsedMs(state: TelnyxCallControlClientState): number {
 
 function holdTimedOut(state: TelnyxCallControlClientState): boolean {
   return holdElapsedMs(state) >= holdMaxWaitSecs(state.holdMaxWaitSecs) * 1000
+}
+
+/** Saved persona voice, or the account's IVR voice, or the shared NaturalHD default. */
+async function resolveHoldSpeakVoice(state: TelnyxCallControlClientState): Promise<string> {
+  const saved = state.holdSpeakVoice?.trim()
+  if (saved) return saved
+  try {
+    const presence = await getAccountPresence(state.userId)
+    return resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel) || "Telnyx.NaturalHD.astra"
+  } catch {
+    return "Telnyx.NaturalHD.astra"
+  }
 }
 
 /** Build short call-center reminder with optional “you're next” (Phase C). */
@@ -391,7 +404,13 @@ async function startHoldMusicGather(
   const mediaName = holdMusicMediaName()
   // Resolve bundled/env URLs without DB (inline path tried before any of these).
   let musicCandidates = resolveHoldMusicUrlCandidates(accountMusicUrl)
+  // Only enterBusyHoldQueue's very-first call passes this — every resume (after a
+  // reprompt/intake speak) already goes through the Neon-settings branch below.
+  const isFastFirstEntry = opts?.skipAccountFetch === true
   let repromptMs = holdRePromptIntervalMs(accountRepromptSecs)
+  // First-ever segment: get to the Phase-1 industry question sooner instead of making
+  // every caller sit through a full 45–90s of music before it's ever asked.
+  if (isFastFirstEntry) repromptMs = Math.min(repromptMs, HOLD_FIRST_REPROMPT_MS)
   const nextState: TelnyxCallControlClientState = {
     ...state,
     phase: "await_busy_hold_loop",
@@ -471,9 +490,14 @@ async function startHoldMusicGather(
     return false
   }
 
-  // 1) Inline classic-hold clip — fastest path (cached base64, no disk/network on warm instance).
+  // 1) Inline classic-hold clip — fastest path (cached base64, no disk/network on warm
+  // instance), but it's only ~7.5s looped. Worth that repetition on the very first entry
+  // (getting SOME audio going before any Telnyx→lyncr.app round trip matters there); every
+  // resume after a reprompt/intake speak instead reaches for the full-length preset first
+  // (step 3 below) — looping the same 7.5s clip for an entire multi-minute hold was the
+  // "music sounds cheap" complaint. Still tried as a step-3.5 fallback on resumes too.
   const inline = loadHoldMusicPlaybackContentBase64()
-  if (inline) {
+  if (isFastFirstEntry && inline) {
     if (await tryPlaybackThenGather("playback_content", { playbackContent: inline })) return true
   }
 
@@ -511,10 +535,16 @@ async function startHoldMusicGather(
     if (await tryPlaybackThenGather("media_name", { mediaName })) return true
   }
 
-  // 3) Public HTTPS WAV URLs.
+  // 3) Public HTTPS WAV URLs — the account's real preset (20-25s loop, not 7.5s).
   for (const musicUrl of musicCandidates) {
     const ok = await tryPlaybackThenGather("playback_start+gather", { audioUrl: musicUrl })
     if (ok) return true
+  }
+
+  // 3.5) Resume path deliberately skipped inline above — still better than dead air
+  // if every other music source failed.
+  if (!isFastFirstEntry && inline) {
+    if (await tryPlaybackThenGather("playback_content", { playbackContent: inline })) return true
   }
 
   // 4) Last resort: gather_using_audio (historically flaky — keep as backup).
@@ -555,16 +585,7 @@ async function startHoldMusicGather(
 
   // No music (or all paths failed) — speak a short hold line and wait for press 1.
   const text = await buildHoldRepromptText(state, callControlId)
-  let fallbackVoice = state.holdSpeakVoice?.trim() || ""
-  if (!fallbackVoice) {
-    try {
-      const presence = await getAccountPresence(state.userId)
-      fallbackVoice = resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel)
-    } catch {
-      fallbackVoice = "Telnyx.NaturalHD.astra"
-    }
-  }
-  if (!fallbackVoice) fallbackVoice = "Telnyx.NaturalHD.astra"
+  const fallbackVoice = await resolveHoldSpeakVoice(state)
   console.log(
     lyncrLog("telnyx-cc-hold-music-fallback-speak", {
       callControlId,
@@ -629,16 +650,7 @@ async function startHoldRepromptGather(
       : await buildHoldRepromptText({ ...state, holdPromptCount: promptCount }, callControlId)
 
   // Same premium voice as the Busy gather.
-  let speakVoice = state.holdSpeakVoice?.trim() || ""
-  if (!speakVoice) {
-    try {
-      const presence = await getAccountPresence(state.userId)
-      speakVoice = resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel)
-    } catch {
-      speakVoice = "Telnyx.NaturalHD.astra"
-    }
-  }
-  if (!speakVoice) speakVoice = "Telnyx.NaturalHD.astra"
+  const speakVoice = await resolveHoldSpeakVoice(state)
 
   const nextState: TelnyxCallControlClientState = {
     ...state,
@@ -671,9 +683,11 @@ async function startHoldRepromptGather(
     // Follow-up wants any digit 0-9 (gather_using_speak's own default) — everything
     // else keeps its original, narrower valid set unchanged.
     validDigits: intakePrompt ? holdQueueIntakeValidDigits(intakePrompt) : askFollowUp ? undefined : "1",
-    // Follow-up (multi-digit) needs real time to dial digits; the plain single-digit
-    // reprompts stay quick so hold music resumes fast when nobody presses anything.
-    timeoutMillis: askFollowUp ? 10_000 : 6_000,
+    // Follow-up (multi-digit) needs real time to dial digits. Phase-1's multiple-choice
+    // question gets more than the plain single "press 1" reminder too — the caller just
+    // heard 2-3 options and needs a beat to decide, not just react; 6s was clipping real
+    // presses (silently dropped as a "timeout", never acknowledged, never captured).
+    timeoutMillis: intakePrompt ? 9_000 : askFollowUp ? 10_000 : 6_000,
     // One short reminder only — never Telnyx’s default 3× replay.
     maximumTries: 1,
     voice: speakVoice || "Telnyx.NaturalHD.astra",
@@ -881,6 +895,15 @@ async function handleHoldIntakeAnswer(
     lyncrLog("telnyx-cc-hold-intake-captured", { callControlId, intentSlug: matched.intentSlug })
   )
 
+  // A queued follow-up used to wait for the NEXT full reprompt cycle (45-90s of music
+  // away) before it was ever asked — long enough that callers had usually forgotten the
+  // first question, or the operator had already answered, so it read as "never asked
+  // again." Ask it now, in the same turn, while the topic is still fresh.
+  if (matched.followUp) {
+    await speakHoldIntakeFollowUpNow(callControlId, baseState, matched.followUp)
+    return
+  }
+
   await telnyxCallControlSpeak(
     callControlId,
     "Got it, thanks — hang tight.",
@@ -889,6 +912,41 @@ async function handleHoldIntakeAnswer(
   ).catch(() => undefined)
 
   await startHoldMusicGather(callControlId, baseState)
+}
+
+/**
+ * Ask the Phase-2 follow-up (e.g. model year) immediately after its Phase-1 answer,
+ * instead of waiting for the next reprompt cycle. No music plays between the two — the
+ * Phase-1 gather already stopped it before speaking.
+ */
+async function speakHoldIntakeFollowUpNow(
+  callControlId: string,
+  state: TelnyxCallControlClientState,
+  followUp: HoldQueueIntakeFollowUp
+): Promise<void> {
+  const speakVoice = await resolveHoldSpeakVoice(state)
+  const nextState: TelnyxCallControlClientState = {
+    ...state,
+    phase: "await_busy_hold_loop",
+    holdSegment: "reprompt",
+    holdSpeakVoice: speakVoice,
+    holdIntakeFollowUpAsked: true,
+    holdAwaitingIntakeFollowUpAnswer: true,
+  }
+  console.log(
+    lyncrLog("telnyx-cc-hold-intake-followup-immediate", { callControlId, fieldKey: followUp.fieldKey })
+  )
+  const gatherRes = await telnyxCallControlGatherUsingSpeak(callControlId, {
+    text: `Got it. ${followUp.text}`,
+    clientState: encodeTelnyxCallControlState(nextState),
+    maximumDigits: followUp.maxDigits,
+    timeoutMillis: 10_000,
+    maximumTries: 1,
+    voice: speakVoice,
+  })
+  if (!gatherRes.ok) {
+    await startHoldMusicGather(callControlId, { ...state, holdSpeakVoice: speakVoice })
+  }
 }
 
 /**

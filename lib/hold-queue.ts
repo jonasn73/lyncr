@@ -28,6 +28,14 @@ export function holdRePromptIntervalMs(accountOverrideSecs?: number | null): num
   return Math.min(90_000, Math.max(45_000, Math.floor(raw)))
 }
 
+/**
+ * The very first hold segment uses this instead of holdRePromptIntervalMs — the Phase-1
+ * industry question (lib/hold-queue-intake-prompts.ts) is worth asking early, while the
+ * caller is still fresh, not after a full 45–90s of unbroken music. Later cycles fall back
+ * to the account's normal cadence unchanged.
+ */
+export const HOLD_FIRST_REPROMPT_MS = 18_000
+
 /** Max time a caller may wait in the hold queue (seconds) before one SMS + hangup. */
 export function holdMaxWaitSecs(accountOverrideSecs?: number | null): number {
   const fromAccount =
