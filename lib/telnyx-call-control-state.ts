@@ -106,10 +106,14 @@ export type TelnyxCallControlClientState = {
   /** Unix ms when ai_assistant_start was issued — used to bill AI-conversation minutes accurately (`087`). */
   aiAssistantStartedAtMs?: number
   /**
-   * True once the Phase-1 hold-queue intake question has been asked (answered, skipped,
-   * or the account's industry has no prompt configured) — asked at most once per call.
+   * True once the Phase-1 hold-queue intake question has gotten a real answer (a
+   * matched digit) — or the account's industry has no prompt configured at all. Either
+   * way, once true, the question is never asked again. Unanswered/unmatched attempts
+   * leave this false so a later reprompt cycle retries (see holdIntakeAttempts).
    */
-  holdIntakeAsked?: boolean
+  holdIntakeAnswered?: boolean
+  /** How many times the Phase-1 question has been spoken — capped (see MAX_INTAKE_ATTEMPTS). */
+  holdIntakeAttempts?: number
   /**
    * True only while a gather is specifically waiting on the intake question's answer —
    * disambiguates its digits (1/2/3 = which option) from the plain reprompt's single
@@ -118,11 +122,17 @@ export type TelnyxCallControlClientState = {
   holdAwaitingIntakeAnswer?: boolean
   /**
    * Phase-2 numeric follow-up queued by the option picked in Phase 1 (e.g. "type the
-   * model year") — carried on state until the next reprompt cycle asks it.
+   * model year") — carried on state until it's answered or gives up retrying.
    */
   holdIntakeFollowUp?: { text: string; maxDigits: number; fieldKey: string; fieldLabel: string }
-  /** True once the Phase-2 follow-up has been asked (answered or skipped) — asked at most once. */
-  holdIntakeFollowUpAsked?: boolean
+  /**
+   * True once the Phase-2 follow-up captured a FULL answer (all maxDigits digits) — a
+   * partial or empty answer leaves this false so a later cycle retries instead of
+   * treating a half-typed year as final.
+   */
+  holdIntakeFollowUpAnswered?: boolean
+  /** How many times the Phase-2 follow-up has been spoken — capped (see MAX_INTAKE_ATTEMPTS). */
+  holdIntakeFollowUpAttempts?: number
   /** True only while a gather is waiting on the Phase-2 follow-up's numeric answer. */
   holdAwaitingIntakeFollowUpAnswer?: boolean
 }
