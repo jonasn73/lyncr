@@ -835,11 +835,21 @@ async function finishHoldWithoutSms(
   void state
 }
 
-/** Caller hung up while waiting — cleanup Neon + Telnyx queue (no auto SMS). */
+/**
+ * Caller hung up — cleanup Neon + Telnyx queue (no auto SMS).
+ * Called unconditionally on every inbound hangup (even with stale/missing client_state,
+ * to guarantee ghost "holding" rows clear) — including the NORMAL end of a call that was
+ * already answered from the queue. Without the status check below, that hangup silently
+ * overwrote a correctly-recorded "answered" row back to "left", corrupting
+ * answered-vs-abandoned reporting (confirmed live: 6 rows had a real answered_at but only
+ * 1 still showed status="answered"). Only ever downgrades a row still "waiting"/"holding".
+ */
 export async function abandonHoldQueue(callControlId: string): Promise<void> {
   // Caller already hung up; mark terminal so leave_queue is skipped or treated as 90018 race.
   markTelnyxCallControlTerminal(callControlId)
   await telnyxCallControlLeaveQueue(callControlId).catch(() => undefined)
+  const liveStatus = await getCallQueueStatusByCallControlId(callControlId).catch(() => null)
+  if (liveStatus && liveStatus !== "waiting" && liveStatus !== "holding") return
   await updateCallQueueStatus({ callControlId, status: "left" })
 }
 
