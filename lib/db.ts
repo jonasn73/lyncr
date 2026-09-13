@@ -6082,14 +6082,100 @@ async function listNeedsFollowUpCustomersForUser(
   }
 }
 
+/**
+ * Customers with at least one completed, review-eligible job whose Thanks + review SMS
+ * was never sent — same needs_review_sms rule as listCrmServiceHistoryForCustomer /
+ * listOwnerJobsNeedingReviewSms, but not day-scoped, so this is the one place the whole
+ * backlog is visible at once (a completed job ages out of Lines → Latest after its first
+ * day). Read-only visibility only — never auto-sends; the owner picks who to send from here.
+ */
+async function listNeedsReviewCustomersForUser(
+  userId: string,
+  options?: { q?: string; limit?: number }
+): Promise<CrmCustomerListItem[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(options?.limit ?? 80, 1), 200)
+  const q = (options?.q ?? "").trim()
+  const pat = q ? `%${q}%` : null
+
+  try {
+    const rows = (await sql`
+      WITH review_stats AS (
+        SELECT
+          right(regexp_replace(coalesce(nullif(trim(caller_e164), ''), nullif(trim(collected->>'customer_phone'), ''), ''), '\\D', '', 'g'), 10) AS phone_key,
+          count(*) FILTER (
+            WHERE lower(trim(coalesce(job_status, ''))) = 'completed'
+              AND NULLIF(TRIM(COALESCE(collected->>'review_sms_sent_at', '')), '') IS NULL
+              AND (
+                disposition IN ('BOOKED', 'PENDING_TIME')
+                OR collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+              )
+          ) AS needs_review_count,
+          max(coalesce(scheduled_at, created_at)) FILTER (
+            WHERE lower(trim(coalesce(job_status, ''))) = 'completed'
+              AND NULLIF(TRIM(COALESCE(collected->>'review_sms_sent_at', '')), '') IS NULL
+              AND (
+                disposition IN ('BOOKED', 'PENDING_TIME')
+                OR collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+              )
+          ) AS last_completed_at
+        FROM ai_leads
+        WHERE user_id = ${userId}
+        GROUP BY 1
+      )
+      SELECT c.*, rs.needs_review_count, rs.last_completed_at
+      FROM customers c
+      JOIN review_stats rs
+        ON rs.phone_key = right(regexp_replace(coalesce(c.phone_e164, ''), '\\D', '', 'g'), 10)
+      WHERE c.user_id = ${userId}
+        AND rs.needs_review_count > 0
+        AND (
+          ${pat}::text IS NULL
+          OR c.phone_e164 ILIKE ${pat}
+          OR c.display_name ILIKE ${pat}
+          OR c.company_name ILIKE ${pat}
+          OR c.notes ILIKE ${pat}
+        )
+      ORDER BY rs.last_completed_at DESC NULLS LAST
+      LIMIT ${lim}
+    `) as Record<string, unknown>[]
+
+    return rows.map((row) => {
+      const customer = parseCustomerRow(row)
+      const needsReviewCount = Number(row.needs_review_count ?? 0)
+      const lastCompletedAt =
+        row.last_completed_at instanceof Date
+          ? row.last_completed_at.toISOString()
+          : row.last_completed_at
+            ? String(row.last_completed_at)
+            : null
+      return {
+        ...customer,
+        jobs_completed: needsReviewCount,
+        lifetime_revenue_cents: 0,
+        lead_badge: "needs_review",
+        open_lead_count: 0,
+        job_status_label:
+          needsReviewCount > 1 ? `${needsReviewCount} reviews not sent` : "Review not sent",
+        job_status_tone: "amber",
+        last_completed_at: lastCompletedAt,
+      } as CrmCustomerListItem
+    })
+  } catch (e) {
+    if (isUndefinedRelationError(e, "customers")) return []
+    if (isUndefinedRelationError(e, "ai_leads")) return []
+    throw e
+  }
+}
+
 /** CRM list with job counts / LTV / lead badge (phone-matched to ai_leads). */
 export async function listCrmCustomersForUser(
   userId: string,
   options?: {
     q?: string
     limit?: number
-    /** all | leads | clients | book_forms (open customer-filled book links) | needs_followup. */
-    filter?: "all" | "leads" | "clients" | "book_forms" | "needs_followup"
+    /** all | leads | clients | book_forms (open customer-filled book links) | needs_followup | needs_review. */
+    filter?: "all" | "leads" | "clients" | "book_forms" | "needs_followup" | "needs_review"
     /** Owner phone timezone for “Booked · …” labels (not Vercel UTC). */
     timeZone?: string | null
   }
@@ -6102,6 +6188,9 @@ export async function listCrmCustomersForUser(
   // updated_at) is exactly the wrong shape for finding customers who went quiet.
   if (filter === "needs_followup") {
     return listNeedsFollowUpCustomersForUser(userId, { q: options?.q, limit: options?.limit })
+  }
+  if (filter === "needs_review") {
+    return listNeedsReviewCustomersForUser(userId, { q: options?.q, limit: options?.limit })
   }
 
   // Book forms filter: pull phones that still have an open customer-filled lead first

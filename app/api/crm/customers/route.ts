@@ -20,7 +20,8 @@ export async function GET(req: NextRequest) {
     filterRaw === "leads" ||
     filterRaw === "clients" ||
     filterRaw === "book_forms" ||
-    filterRaw === "needs_followup"
+    filterRaw === "needs_followup" ||
+    filterRaw === "needs_review"
       ? filterRaw
       : "all"
   const limit = Number(req.nextUrl.searchParams.get("limit") || "80")

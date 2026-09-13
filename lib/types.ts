@@ -1407,6 +1407,7 @@ export type CrmLeadBadge =
   | "repeat_customer"
   | "new_contact"
   | "needs_followup"
+  | "needs_review"
 
 export interface CrmCustomerListItem extends Customer {
   jobs_completed: number

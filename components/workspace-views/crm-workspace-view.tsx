@@ -138,7 +138,7 @@ import {
   mergeCrmServiceHistoryWithWalkUps,
 } from "@/lib/crm-walk-up-history"
 
-type CrmFilter = "all" | "leads" | "clients" | "book_forms" | "needs_followup"
+type CrmFilter = "all" | "leads" | "clients" | "book_forms" | "needs_followup" | "needs_review"
 
 const BADGE_LABEL: Record<CrmLeadBadge, string> = {
   booked_client: "Booked client",
@@ -150,6 +150,7 @@ const BADGE_LABEL: Record<CrmLeadBadge, string> = {
   repeat_customer: "Repeat customer",
   new_contact: "New contact",
   needs_followup: "Follow up",
+  needs_review: "Needs review",
 }
 
 /** Soft color for the CRM list-row job status (Needs call / Booked / Complete…). */
@@ -3015,6 +3016,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 { id: "book_forms", label: "Book forms", tone: "orange" },
                 { id: "clients", label: "Clients", tone: "sky" },
                 { id: "needs_followup", label: "Needs follow-up", tone: "amber" },
+                { id: "needs_review", label: "Needs review", tone: "amber" },
               ]}
             />
           </div>
@@ -3042,9 +3044,11 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                       ? "No open book-form leads"
                       : filter === "needs_followup"
                         ? "Nobody's overdue right now"
-                        : searchingPhone
-                          ? "This number isn’t saved yet"
-                          : "No customers yet"
+                        : filter === "needs_review"
+                          ? "Nobody's waiting on a review request"
+                          : searchingPhone
+                            ? "This number isn’t saved yet"
+                            : "No customers yet"
                 }
                 description={
                   nameSearchEmpty
@@ -3055,9 +3059,11 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                       ? "When a customer submits your /book link, they show up here."
                       : filter === "needs_followup"
                         ? "Customers land here after 6 months without a completed job, or with an unpaid invoice."
-                        : searchingPhone
-                          ? "They show up here after a book form, intake, or Activity save."
-                          : "Save a caller from Activity or intake — they’ll show up here."
+                        : filter === "needs_review"
+                          ? "Every completed job here already got a Thanks + review text."
+                          : searchingPhone
+                            ? "They show up here after a book form, intake, or Activity save."
+                            : "Save a caller from Activity or intake — they’ll show up here."
                 }
                 action={
                   nameSearchEmpty ? (
