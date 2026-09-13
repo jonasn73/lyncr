@@ -53,25 +53,39 @@ const VEHICLE_YEAR_FOLLOW_UP: HoldQueueIntakeFollowUp = {
 const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> = {
   locksmith: {
     text:
-      "Quick question while you wait. For a car key or lockout, press 1. " +
-      "For a home or business lockout, press 2. For anything else, press 3.",
+      "Quick question while you wait. If you're locked out of your car, press 1. " +
+      "If you lost your key or need a new one made, press 2. " +
+      "For a home or business lockout, press 3. For anything else, press 4.",
     // Locksmith's REAL job types are SERVICE_QUOTE_TYPES (lockout, key_generation,
     // key_duplication, ignition_repair, programming_diagnostics, key_extraction,
-    // rekey, …) — six-plus granular options, none of which "vehicle key/lockout"
-    // maps onto 1:1. These intentSlugs are informational only (shown as the label
-    // on the waiting card) and deliberately don't match any real option id, so
+    // rekey, …) — six-plus granular options, none of which a coarse Phase-1 question
+    // maps onto 1:1. These intentSlugs are informational only (shown as the label on
+    // the waiting card) and deliberately don't match any real option id, so
     // resolveHoldQueueCollectedPreFill's job-type auto-select correctly no-ops for
     // locksmith — the operator still picks the specific job type, same as always.
     // Phase 2's model-year follow-up still pre-fills, independent of that.
+    //
+    // Split "vehicle key / lockout" (the original 3-option version) into its two most
+    // common, operationally-different cases: a plain lockout (fast, no key needed —
+    // just entry tools) versus all-keys-lost / a new key needed (key_generation —
+    // slower, needs a key blank + cutting/programming gear, and vehicle year/make/
+    // model matters far more here than for a simple lockout). Knowing which one is
+    // waiting, before Answer is even pressed, changes what the tech brings.
     options: [
       {
         digit: "1",
-        label: "Vehicle key / lockout",
-        intentSlug: "locksmith_vehicle",
+        label: "Locked out of car",
+        intentSlug: "locksmith_lockout",
         followUp: VEHICLE_YEAR_FOLLOW_UP,
       },
-      { digit: "2", label: "Home or business lockout", intentSlug: "locksmith_property" },
-      { digit: "3", label: "Something else", intentSlug: "locksmith_other" },
+      {
+        digit: "2",
+        label: "Lost key / needs new key made",
+        intentSlug: "locksmith_key_generation",
+        followUp: VEHICLE_YEAR_FOLLOW_UP,
+      },
+      { digit: "3", label: "Home or business lockout", intentSlug: "locksmith_property" },
+      { digit: "4", label: "Something else", intentSlug: "locksmith_other" },
     ],
   },
   auto_repair: {
