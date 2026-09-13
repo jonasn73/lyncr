@@ -1006,9 +1006,12 @@ async function handleHoldIntakeFollowUpAnswer(
     })
   )
 
+  // Echo the actual digits back — "Perfect, got it" alone left callers unsure whether
+  // anything was really captured (reported live). Hearing their own answer read back
+  // is unambiguous confirmation; a generic phrase isn't.
   await telnyxCallControlSpeak(
     callControlId,
-    "Perfect, got it.",
+    `Got it — ${followUp.fieldLabel} ${digits}.`,
     encodeTelnyxCallControlState(baseState),
     { voice: baseState.holdSpeakVoice }
   ).catch(() => undefined)
