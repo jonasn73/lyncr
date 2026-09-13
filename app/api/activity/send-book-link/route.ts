@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { getUser, normalizePhoneNumberE164 } from "@/lib/db"
+import { getActivePhoneNumberByE164, getUser, normalizePhoneNumberE164 } from "@/lib/db"
 import { neon } from "@neondatabase/serverless"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { isStripeConfigured } from "@/lib/stripe-config"
@@ -207,12 +207,22 @@ export async function POST(req: NextRequest) {
       operatorNote: note || null,
     })
 
+    // Resolve the shop from the called DID (same pattern as /api/book/callback) — without
+    // this, sendAndLogWorkspaceCustomerSms hard-blocks on any account with more than one
+    // shop rather than guess which business's line to send from, and this account has 2.
+    const businessLineRecord = businessLine ? await getActivePhoneNumberByE164(businessLine) : null
+    const organizationId =
+      businessLineRecord?.organization_id && !businessLineRecord.organization_id.startsWith("legacy-")
+        ? businessLineRecord.organization_id
+        : null
+
     const sent = await sendAndLogWorkspaceCustomerSms({
       ownerUserId: userId,
       toE164: phone,
       text: smsBody,
       // Prefer the business DID from the Activity row when present
       fromE164: businessLine,
+      organizationId,
     })
 
     const wallets = collectCheckoutWalletSummary({

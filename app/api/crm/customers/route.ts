@@ -27,9 +27,13 @@ export async function GET(req: NextRequest) {
   const limit = Number(req.nextUrl.searchParams.get("limit") || "80")
   // Match Activity: format “Booked · …” in the owner’s zone, not Vercel UTC.
   const timeZone = sanitizeIanaTimezone(req.nextUrl.searchParams.get("timezone"))
+  // Every shop stays strictly separate here (owner's explicit choice) — the client already
+  // resolves its own active org via useWorkspaceOrgId before this fetch ever fires.
+  const orgIdRaw = req.nextUrl.searchParams.get("organization_id")?.trim() || ""
+  const organizationId = orgIdRaw && !orgIdRaw.startsWith("legacy-") ? orgIdRaw : null
 
   try {
-    const customers = await listCrmCustomersForUser(userId, { q, filter, limit, timeZone })
+    const customers = await listCrmCustomersForUser(userId, { q, filter, limit, timeZone, organizationId })
     return NextResponse.json({ data: { customers } })
   } catch (e) {
     console.error("[GET /api/crm/customers]", e)

@@ -620,6 +620,8 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     params.set("filter", filter)
     // Same zone as Activity — “Booked · …” and paint cookies stay stable.
     params.set("timezone", resolveBrowserTimezone())
+    // Every shop stays strictly separate in CRM — same active-org lens Messages already uses.
+    if (crmOrgId && !crmOrgId.startsWith("legacy-")) params.set("organization_id", crmOrgId)
     fetch(`/api/crm/customers?${params.toString()}`, { credentials: "include" })
       .then(async (res) => {
         if (!res.ok) {

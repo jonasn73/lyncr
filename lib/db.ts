@@ -5975,13 +5975,14 @@ function isCrmTerminalJobStatus(js: string): boolean {
  */
 async function listNeedsFollowUpCustomersForUser(
   userId: string,
-  options?: { q?: string; limit?: number; lapsedMonths?: number }
+  options?: { q?: string; limit?: number; lapsedMonths?: number; organizationId?: string | null }
 ): Promise<CrmCustomerListItem[]> {
   const sql = getSql()
   const lim = Math.min(Math.max(options?.limit ?? 80, 1), 200)
   const lapsedMonths = Math.min(Math.max(options?.lapsedMonths ?? 6, 1), 60)
   const q = (options?.q ?? "").trim()
   const pat = q ? `%${q}%` : null
+  const orgId = options?.organizationId?.trim() || null
 
   try {
     const rows = (await sql`
@@ -6006,6 +6007,7 @@ async function listNeedsFollowUpCustomersForUser(
           ) AS lifetime_revenue_cents
         FROM ai_leads
         WHERE user_id = ${userId}
+          AND (${orgId}::uuid IS NULL OR organization_id IS NULL OR organization_id = ${orgId}::uuid)
         GROUP BY 1
       ),
       unpaid AS (
@@ -6091,12 +6093,13 @@ async function listNeedsFollowUpCustomersForUser(
  */
 async function listNeedsReviewCustomersForUser(
   userId: string,
-  options?: { q?: string; limit?: number }
+  options?: { q?: string; limit?: number; organizationId?: string | null }
 ): Promise<CrmCustomerListItem[]> {
   const sql = getSql()
   const lim = Math.min(Math.max(options?.limit ?? 80, 1), 200)
   const q = (options?.q ?? "").trim()
   const pat = q ? `%${q}%` : null
+  const orgId = options?.organizationId?.trim() || null
 
   try {
     const rows = (await sql`
@@ -6121,6 +6124,7 @@ async function listNeedsReviewCustomersForUser(
           ) AS last_completed_at
         FROM ai_leads
         WHERE user_id = ${userId}
+          AND (${orgId}::uuid IS NULL OR organization_id IS NULL OR organization_id = ${orgId}::uuid)
         GROUP BY 1
       )
       SELECT c.*, rs.needs_review_count, rs.last_completed_at
@@ -6178,19 +6182,27 @@ export async function listCrmCustomersForUser(
     filter?: "all" | "leads" | "clients" | "book_forms" | "needs_followup" | "needs_review"
     /** Owner phone timezone for “Booked · …” labels (not Vercel UTC). */
     timeZone?: string | null
+    /**
+     * Active shop — every filter stays strictly scoped to it (owner's explicit choice: no
+     * shop's customers should leak into another's list). A null organization_id on a lead
+     * (legacy pre-multi-org rows) still counts for every shop, same fallback used elsewhere
+     * (listOwnerRecentBookFormLeads, listOwnerJobsNeedingReviewSms).
+     */
+    organizationId?: string | null
   }
 ): Promise<CrmCustomerListItem[]> {
   const filter = options?.filter ?? "all"
   const timeZone = options?.timeZone ?? null
+  const orgId = options?.organizationId?.trim() || null
   const sql = getSql()
 
   // Lapsed / unpaid — its own query, since the default candidate list (top-N by
   // updated_at) is exactly the wrong shape for finding customers who went quiet.
   if (filter === "needs_followup") {
-    return listNeedsFollowUpCustomersForUser(userId, { q: options?.q, limit: options?.limit })
+    return listNeedsFollowUpCustomersForUser(userId, { q: options?.q, limit: options?.limit, organizationId: orgId })
   }
   if (filter === "needs_review") {
-    return listNeedsReviewCustomersForUser(userId, { q: options?.q, limit: options?.limit })
+    return listNeedsReviewCustomersForUser(userId, { q: options?.q, limit: options?.limit, organizationId: orgId })
   }
 
   // Book forms filter: pull phones that still have an open customer-filled lead first
@@ -6208,6 +6220,7 @@ export async function listCrmCustomersForUser(
             'public_book_asap', 'public_book_window', 'public_book', 'activity_book_link'
           )
           AND coalesce(created_at, now()) > now() - interval '24 months'
+          AND (${orgId}::uuid IS NULL OR organization_id IS NULL OR organization_id = ${orgId}::uuid)
         LIMIT 200
       `) as Record<string, unknown>[]
       bookFormDigitKeys = bookRows
@@ -6219,6 +6232,30 @@ export async function listCrmCustomersForUser(
       }
     }
     if (bookFormDigitKeys.length === 0) return []
+  }
+
+  // Customers who belong EXCLUSIVELY to a different shop — every ai_leads row they have
+  // (if any) is tagged to some other, non-null organization_id. A customer with no leads at
+  // all, or with at least one null-org/this-org lead, is never excluded (can't attribute, or
+  // already belongs here). Only applied when a real active shop is known.
+  let otherShopOnlyDigitKeys: string[] = []
+  if (orgId) {
+    try {
+      const excludedRows = (await sql`
+        SELECT right(regexp_replace(coalesce(nullif(trim(caller_e164), ''), nullif(trim(collected->>'customer_phone'), ''), ''), '\\D', '', 'g'), 10) AS phone_key
+        FROM ai_leads
+        WHERE user_id = ${userId}
+        GROUP BY 1
+        HAVING bool_and(organization_id IS NOT NULL AND organization_id <> ${orgId}::uuid)
+      `) as Record<string, unknown>[]
+      otherShopOnlyDigitKeys = excludedRows
+        .map((r) => String(r.phone_key ?? ""))
+        .filter((d) => d.length >= 10)
+    } catch (e) {
+      if (!isUndefinedRelationError(e, "ai_leads")) {
+        console.warn("[listCrmCustomersForUser] shop-exclusion phones failed", e)
+      }
+    }
   }
 
   // Default list OR (Book forms) customers matching those open book-form phones.
@@ -6259,10 +6296,16 @@ export async function listCrmCustomersForUser(
       throw e
     }
   } else {
-    customers = await listCustomersForUser(userId, {
-      q: options?.q,
-      limit: options?.limit ?? 80,
-    })
+    const requestedLimit = options?.limit ?? 80
+    // Over-fetch when a shop exclusion will run afterward — otherwise a page full of
+    // another shop's customers could shrink well below the requested count.
+    const fetchLimit = otherShopOnlyDigitKeys.length > 0 ? Math.min(requestedLimit * 3, 600) : requestedLimit
+    customers = await listCustomersForUser(userId, { q: options?.q, limit: fetchLimit })
+  }
+  if (otherShopOnlyDigitKeys.length > 0) {
+    const excludeSet = new Set(otherShopOnlyDigitKeys)
+    customers = customers.filter((c) => !excludeSet.has(crmDigits(c.phone_e164)))
+    customers = customers.slice(0, options?.limit ?? 80)
   }
   if (customers.length === 0) return []
 
@@ -6306,6 +6349,7 @@ export async function listCrmCustomersForUser(
         AND right(regexp_replace(coalesce(nullif(trim(caller_e164), ''), nullif(trim(collected->>'customer_phone'), ''), ''), '\\D', '', 'g'), 10)
           = ANY(${digitKeys})
         AND coalesce(created_at, now()) > now() - interval '24 months'
+        AND (${orgId}::uuid IS NULL OR organization_id IS NULL OR organization_id = ${orgId}::uuid)
       LIMIT 2500
     `) as Record<string, unknown>[]
 
@@ -9682,12 +9726,17 @@ export async function insertAiLead(params: {
 /**
  * Stamp an open lead callback outcome (Called · no answer / Called · answered).
  * Stored in collected JSON — no schema migration required.
+ *
+ * Returns the lead's own organization_id (or null) alongside success — callers that go on
+ * to send a customer SMS need this: sendAndLogWorkspaceCustomerSms silently hard-blocks on
+ * any account with more than one shop when organizationId is omitted (by design, it never
+ * guesses which business's line to send from), and this account has 2 real shops.
  */
 export async function markLeadCallbackOutcome(params: {
   ownerUserId: string
   leadId: string
   outcome: "called_no_answer" | "called_answered"
-}): Promise<boolean> {
+}): Promise<{ id: string; organizationId: string | null } | null> {
   const sql = getSql()
   const now = new Date().toISOString()
   const patch =
@@ -9705,11 +9754,13 @@ export async function markLeadCallbackOutcome(params: {
       UPDATE ai_leads
       SET collected = coalesce(collected, '{}'::jsonb) || ${patch}::jsonb
       WHERE id = ${params.leadId} AND user_id = ${params.ownerUserId}
-      RETURNING id
+      RETURNING id, organization_id
     `
-    return rows.length > 0
+    const row = rows[0] as { id: string; organization_id: string | null } | undefined
+    if (!row) return null
+    return { id: String(row.id), organizationId: row.organization_id ? String(row.organization_id) : null }
   } catch (e) {
-    if (isUndefinedRelationError(e, "ai_leads")) return false
+    if (isUndefinedRelationError(e, "ai_leads")) return null
     throw e
   }
 }
@@ -9718,7 +9769,7 @@ export async function markLeadCallbackOutcome(params: {
 export async function markLeadCalledNoAnswer(params: {
   ownerUserId: string
   leadId: string
-}): Promise<boolean> {
+}): Promise<{ id: string; organizationId: string | null } | null> {
   return markLeadCallbackOutcome({
     ownerUserId: params.ownerUserId,
     leadId: params.leadId,
@@ -11287,21 +11338,21 @@ export async function listOwnerRecentBookFormLeads(params: {
 }
 
 /**
- * Completed-today jobs still needing a Thanks + review SMS — deliberately NOT scoped to
- * the caller's active organization. A multi-shop owner's Latest feed only ever queries
- * the currently active shop, so a job belonging to a different shop used to vanish from
- * Latest entirely with no error and no indicator — reported live (a real completed,
- * review-eligible job for one shop was invisible while viewing another). A review nudge
- * isn't shop-sensitive data, so this always looks across every shop the owner has.
+ * Completed-today jobs still needing a Thanks + review SMS — scoped to the caller's active
+ * organization (owner's explicit preference: every shop stays strictly separate, matching
+ * how Messages/CRM behave). A null organization_id (legacy pre-multi-org rows) always shows,
+ * same fallback listOwnerRecentBookFormLeads already uses for the same reason.
  */
 export async function listOwnerJobsNeedingReviewSms(params: {
   ownerUserId: string
   timezone?: string | null
+  organizationId?: string | null
   limit?: number
 }): Promise<import("@/lib/types").SchedulerEvent[]> {
   const sql = getSql()
   const lim = Math.min(Math.max(params.limit ?? 12, 1), 40)
   const tz = sanitizeIanaTimezone(params.timezone)
+  const orgId = params.organizationId?.trim() || null
   try {
     const rows = await sql`
       SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
@@ -11315,6 +11366,7 @@ export async function listOwnerJobsNeedingReviewSms(params: {
           l.disposition IN ('BOOKED', 'PENDING_TIME')
           OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
         )
+        AND (${orgId}::uuid IS NULL OR l.organization_id IS NULL OR l.organization_id = ${orgId}::uuid)
         AND date_trunc(
           'day',
           timezone(

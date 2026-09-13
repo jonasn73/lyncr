@@ -66,11 +66,11 @@ export async function GET(req: NextRequest) {
 
     const [orgMessages, reviewJobs, collectedRows, bookFormRows] = await Promise.all([
       org ? listSmsMessagesForOrganization(userId, org.id, 120) : Promise.resolve([]),
-      // Completed today (owner TZ) with review_sms_sent_at still null — includes Jason after
-      // 8pm ET. Deliberately not org-scoped — see listOwnerJobsNeedingReviewSms.
+      // Completed today (owner TZ) with review_sms_sent_at still null — includes Jason after 8pm ET.
       listOwnerJobsNeedingReviewSms({
         ownerUserId: userId,
         timezone,
+        organizationId: org?.id ?? null,
         limit: 12,
       }),
       // Recent wallet settles — feed “Customer paid” into Latest (persists across refresh).

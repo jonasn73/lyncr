@@ -85,6 +85,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       ownerUserId: userId,
       toE164: phone,
       text,
+      organizationId: stamped.organizationId,
     })
     if (!sent.ok) {
       return NextResponse.json(
