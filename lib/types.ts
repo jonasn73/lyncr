@@ -1485,6 +1485,8 @@ export interface CrmServiceHistoryItem {
   is_salvageable?: boolean
   /** Completed job still needs Thanks + review SMS (Latest backup on CRM). */
   needs_review_sms?: boolean
+  /** ISO timestamp the Thanks + review SMS was sent, or null if never sent. */
+  review_sms_sent_at?: string | null
 }
 
 // --- Routing Configuration ---

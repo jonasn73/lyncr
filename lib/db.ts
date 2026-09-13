@@ -6682,6 +6682,7 @@ export async function listCrmServiceHistoryForCustomer(params: {
         is_open_lead: isOpenLead,
         is_salvageable: Boolean(isOpenLead && isSalvageLead),
         needs_review_sms: needsReviewSms,
+        review_sms_sent_at: reviewSent || null,
       }
     })
   } catch (e) {
@@ -11159,91 +11160,59 @@ export async function listOwnerRecentBookFormLeads(params: {
   }
 }
 
+/**
+ * Completed-today jobs still needing a Thanks + review SMS — deliberately NOT scoped to
+ * the caller's active organization. A multi-shop owner's Latest feed only ever queries
+ * the currently active shop, so a job belonging to a different shop used to vanish from
+ * Latest entirely with no error and no indicator — reported live (a real completed,
+ * review-eligible job for one shop was invisible while viewing another). A review nudge
+ * isn't shop-sensitive data, so this always looks across every shop the owner has.
+ */
 export async function listOwnerJobsNeedingReviewSms(params: {
   ownerUserId: string
   timezone?: string | null
-  organizationId?: string | null
   limit?: number
 }): Promise<import("@/lib/types").SchedulerEvent[]> {
   const sql = getSql()
   const lim = Math.min(Math.max(params.limit ?? 12, 1), 40)
   const tz = sanitizeIanaTimezone(params.timezone)
-  const orgId = params.organizationId?.trim() || null
   try {
-    const rows = orgId
-      ? await sql`
-          SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
-                 l.assigned_tech_id, l.job_status, l.dispatch_status, t.name AS assigned_tech_name
-          FROM ai_leads l
-          LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
-          WHERE l.user_id = ${params.ownerUserId}
-            AND LOWER(TRIM(COALESCE(l.job_status, ''))) = 'completed'
-            AND NULLIF(TRIM(COALESCE(l.collected->>'review_sms_sent_at', '')), '') IS NULL
-            AND (
-              l.disposition IN ('BOOKED', 'PENDING_TIME')
-              OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+    const rows = await sql`
+      SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
+             l.assigned_tech_id, l.job_status, l.dispatch_status, t.name AS assigned_tech_name
+      FROM ai_leads l
+      LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+      WHERE l.user_id = ${params.ownerUserId}
+        AND LOWER(TRIM(COALESCE(l.job_status, ''))) = 'completed'
+        AND NULLIF(TRIM(COALESCE(l.collected->>'review_sms_sent_at', '')), '') IS NULL
+        AND (
+          l.disposition IN ('BOOKED', 'PENDING_TIME')
+          OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+        )
+        AND date_trunc(
+          'day',
+          timezone(
+            ${tz},
+            COALESCE(
+              CASE
+                WHEN NULLIF(TRIM(COALESCE(l.collected->>'completed_at', '')), '') IS NOT NULL
+                  THEN (l.collected->>'completed_at')::timestamptz
+                ELSE NULL
+              END,
+              l.created_at
             )
-            AND (l.organization_id IS NULL OR l.organization_id = ${orgId}::uuid)
-            AND date_trunc(
-              'day',
-              timezone(
-                ${tz},
-                COALESCE(
-                  CASE
-                    WHEN NULLIF(TRIM(COALESCE(l.collected->>'completed_at', '')), '') IS NOT NULL
-                      THEN (l.collected->>'completed_at')::timestamptz
-                    ELSE NULL
-                  END,
-                  l.created_at
-                )
-              )
-            ) = date_trunc('day', timezone(${tz}, now()))
-          ORDER BY COALESCE(
-            CASE
-              WHEN NULLIF(TRIM(COALESCE(l.collected->>'completed_at', '')), '') IS NOT NULL
-                THEN (l.collected->>'completed_at')::timestamptz
-              ELSE NULL
-            END,
-            l.created_at
-          ) DESC
-          LIMIT ${lim}
-        `
-      : await sql`
-          SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
-                 l.assigned_tech_id, l.job_status, l.dispatch_status, t.name AS assigned_tech_name
-          FROM ai_leads l
-          LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
-          WHERE l.user_id = ${params.ownerUserId}
-            AND LOWER(TRIM(COALESCE(l.job_status, ''))) = 'completed'
-            AND NULLIF(TRIM(COALESCE(l.collected->>'review_sms_sent_at', '')), '') IS NULL
-            AND (
-              l.disposition IN ('BOOKED', 'PENDING_TIME')
-              OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
-            )
-            AND date_trunc(
-              'day',
-              timezone(
-                ${tz},
-                COALESCE(
-                  CASE
-                    WHEN NULLIF(TRIM(COALESCE(l.collected->>'completed_at', '')), '') IS NOT NULL
-                      THEN (l.collected->>'completed_at')::timestamptz
-                    ELSE NULL
-                  END,
-                  l.created_at
-                )
-              )
-            ) = date_trunc('day', timezone(${tz}, now()))
-          ORDER BY COALESCE(
-            CASE
-              WHEN NULLIF(TRIM(COALESCE(l.collected->>'completed_at', '')), '') IS NOT NULL
-                THEN (l.collected->>'completed_at')::timestamptz
-              ELSE NULL
-            END,
-            l.created_at
-          ) DESC
-          LIMIT ${lim}
-        `
+          )
+        ) = date_trunc('day', timezone(${tz}, now()))
+      ORDER BY COALESCE(
+        CASE
+          WHEN NULLIF(TRIM(COALESCE(l.collected->>'completed_at', '')), '') IS NOT NULL
+            THEN (l.collected->>'completed_at')::timestamptz
+          ELSE NULL
+        END,
+        l.created_at
+      ) DESC
+      LIMIT ${lim}
+    `
     return rows.map((r) => schedulerEventFromRow(r as Record<string, unknown>))
   } catch (e) {
     if (isUndefinedRelationError(e, "ai_leads") || isMissingSchedulerColumnError(e)) return []

@@ -2179,6 +2179,30 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                   Send invoice
                 </button>
               )}
+              {/* Send review / review-sent status — this job may be the ONLY one this
+                  customer has, in which case it never reaches the Past jobs list below
+                  (that list hides whichever job this hero card is already showing), so
+                  this is the only place the action can live for a first-time customer. */}
+              {headerJobTarget.needs_review_sms ? (
+                <button
+                  type="button"
+                  disabled={reviewBusyId === headerJobTarget.id}
+                  onClick={() => void sendReviewSms(headerJobTarget.id)}
+                  className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 text-xs font-semibold text-warning hover:bg-warning/20 disabled:opacity-50"
+                >
+                  {reviewBusyId === headerJobTarget.id ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Star className="h-3.5 w-3.5" />
+                  )}
+                  Send thanks + review
+                </button>
+              ) : headerJobTarget.review_sms_sent_at ? (
+                <p className="flex items-center gap-1 text-2xs text-muted-foreground">
+                  <Star className="h-3 w-3 text-warning" />
+                  Review requested {formatTimeAgo(headerJobTarget.review_sms_sent_at)}
+                </p>
+              ) : null}
               {/* Compact status chips — texts live under Message; this row is lifecycle only. */}
               <div className="flex flex-wrap gap-2">
                 {/* Call outcomes only before Booked / Cancelled / Complete. */}
