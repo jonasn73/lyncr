@@ -135,6 +135,14 @@ export type TelnyxCallControlClientState = {
   holdIntakeFollowUpAttempts?: number
   /** True only while a gather is waiting on the Phase-2 follow-up's numeric answer. */
   holdAwaitingIntakeFollowUpAnswer?: boolean
+  /**
+   * Human-readable summary of what's been captured so far (e.g. "Lost key / needs new
+   * key made — Year 2009") — built up as each phase answers, used for the reprompt copy
+   * once fully answered and for the owner "caller answered" SMS.
+   */
+  holdIntakeSummary?: string
+  /** One-time owner SMS once intake is fully captured AND the caller has waited a bit — never repeats. */
+  holdIntakeCapturedAlerted?: boolean
 }
 
 export function encodeTelnyxCallControlState(state: TelnyxCallControlClientState): string {

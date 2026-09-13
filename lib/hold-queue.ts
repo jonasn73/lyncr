@@ -36,6 +36,15 @@ export function holdRePromptIntervalMs(accountOverrideSecs?: number | null): num
  */
 export const HOLD_FIRST_REPROMPT_MS = 18_000
 
+/**
+ * Minimum time a caller must have already waited before the "caller answered your
+ * questions" owner SMS fires (lib/hold-intake-captured-alert.ts) — even if intake is
+ * captured almost immediately, the owner doesn't get texted about a call that might be
+ * answered from Lines within a few seconds anyway. Deliberately separate from (much
+ * shorter than) holdLongWaitAlertMs, which is about wait-time pain, not lead quality.
+ */
+export const HOLD_INTAKE_CAPTURED_ALERT_MIN_WAIT_MS = 60_000
+
 /** Max time a caller may wait in the hold queue (seconds) before one SMS + hangup. */
 export function holdMaxWaitSecs(accountOverrideSecs?: number | null): number {
   const fromAccount =
@@ -155,6 +164,14 @@ export function resolveHoldMusicUrlCandidates(accountOverride?: string | null): 
  */
 export const HOLD_REPROMPT_DEFAULT =
   "You're still in line. Press 1 to book by text, or stay on the line."
+
+/**
+ * Same reminder, for a caller who's already fully answered the smart-hold intake
+ * questions — acknowledges that instead of repeating the exact same "please answer"
+ * framing to someone who's already engaged and told us what they need.
+ */
+export const HOLD_REPROMPT_ALREADY_ANSWERED =
+  "Thanks for those details — you're still in line. Press 1 to book by text, or stay on the line."
 
 /** Spoken when max wait is reached — offer SMS once, then hang up. */
 export const HOLD_MAX_WAIT_SMS_PROMPT =

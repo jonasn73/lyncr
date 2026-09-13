@@ -1,5 +1,6 @@
 // POST /api/webhooks/telnyx/voice — Telnyx Call Control (Voice API v2) event pipeline.
 
+import * as Sentry from "@sentry/nextjs"
 import { after, NextRequest, NextResponse } from "next/server"
 import { prefetchHoldMusicPlaybackContent } from "@/lib/hold-inline-audio"
 import {
@@ -46,7 +47,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   } catch (e) {
     // Log full stack but ACK 200 — a 500 makes Telnyx retry and can leave callers stranded.
+    // Sentry.captureException here specifically because this catch already swallows the
+    // error — an error caught like this never reaches Sentry's automatic instrumentation
+    // on its own, so without this call a real failure here was invisible except to
+    // whoever happened to go looking through raw Vercel logs.
     console.error("[telnyx/voice] Call Control handler error:", e)
+    Sentry.captureException(e)
     return NextResponse.json({ ok: true, degraded: true })
   }
 }

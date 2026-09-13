@@ -1,5 +1,6 @@
 // Inbound Call Control pipeline: call.initiated → answer → call.answered → speak → speak.ended → dial (+ A-leg US ringback).
 
+import * as Sentry from "@sentry/nextjs"
 import { getAppUrl } from "@/lib/telnyx"
 import {
   markTelnyxCallControlTerminal,
@@ -22,6 +23,7 @@ import {
   handleCallEnqueuedHoldMusic,
   handleHoldLoopGatherEnded,
   kickHoldMusicPlaybackImmediate,
+  recoverHoldLoopAfterError,
 } from "@/lib/telnyx-call-control-hold-queue"
 import { prefetchHoldMusicPlaybackContent } from "@/lib/hold-inline-audio"
 import {
@@ -1401,14 +1403,34 @@ async function handleGatherEnded(
   const state = event.clientState
   if (!state) return
 
-  // Soft hold / queue re-prompt loop (music ↔ Busy message).
+  // Soft hold / queue re-prompt loop (music ↔ Busy message). This is the highest-risk
+  // path in the whole webhook (retry counters, immediate follow-up chaining, several
+  // state fields threaded through) — the outer route already ACKs 200 on any throw to
+  // avoid a Telnyx retry, but that alone left a caller stuck in dead air with no owner
+  // ever knowing. Catch here specifically so we can both surface it (Sentry — a bare
+  // console.error inside an already-caught exception is otherwise invisible) and attempt
+  // to keep the call alive instead of frozen.
   if (state.phase === "await_busy_hold_loop") {
-    await handleHoldLoopGatherEnded({
-      callControlId: event.callControlId,
-      state,
-      digits: event.digits.replace(/\D/g, ""),
-      gatherStatus: event.gatherStatus,
-    })
+    try {
+      await handleHoldLoopGatherEnded({
+        callControlId: event.callControlId,
+        state,
+        digits: event.digits.replace(/\D/g, ""),
+        gatherStatus: event.gatherStatus,
+      })
+    } catch (e) {
+      console.error(
+        JSON.stringify({
+          lyncr: "telnyx-cc-hold-loop-handler-error",
+          callControlId: event.callControlId,
+          error: String(e),
+        })
+      )
+      Sentry.captureException(e, {
+        extra: { callControlId: event.callControlId, phase: state.phase },
+      })
+      await recoverHoldLoopAfterError(event.callControlId, state)
+    }
     return
   }
 

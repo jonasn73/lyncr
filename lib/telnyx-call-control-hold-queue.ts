@@ -23,6 +23,8 @@ import {
 import { getAccountPresence } from "@/lib/account-presence"
 import {
   HOLD_FIRST_REPROMPT_MS,
+  HOLD_INTAKE_CAPTURED_ALERT_MIN_WAIT_MS,
+  HOLD_REPROMPT_ALREADY_ANSWERED,
   HOLD_REPROMPT_DEFAULT,
   holdLongWaitAlertMs,
   holdMaxConcurrent,
@@ -33,6 +35,7 @@ import {
   resolveHoldMusicUrlCandidates,
 } from "@/lib/hold-queue"
 import { sendHoldLongWaitOwnerAlert } from "@/lib/hold-long-wait-alert"
+import { sendHoldIntakeCapturedOwnerAlert } from "@/lib/hold-intake-captured-alert"
 import { loadHoldMusicPlaybackContentBase64 } from "@/lib/hold-inline-audio"
 import {
   CAPTURE_STATUS_HOLD_AI_ASSISTED,
@@ -121,6 +124,14 @@ function holdTimedOut(state: TelnyxCallControlClientState): boolean {
   return holdElapsedMs(state) >= holdMaxWaitSecs(state.holdMaxWaitSecs) * 1000
 }
 
+/** True once Phase 1 (and Phase 2, if one was queued) both have a real, complete answer. */
+function isHoldIntakeFullyAnswered(state: TelnyxCallControlClientState): boolean {
+  return (
+    Boolean(state.holdIntakeAnswered) &&
+    (!state.holdIntakeFollowUp || Boolean(state.holdIntakeFollowUpAnswered))
+  )
+}
+
 /** Saved persona voice, or the account's IVR voice, or the shared NaturalHD default. */
 async function resolveHoldSpeakVoice(state: TelnyxCallControlClientState): Promise<string> {
   const saved = state.holdSpeakVoice?.trim()
@@ -149,7 +160,8 @@ async function buildHoldRepromptText(
   // Flag set once at Busy entry (lib/telnyx-call-control-inbound.ts) — no re-query here,
   // this fires on every reprompt cycle during a single hold session.
   const prefix = state.isRepeatCaller ? "Still with us — " : ""
-  return `${prefix}${HOLD_REPROMPT_DEFAULT}${hint}`
+  const base = isHoldIntakeFullyAnswered(state) ? HOLD_REPROMPT_ALREADY_ANSWERED : HOLD_REPROMPT_DEFAULT
+  return `${prefix}${base}${hint}`
 }
 
 /**
@@ -925,6 +937,7 @@ async function handleHoldIntakeAnswer(
 
   // A real answer — lock it in so no later cycle re-asks this.
   baseState.holdIntakeAnswered = true
+  baseState.holdIntakeSummary = matched.label
 
   if (matched.followUp) {
     baseState.holdIntakeFollowUp = matched.followUp
@@ -1023,6 +1036,9 @@ async function handleHoldIntakeFollowUpAnswer(
 
   if (digits.length >= followUp.maxDigits) {
     baseState.holdIntakeFollowUpAnswered = true
+    baseState.holdIntakeSummary = baseState.holdIntakeSummary
+      ? `${baseState.holdIntakeSummary} — ${followUp.fieldLabel} ${digits}`
+      : `${followUp.fieldLabel} ${digits}`
   }
 
   void mergeCallQueueCollected(callControlId, {
@@ -1051,6 +1067,25 @@ async function handleHoldIntakeFollowUpAnswer(
   ).catch(() => undefined)
 
   await startHoldMusicGather(callControlId, baseState)
+}
+
+/**
+ * Best-effort recovery when handleHoldLoopGatherEnded itself throws (caller: the voice
+ * webhook route already catches the exception and still ACKs 200 to Telnyx, so this is
+ * the only thing standing between a bug here and a caller stuck in dead air with no
+ * further prompts for the rest of the call). Restarts hold music with a fresh gather —
+ * not a full re-derivation of whatever state the throw interrupted, just enough to keep
+ * the call alive and moving instead of frozen.
+ */
+export async function recoverHoldLoopAfterError(
+  callControlId: string,
+  state: TelnyxCallControlClientState
+): Promise<void> {
+  await startHoldMusicGather(callControlId, {
+    ...state,
+    phase: "await_busy_hold_loop",
+    holdSegment: "music",
+  }).catch(() => undefined)
 }
 
 /**
@@ -1145,6 +1180,26 @@ export async function handleHoldLoopGatherEnded(params: {
     }).catch((e) => console.warn(lyncrLog("hold-long-wait-alert-failed", { error: String(e) })))
     console.log(lyncrLog("telnyx-cc-hold-long-wait-alert", { callControlId, waitedSecs }))
     effectiveState = { ...state, holdLongWaitAlerted: true }
+  }
+
+  // Separate heads-up once the caller has actually finished answering the smart-hold
+  // questions (a real, qualified lead) AND has waited at least a little while — owner's
+  // explicit choice: don't text on an intake answered within the first few seconds, only
+  // once it's also been a real wait (distinct, shorter threshold than the long-wait alert
+  // above, which is purely about wait-time pain).
+  if (
+    isHoldIntakeFullyAnswered(effectiveState) &&
+    effectiveState.holdIntakeSummary &&
+    !effectiveState.holdIntakeCapturedAlerted &&
+    holdElapsedMs(effectiveState) >= HOLD_INTAKE_CAPTURED_ALERT_MIN_WAIT_MS
+  ) {
+    void sendHoldIntakeCapturedOwnerAlert({
+      userId: effectiveState.userId,
+      callerE164: effectiveState.callerE164,
+      summary: effectiveState.holdIntakeSummary,
+    }).catch((e) => console.warn(lyncrLog("hold-intake-captured-alert-failed", { error: String(e) })))
+    console.log(lyncrLog("telnyx-cc-hold-intake-captured-alert", { callControlId }))
+    effectiveState = { ...effectiveState, holdIntakeCapturedAlerted: true }
   }
 
   // Music segment ended with no digit:
