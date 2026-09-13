@@ -6690,6 +6690,64 @@ export async function listCrmServiceHistoryForCustomer(params: {
   }
 }
 
+/**
+ * Most recent vehicle/job detail captured for a phone number, regardless of intake channel
+ * (hold-queue live-answer, booking-link SMS, or manual CallAnsweredModal intake all write the
+ * same collected.vehicle_year/make/model shape). Powers the small "who am I texting" detail
+ * line in Messages — a lighter read than listCrmServiceHistoryForCustomer (no customer_id
+ * join, no status/address parsing), so it's cheap enough to call every time a thread opens.
+ */
+export async function getLatestLeadVehicleForPhone(
+  userId: string,
+  phoneE164: string
+): Promise<{
+  vehicleYear: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
+  jobType: string | null
+  serviceQuoteTypeId: string | null
+} | null> {
+  const sql = getSql()
+  const digits = crmDigits(phoneE164)
+  if (!digits) return null
+  try {
+    const rows = (await sql`
+      SELECT collected
+      FROM ai_leads
+      WHERE user_id = ${userId}
+        AND right(regexp_replace(coalesce(nullif(trim(caller_e164), ''), nullif(trim(collected->>'customer_phone'), ''), ''), '\\D', '', 'g'), 10) = ${digits}
+        AND collected IS NOT NULL
+        AND (
+          coalesce(collected->>'vehicle_year', '') <> ''
+          OR coalesce(collected->>'vehicle_make', '') <> ''
+          OR coalesce(collected->>'vehicle_model', '') <> ''
+          OR coalesce(collected->>'job_type', '') <> ''
+          OR coalesce(collected->>'service_quote_type_id', '') <> ''
+        )
+      ORDER BY coalesce(scheduled_at, created_at) DESC
+      LIMIT 1
+    `) as Record<string, unknown>[]
+    const row = rows[0]
+    if (!row) return null
+    const collected = (row.collected as Record<string, unknown>) || {}
+    const year = String(collected.vehicle_year ?? "").trim()
+    const make = String(collected.vehicle_make ?? "").trim()
+    const model = String(collected.vehicle_model ?? "").trim()
+    const jobType = String(collected.job_type ?? "").trim()
+    const serviceQuoteTypeId = String(collected.service_quote_type_id ?? "").trim()
+    return {
+      vehicleYear: year || null,
+      vehicleMake: make || null,
+      vehicleModel: model || null,
+      jobType: jobType || null,
+      serviceQuoteTypeId: serviceQuoteTypeId || null,
+    }
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads") || pgErrorCode(e) === "42703") return null
+    throw e
+  }
+}
+
 export async function listCustomerVehiclesForCustomer(
   userId: string,
   customerId: string

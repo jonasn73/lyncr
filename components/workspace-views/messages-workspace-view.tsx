@@ -264,6 +264,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   const [customerSaved, setCustomerSaved] = useState(false)
   // True after /api/customers returns so we don’t flash “no form” on a saved person.
   const [customerLookupDone, setCustomerLookupDone] = useState(false)
+  // Most recent vehicle captured for this phone (any intake channel) — small header detail.
+  const [customerVehicle, setCustomerVehicle] = useState<string | null>(null)
   // Saved shortcuts + status copy from Settings → SMS templates (fill composer, never auto-send).
   const [customSnippets, setCustomSnippets] = useState<OwnerSmsSnippet[]>([])
   const [statusTemplates, setStatusTemplates] = useState<OwnerSmsStatusTemplates>({
@@ -718,30 +720,58 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     setCustomerName(null)
     setCustomerSaved(false)
     setCustomerLookupDone(false)
+    setCustomerVehicle(null)
   }, [selectedPhone])
 
-  // Best-effort CRM name for chip greetings (non-blocking).
+  // Best-effort CRM name + latest vehicle for chip/header greetings (non-blocking).
+  // Re-run on the same poll cadence as the thread itself so a just-booked vehicle
+  // detail (hold-queue, booking link, or manual intake — any channel) shows up
+  // without the owner needing to close and reopen the conversation.
   useEffect(() => {
     if (!isActive || !selectedPhone) return
     let cancelled = false
     const qs = new URLSearchParams({ phone: selectedPhone })
-    void fetch(`/api/customers?${qs}`, { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json: { customers?: Array<{ display_name?: string | null }> } | null) => {
-        if (cancelled) return
-        const rows = Array.isArray(json?.customers) ? json!.customers! : []
-        setCustomerSaved(rows.length > 0)
-        const name = String(rows[0]?.display_name ?? "").trim()
-        setCustomerName(name || null)
-        setCustomerLookupDone(true)
-      })
-      .catch(() => {
-        if (!cancelled) setCustomerLookupDone(true)
-      })
-    return () => {
+    const run = () =>
+      fetch(`/api/customers?${qs}`, { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then(
+          (
+            json: {
+              customers?: Array<{ display_name?: string | null }>
+              vehicle?: {
+                vehicleYear?: string | null
+                vehicleMake?: string | null
+                vehicleModel?: string | null
+              } | null
+            } | null
+          ) => {
+            if (cancelled) return
+            const rows = Array.isArray(json?.customers) ? json!.customers! : []
+            setCustomerSaved(rows.length > 0)
+            const name = String(rows[0]?.display_name ?? "").trim()
+            setCustomerName(name || null)
+            const vehicleLabel = formatVehicleForSms({
+              year: json?.vehicle?.vehicleYear,
+              make: json?.vehicle?.vehicleMake,
+              model: json?.vehicle?.vehicleModel,
+            })
+            setCustomerVehicle(vehicleLabel || null)
+            setCustomerLookupDone(true)
+          }
+        )
+        .catch(() => {
+          if (!cancelled) setCustomerLookupDone(true)
+        })
+    void run()
+    if (!pollEnabled) return () => {
       cancelled = true
     }
-  }, [isActive, selectedPhone])
+    const id = window.setInterval(() => void run(), 12_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [isActive, selectedPhone, pollEnabled])
 
   // Load saved SMS shortcuts once while Messages is open.
   useEffect(() => {
@@ -1141,6 +1171,9 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                       threadPhoneLabel
                     ) : null}
                     {customerLookupDone && customerName?.trim() ? " · " : null}
+                    {/* Small identifying detail (vehicle year/make/model) — same regardless
+                        of how the customer was captured: hold queue, book link, or intake. */}
+                    {customerVehicle ? `${customerVehicle} · ` : null}
                     {transcriptPending
                       ? "\u00a0"
                       : `${activeThread.messages.length} message${
