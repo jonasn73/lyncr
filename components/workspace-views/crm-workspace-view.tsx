@@ -2926,6 +2926,14 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                         )}
                         Send review
                       </button>
+                    ) : item.review_sms_sent_at ? (
+                      <span
+                        className="inline-flex h-5 items-center gap-1 px-0.5 text-2xs text-muted-foreground"
+                        title={new Date(item.review_sms_sent_at).toLocaleString()}
+                      >
+                        <Star className="h-3 w-3" />
+                        Reviewed {formatTimeAgo(item.review_sms_sent_at)}
+                      </span>
                     ) : null}
                   </div>
                 </li>

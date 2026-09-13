@@ -6838,6 +6838,43 @@ export async function getLatestLeadVehicleForPhone(
   }
 }
 
+/**
+ * Most recent completed, review-eligible job for a phone — same needs_review_sms rule as
+ * listOwnerJobsNeedingReviewSms / the CRM "Needs review" filter, but keyed by phone so
+ * Messages can show a small "review requested / not sent yet" cue without a customer_id.
+ */
+export async function getLatestReviewStatusForPhone(
+  userId: string,
+  phoneE164: string
+): Promise<{ needsReview: boolean; reviewSentAt: string | null } | null> {
+  const sql = getSql()
+  const digits = crmDigits(phoneE164)
+  if (!digits) return null
+  try {
+    const rows = (await sql`
+      SELECT collected
+      FROM ai_leads
+      WHERE user_id = ${userId}
+        AND right(regexp_replace(coalesce(nullif(trim(caller_e164), ''), nullif(trim(collected->>'customer_phone'), ''), ''), '\\D', '', 'g'), 10) = ${digits}
+        AND lower(trim(coalesce(job_status, ''))) = 'completed'
+        AND (
+          disposition IN ('BOOKED', 'PENDING_TIME')
+          OR collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+        )
+      ORDER BY coalesce(scheduled_at, created_at) DESC
+      LIMIT 1
+    `) as Record<string, unknown>[]
+    const row = rows[0]
+    if (!row) return null
+    const collected = (row.collected as Record<string, unknown>) || {}
+    const reviewSentAt = String(collected.review_sms_sent_at ?? "").trim() || null
+    return { needsReview: !reviewSentAt, reviewSentAt }
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads") || pgErrorCode(e) === "42703") return null
+    throw e
+  }
+}
+
 export async function listCustomerVehiclesForCustomer(
   userId: string,
   customerId: string

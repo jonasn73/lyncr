@@ -56,6 +56,7 @@ import {
   type SmsReplyIntent,
 } from "@/lib/sms-reply-suggestions"
 import { formatVehicleForSms, formatCustomerNeedPhrase } from "@/lib/customer-sms-phrases"
+import { formatTimeAgo } from "@/lib/today-board"
 import { DEFAULT_SMS_PHASE_TEMPLATES } from "@/lib/sms-template-defaults"
 import { DEFAULT_SMS_STATUS_TEMPLATES, renderStatusSms } from "@/lib/sms-status-templates"
 import type { OwnerSmsSnippet, OwnerSmsStatusTemplates } from "@/lib/types"
@@ -266,6 +267,10 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   const [customerLookupDone, setCustomerLookupDone] = useState(false)
   // Most recent vehicle captured for this phone (any intake channel) — small header detail.
   const [customerVehicle, setCustomerVehicle] = useState<string | null>(null)
+  // Review-request status for this phone's most recent completed job (null = not eligible).
+  const [customerReview, setCustomerReview] = useState<{ needsReview: boolean; reviewSentAt: string | null } | null>(
+    null
+  )
   // Saved shortcuts + status copy from Settings → SMS templates (fill composer, never auto-send).
   const [customSnippets, setCustomSnippets] = useState<OwnerSmsSnippet[]>([])
   const [statusTemplates, setStatusTemplates] = useState<OwnerSmsStatusTemplates>({
@@ -721,6 +726,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     setCustomerSaved(false)
     setCustomerLookupDone(false)
     setCustomerVehicle(null)
+    setCustomerReview(null)
   }, [selectedPhone])
 
   // Best-effort CRM name + latest vehicle for chip/header greetings (non-blocking).
@@ -743,6 +749,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 vehicleMake?: string | null
                 vehicleModel?: string | null
               } | null
+              review?: { needsReview: boolean; reviewSentAt: string | null } | null
             } | null
           ) => {
             if (cancelled) return
@@ -756,6 +763,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
               model: json?.vehicle?.vehicleModel,
             })
             setCustomerVehicle(vehicleLabel || null)
+            setCustomerReview(json?.review ?? null)
             setCustomerLookupDone(true)
           }
         )
@@ -1174,6 +1182,12 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     {/* Small identifying detail (vehicle year/make/model) — same regardless
                         of how the customer was captured: hold queue, book link, or intake. */}
                     {customerVehicle ? `${customerVehicle} · ` : null}
+                    {/* Review-request status for their most recent completed job — purely
+                        informational here; sending still happens from CRM. */}
+                    {customerReview?.needsReview ? "Review pending · " : null}
+                    {customerReview && !customerReview.needsReview && customerReview.reviewSentAt
+                      ? `Review sent ${formatTimeAgo(customerReview.reviewSentAt)} · `
+                      : null}
                     {transcriptPending
                       ? "\u00a0"
                       : `${activeThread.messages.length} message${

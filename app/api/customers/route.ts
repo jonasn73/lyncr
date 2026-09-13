@@ -11,6 +11,7 @@ import {
   upsertCustomerForUser,
   getCustomerByPhoneForUser,
   getLatestLeadVehicleForPhone,
+  getLatestReviewStatusForPhone,
   isUndefinedRelationError,
 } from "@/lib/db"
 
@@ -31,11 +32,12 @@ export async function GET(req: NextRequest) {
   const limit = Number(req.nextUrl.searchParams.get("limit") || "80")
   try {
     if (phone.trim()) {
-      const [one, vehicle] = await Promise.all([
+      const [one, vehicle, review] = await Promise.all([
         getCustomerByPhoneForUser(userId, phone),
         getLatestLeadVehicleForPhone(userId, phone),
+        getLatestReviewStatusForPhone(userId, phone),
       ])
-      return NextResponse.json({ customers: one ? [one] : [], vehicle })
+      return NextResponse.json({ customers: one ? [one] : [], vehicle, review })
     }
     const customers = await listCustomersForUser(userId, { q, limit })
     return NextResponse.json({ customers })
