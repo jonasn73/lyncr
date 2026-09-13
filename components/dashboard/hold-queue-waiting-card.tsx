@@ -21,6 +21,8 @@ import {
   type HoldQueueDayStats,
 } from "@/lib/hold-queue-stats-cache"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
+import { resolveHoldQueueCollectedPreFill } from "@/lib/hold-queue-intake-prompts"
+import { resolveJobIntakeOptions } from "@/lib/job-intake-registry"
 
 type QueueCaller = {
   id: string
@@ -197,12 +199,22 @@ export function HoldQueueWaitingCard({
       // Open full intake reliably after Answer — slight delay lets the dial settle,
       // then force a fresh manual row so a prior dismiss cannot swallow it.
       if (inbound && waiting?.callerE164) {
+        // Phase 4: whatever the caller answered on hold pre-fills the wizard instead
+        // of being asked again — job type (skipped for locksmith, see the resolver's
+        // own comment) and/or the model year.
+        const preFill = resolveHoldQueueCollectedPreFill(
+          session?.industry,
+          waiting.collected,
+          resolveJobIntakeOptions
+        )
         const openIntake = () => {
           inbound.openManualCallPanel({
             phoneNumber: waiting.callerE164!,
             toNumber: waiting.businessLineE164 || undefined,
             callStatus: "answered",
             intakeMode: "full",
+            serviceQuoteTypeId: preFill.serviceQuoteTypeId,
+            vehicleYear: preFill.vehicleYear,
           })
         }
         openIntake()
