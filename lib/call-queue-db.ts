@@ -347,6 +347,38 @@ export async function getCallQueueById(id: string, userId: string): Promise<Call
 }
 
 /**
+ * True when this call_log ever had a call_queue row — i.e. the caller waited on
+ * hold at some point, regardless of current status (answered/left/timed_out all
+ * still count). Used at booking time to tag a job as "answered from the hold
+ * queue" distinctly from a directly-answered call, so CRM can tell them apart.
+ *
+ * call_queue rows key off Telnyx's own call_control_id (matches call_logs.provider_
+ * call_sid — same join sweepStaleCallQueueForUser already uses), not call_queue.
+ * call_log_id: enterBusyHoldQueue's upsertCallQueueWaiting call never actually
+ * passes a call_log_id, so that column is null on most rows and can't be trusted
+ * as the lookup key.
+ */
+export async function wasCallLogFromHoldQueue(callLogId: string): Promise<boolean> {
+  const id = callLogId.trim()
+  if (!id) return false
+  try {
+    const sql = getSql()
+    const rows = await sql`
+      SELECT 1
+      FROM call_queue cq
+      JOIN call_logs cl ON cl.provider_call_sid = cq.call_control_id
+      WHERE cl.id = ${id}::uuid
+      LIMIT 1
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (isMissingCallQueueTable(e)) return false
+    console.warn(lyncrLog("call-queue-hold-origin-check-failed", { error: String(e) }))
+    return false
+  }
+}
+
+/**
  * Current status by Telnyx call_control_id — lets a hold-loop webhook handler tell a fresh
  * gather-ended event apart from a stale one that outlived an already-answered/bridged call
  * (a pending gather isn't guaranteed to be canceled before the bridge happens).

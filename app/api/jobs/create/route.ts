@@ -5,6 +5,8 @@ import { getUserIdFromRequest } from "@/lib/auth"
 import { resolveIntakeWriteActor } from "@/lib/intake-write-auth"
 import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
 import { buildBookCollectedExtras, type BookUrgency } from "@/lib/book-customer-request"
+import { wasCallLogFromHoldQueue } from "@/lib/call-queue-db"
+import { HOLD_QUEUE_ANSWERED_INTAKE_SOURCE } from "@/lib/book-form-sources"
 
 export const dynamic = "force-dynamic"
 
@@ -83,11 +85,20 @@ export async function POST(req: NextRequest) {
     const body = (await req.json().catch(() => ({}))) as CreateJobBody
     const orgRaw = body.organization_id?.trim() || null
     const organizationId = orgRaw && !orgRaw.startsWith("legacy-") ? orgRaw : null
+    const callLogId = body.call_log_id?.trim() || null
+    // Distinguish "operator answered a hold-queue waiter" from a plain answered
+    // call so CRM can show "Booked on call" instead of lumping it in with manual
+    // entries — createUnassignedJobFromIntake already supports an intakeSource
+    // override, this route just never set one before.
+    const intakeSource = callLogId && (await wasCallLogFromHoldQueue(callLogId))
+      ? HOLD_QUEUE_ANSWERED_INTAKE_SOURCE
+      : null
 
     const result = await createUnassignedJobFromIntake({
       ownerUserId: userId,
       organizationId,
-      callLogId: body.call_log_id?.trim() || null,
+      callLogId,
+      intakeSource,
       callerE164: String(body.caller_e164 ?? "").trim(),
       customerName: String(body.customer_name ?? "").trim(),
       companyName: body.company_name?.trim() || null,

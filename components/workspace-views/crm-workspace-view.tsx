@@ -69,6 +69,7 @@ import {
   crmIntakeFilledByLabel,
   isBookFormIntakeSource,
 } from "@/lib/book-form-sources"
+import { formatTimeAgo } from "@/lib/today-board"
 import { jobTypeFromBookFormKind } from "@/lib/book-customer-request"
 import {
   formatCollectedDollars,
@@ -2051,6 +2052,11 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               >
                 {crmIntakeFilledByLabel(headerJobTarget.intake_source)}
               </span>
+              {headerJobTarget.at ? (
+                <span className="text-2xs text-muted-foreground">
+                  {formatTimeAgo(headerJobTarget.at)}
+                </span>
+              ) : null}
               {crmUrgencyLabel(headerJobTarget) === "ASAP" ? (
                 <span className="rounded-md bg-destructive/20 px-2 py-0.5 text-2xs font-semibold text-destructive">
                   ASAP
@@ -2760,9 +2766,13 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                     </p>
                   ) : null}
                   <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted-foreground">
-                    {/* Call / lead timestamp — not the future appointment */}
-                    <span className="min-w-0 truncate">
-                      {item.at ? new Date(item.at).toLocaleString() : ""}
+                    {/* Call / lead timestamp — not the future appointment. Relative
+                        ("how long since they booked") with the exact time on hover. */}
+                    <span
+                      className="min-w-0 truncate"
+                      title={item.at ? new Date(item.at).toLocaleString() : undefined}
+                    >
+                      {item.at ? formatTimeAgo(item.at) : ""}
                       {item.assigned_tech_name ? ` · ${item.assigned_tech_name}` : ""}
                     </span>
                     {/* Compact future-appointment control (distinct from call time) */}
