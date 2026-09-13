@@ -6011,13 +6011,19 @@ async function listNeedsFollowUpCustomersForUser(
         GROUP BY 1
       ),
       unpaid AS (
+        -- job_invoices carries no organization_id of its own — derive it from the linked
+        -- lead (ai_leads.organization_id) when there is one. A walk-up invoice with no
+        -- lead_id can't be attributed to a shop, so it counts everywhere (same fallback
+        -- as everything else here: can't attribute, don't hide).
         SELECT
-          right(regexp_replace(coalesce(customer_phone, ''), '\\D', '', 'g'), 10) AS phone_key,
-          sum(total_cents) AS unpaid_cents,
+          right(regexp_replace(coalesce(ji.customer_phone, ''), '\\D', '', 'g'), 10) AS phone_key,
+          sum(ji.total_cents) AS unpaid_cents,
           count(*) AS unpaid_count
-        FROM job_invoices
-        WHERE owner_user_id = ${userId}
-          AND payment_status IN ('unpaid', 'pending')
+        FROM job_invoices ji
+        LEFT JOIN ai_leads al ON al.id = ji.lead_id
+        WHERE ji.owner_user_id = ${userId}
+          AND ji.payment_status IN ('unpaid', 'pending')
+          AND (${orgId}::uuid IS NULL OR al.organization_id IS NULL OR al.organization_id = ${orgId}::uuid)
         GROUP BY 1
       )
       SELECT
