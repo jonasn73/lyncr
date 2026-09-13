@@ -334,7 +334,13 @@ async function attachHoldMusicGatherOnly(
   state: TelnyxCallControlClientState,
   gatherEndedAtMs: number
 ): Promise<boolean> {
-  const repromptMs = holdRePromptIntervalMs(state.holdRepromptSecs)
+  // This function only ever runs once per call — enterBusyHoldQueue's musicAlreadyStarted
+  // branch, the very first hold segment — so the first-cycle shortening always applies here.
+  // (Confirmed missing on a real test call: this path, not startHoldMusicGather's own
+  // first-entry branch, is the one that actually fires whenever inbound pre-kicks music
+  // before routing resolves — the common case — so skipping this left the real first
+  // reprompt at the full ~60s default instead of the intended 18s.)
+  const repromptMs = Math.min(holdRePromptIntervalMs(state.holdRepromptSecs), HOLD_FIRST_REPROMPT_MS)
   const encoded = encodeTelnyxCallControlState({
     ...state,
     phase: "await_busy_hold_loop",
