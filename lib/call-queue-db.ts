@@ -45,6 +45,11 @@ function getSql() {
   return neon(url)
 }
 
+function average(values: number[]): number | null {
+  if (values.length === 0) return null
+  return Math.round((values.reduce((sum, v) => sum + v, 0) / values.length) * 10) / 10
+}
+
 function isMissingCallQueueTable(e: unknown): boolean {
   const msg = String((e as { message?: string })?.message || e || "").toLowerCase()
   return msg.includes("call_queue") && (msg.includes("does not exist") || msg.includes("undefined_table"))
@@ -736,6 +741,169 @@ export async function getHoldQueueDayStats(
       press1: Number(row.press1 ?? 0),
       abandoned: Number(row.abandoned ?? 0),
       avgWaitSecs: avg,
+    }
+  } catch (e) {
+    if (isMissingCallQueueTable(e)) return empty
+    throw e
+  }
+}
+
+/**
+ * Platform-wide hold-queue health for the admin dashboard (every tenant, not one owner —
+ * pairs with getPlatformCallHealthSummary in lib/db.ts). Aggregated in JS rather than SQL
+ * to keep the intake-capture heuristics readable; row volume per window is modest.
+ */
+export async function getPlatformHoldQueueHealthSummary(days = 7): Promise<{
+  window_days: number
+  total_calls: number
+  answered: number
+  left: number
+  timed_out: number
+  sms_left: number
+  still_open: number
+  answered_rate_percent: number
+  avg_wait_before_answer_secs: number | null
+  avg_wait_before_leaving_secs: number | null
+  /**
+   * % of terminal (non-waiting) rows with an intent_slug captured on hold. This is a
+   * FLOOR, not a true answer-when-asked rate — plenty of terminal rows resolve (answered
+   * or abandoned) before the caller ever reaches the first reprompt cycle where the
+   * question is asked, and this counts those as "didn't answer" too. Still directionally
+   * useful for spotting whether the feature is producing data at all.
+   */
+  intake_capture_rate_percent: number
+  /** Of rows with an intent_slug, how many also got the Phase-2 follow-up (vehicle_year). */
+  followup_capture_rate_percent: number
+  /** Accounts with the most abandoned (left/timed_out) hold sessions in the window. */
+  top_abandoning_accounts: { business_name: string; abandoned: number; total: number }[]
+}> {
+  const empty = {
+    window_days: days,
+    total_calls: 0,
+    answered: 0,
+    left: 0,
+    timed_out: 0,
+    sms_left: 0,
+    still_open: 0,
+    answered_rate_percent: 0,
+    avg_wait_before_answer_secs: null as number | null,
+    avg_wait_before_leaving_secs: null as number | null,
+    intake_capture_rate_percent: 0,
+    followup_capture_rate_percent: 0,
+    top_abandoning_accounts: [] as { business_name: string; abandoned: number; total: number }[],
+  }
+  type Row = {
+    status: CallQueueStatus
+    enqueued_at: Date | string
+    answered_at: Date | string | null
+    left_at: Date | string | null
+    collected: Record<string, unknown> | null
+    business_name: string
+  }
+  try {
+    const sql = getSql()
+    const maxWaitCap = holdMaxWaitSecs(null)
+    const rawRows = (await sql`
+      SELECT cq.status, cq.enqueued_at, cq.answered_at, cq.left_at, cq.collected,
+             coalesce(nullif(trim(u.business_name), ''), u.email, 'Unknown') AS business_name
+      FROM call_queue cq
+      JOIN users u ON u.id = cq.user_id
+      WHERE cq.enqueued_at >= now() - (${days}::numeric * interval '1 day')
+    `) as Record<string, unknown>[]
+
+    const rows: Row[] = rawRows.map((r) => ({
+      status: String(r.status) as CallQueueStatus,
+      enqueued_at: r.enqueued_at as Date | string,
+      answered_at: r.answered_at as Date | string | null,
+      left_at: r.left_at as Date | string | null,
+      collected: (r.collected as Record<string, unknown> | null) ?? null,
+      business_name: String(r.business_name ?? "Unknown"),
+    }))
+
+    const toMs = (v: Date | string | null): number | null => {
+      if (v == null) return null
+      const t = v instanceof Date ? v.getTime() : Date.parse(v)
+      return Number.isFinite(t) ? t : null
+    }
+
+    let answered = 0
+    let left = 0
+    let timedOut = 0
+    let smsLeft = 0
+    let stillOpen = 0
+    const waitBeforeAnswer: number[] = []
+    const waitBeforeLeaving: number[] = []
+    let terminalCount = 0
+    let intakeCaptured = 0
+    let followUpCaptured = 0
+    const abandonedByAccount = new Map<string, { abandoned: number; total: number }>()
+
+    for (const row of rows) {
+      const enqueuedMs = toMs(row.enqueued_at)
+      const isTerminal = row.status !== "waiting" && row.status !== "holding" && row.status !== "bridging"
+      const isAbandoned = row.status === "left" || row.status === "timed_out"
+
+      if (row.status === "answered") answered += 1
+      else if (row.status === "left") left += 1
+      else if (row.status === "timed_out") timedOut += 1
+      else if (row.status === "sms_left") smsLeft += 1
+      else stillOpen += 1
+
+      if (row.status === "answered" && enqueuedMs != null) {
+        const answeredMs = toMs(row.answered_at)
+        if (answeredMs != null && answeredMs >= enqueuedMs) {
+          waitBeforeAnswer.push(Math.min(maxWaitCap, (answeredMs - enqueuedMs) / 1000))
+        }
+      }
+      if (isAbandoned && enqueuedMs != null) {
+        const leftMs = toMs(row.left_at)
+        if (leftMs != null && leftMs >= enqueuedMs) {
+          waitBeforeLeaving.push(Math.min(maxWaitCap, (leftMs - enqueuedMs) / 1000))
+        }
+        const acct = abandonedByAccount.get(row.business_name) ?? { abandoned: 0, total: 0 }
+        acct.abandoned += 1
+        abandonedByAccount.set(row.business_name, acct)
+      }
+
+      if (isTerminal) {
+        terminalCount += 1
+        const intentSlug = row.collected?.intent_slug
+        if (typeof intentSlug === "string" && intentSlug.trim()) {
+          intakeCaptured += 1
+          const vehicleYear = row.collected?.vehicle_year
+          if (typeof vehicleYear === "string" && vehicleYear.trim()) followUpCaptured += 1
+        }
+      }
+    }
+    // Second pass: each flagged account's total terminal rows (denominator for the leaderboard).
+    for (const [name, acct] of abandonedByAccount) {
+      acct.total = rows.filter(
+        (r) => r.business_name === name && r.status !== "waiting" && r.status !== "holding" && r.status !== "bridging"
+      ).length
+    }
+
+    const round1 = (n: number) => Math.round(n * 10) / 10
+
+    return {
+      window_days: days,
+      total_calls: rows.length,
+      answered,
+      left,
+      timed_out: timedOut,
+      sms_left: smsLeft,
+      still_open: stillOpen,
+      answered_rate_percent:
+        terminalCount === 0 ? 0 : round1((answered / terminalCount) * 100),
+      avg_wait_before_answer_secs: average(waitBeforeAnswer),
+      avg_wait_before_leaving_secs: average(waitBeforeLeaving),
+      intake_capture_rate_percent:
+        terminalCount === 0 ? 0 : round1((intakeCaptured / terminalCount) * 100),
+      followup_capture_rate_percent:
+        intakeCaptured === 0 ? 0 : round1((followUpCaptured / intakeCaptured) * 100),
+      top_abandoning_accounts: [...abandonedByAccount.entries()]
+        .map(([business_name, acct]) => ({ business_name, abandoned: acct.abandoned, total: acct.total }))
+        .sort((a, b) => b.abandoned - a.abandoned)
+        .slice(0, 8),
     }
   } catch (e) {
     if (isMissingCallQueueTable(e)) return empty

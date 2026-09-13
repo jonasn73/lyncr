@@ -17,6 +17,7 @@ import { useAdminIndustriesOverview } from "@/hooks/use-admin-industries-overvie
 import { useAdminAuditEvents } from "@/hooks/use-admin-audit-events"
 import { useAdminInfraCost } from "@/hooks/use-admin-infra-cost"
 import { CallHealthBoard } from "@/components/admin/call-health-board"
+import { HoldQueueHealthBoard } from "@/components/admin/hold-queue-health-board"
 import { HealthDot } from "@/components/admin/shared/health-dot"
 import { HeroStat } from "@/components/admin/shared/stat-tile"
 import { GaugeBar } from "@/components/admin/shared/gauge-bar"
@@ -272,6 +273,7 @@ export function AdminHomeOverview() {
       ) : null}
 
       <CallHealthBoard />
+      <HoldQueueHealthBoard />
     </div>
   )
 }
