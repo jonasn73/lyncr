@@ -67,16 +67,16 @@ const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> 
     //
     // Split "vehicle key / lockout" (the original 3-option version) into its two most
     // common, operationally-different cases: a plain lockout (fast, no key needed —
-    // just entry tools) versus all-keys-lost / a new key needed (key_generation —
-    // slower, needs a key blank + cutting/programming gear, and vehicle year/make/
-    // model matters far more here than for a simple lockout). Knowing which one is
-    // waiting, before Answer is even pressed, changes what the tech brings.
+    // just entry tools, and the model year doesn't change what the tech brings) versus
+    // all-keys-lost / a new key needed (key_generation — slower, needs a key blank +
+    // cutting/programming gear, where the vehicle year/make/model genuinely matters).
+    // Reported live: a plain lockout was still being asked for the year — only the
+    // key_generation option should carry that follow-up.
     options: [
       {
         digit: "1",
         label: "Locked out of car",
         intentSlug: "locksmith_lockout",
-        followUp: VEHICLE_YEAR_FOLLOW_UP,
       },
       {
         digit: "2",

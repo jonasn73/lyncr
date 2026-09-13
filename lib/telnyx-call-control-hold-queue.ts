@@ -995,7 +995,7 @@ async function speakHoldIntakeFollowUpNow(
     lyncrLog("telnyx-cc-hold-intake-followup-immediate", { callControlId, fieldKey: followUp.fieldKey, attempt: attempts })
   )
   const gatherRes = await telnyxCallControlGatherUsingSpeak(callControlId, {
-    text: `Got it. ${followUp.text}`,
+    text: followUp.text,
     clientState: encodeTelnyxCallControlState(nextState),
     maximumDigits: followUp.maxDigits,
     timeoutMillis: 10_000,
