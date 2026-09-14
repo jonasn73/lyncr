@@ -96,8 +96,18 @@ function SheetContent({
                 side === 'top' &&
                   'data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top inset-x-0 top-0 h-auto border-b',
                 side === 'bottom' &&
-                  // h-auto hugs content (no empty gap); max-h keeps tall flows scrollable.
-                  'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 flex h-auto max-h-[94dvh] flex-col rounded-t-3xl rounded-b-none border-x border-t border-b-0 border-border/70 pb-[env(safe-area-inset-bottom)]',
+                  // Phone width: a real bottom sheet (h-auto hugs content, max-h keeps tall
+                  // flows scrollable). Desktop had no breakpoint at all here — every side="bottom"
+                  // consumer (15 of them) rendered as a full-width strip pinned to the browser's
+                  // bottom edge instead of a centered dialog, the mobile sheet just stretched wide.
+                  // sm: repositions to a centered panel and cancels the slide (0 distance) in favor
+                  // of a zoom, matching how Dialog enters — individual callers' own className (e.g.
+                  // a wider sm:max-w-2xl) still wins since it's appended after these defaults.
+                  cn(
+                    'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 flex h-auto max-h-[94dvh] flex-col rounded-t-3xl rounded-b-none border-x border-t border-b-0 border-border/70 pb-[env(safe-area-inset-bottom)]',
+                    'sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[85vh] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-3xl sm:border sm:pb-0',
+                    'sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-bottom-0 sm:data-[state=closed]:zoom-out-95'
+                  ),
               ),
           className,
         )}
