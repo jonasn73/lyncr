@@ -7,6 +7,7 @@ import {
   buildInboundGreetingContinueUrl,
   inboundGreetingPassDone,
 } from "@/lib/inbound-greeting-param"
+import { cacheTtsAudioInBackground, getCachedTtsAudioUrl } from "@/lib/tts-audio-cache"
 
 export { buildInboundGreetingContinueUrl, inboundGreetingPassDone }
 
@@ -86,9 +87,17 @@ export function isInboundCallerGreetingEnabled(
   return routing.inbound_caller_greeting_enabled !== false
 }
 
-/** Pass 1 TeXML — speak the greeting, then redirect to routing pass 2 (no `<Dial>` yet). */
-export function buildInboundCallerGreetingOnlyTexml(greetingText: string, continueUrl: string): string {
-  const audioUrl = readInboundInstantGreetingAudioUrl()
+/**
+ * Pass 1 TeXML — speak the greeting, then redirect to routing pass 2 (no `<Dial>` yet).
+ * `cachedAudioUrl` (a pre-rendered clip for this exact greeting text, see `tts-audio-cache`)
+ * takes priority over the generic env-var instant clip when present.
+ */
+export function buildInboundCallerGreetingOnlyTexml(
+  greetingText: string,
+  continueUrl: string,
+  cachedAudioUrl?: string | null
+): string {
+  const audioUrl = cachedAudioUrl || readInboundInstantGreetingAudioUrl()
   const safeUrl = escapeXmlAttr(continueUrl)
   if (audioUrl) {
     const safeAudio = escapeXmlAttr(audioUrl)
@@ -150,15 +159,25 @@ export function resolveCallerGreetingForDialPass(
   return undefined
 }
 
-/** Pass 1 result when two-pass greeting is enabled and greeting has not played yet. */
-export function buildInboundGreetingFirstPassResult(
+/**
+ * Pass 1 result when two-pass greeting is enabled and greeting has not played yet.
+ * Checks for a pre-rendered clip of this exact branded greeting first (same text + voice
+ * this line has spoken before); on a miss, speaks live as before and renders the clip in
+ * the background so the next caller to this line gets the cached `<Play>` path instead.
+ */
+export async function buildInboundGreetingFirstPassResult(
   routing: InboundWorkspaceRoutingLike,
   incomingUrl: string
-): { kind: "raw"; xml: string } {
+): Promise<{ kind: "raw"; xml: string }> {
   const workspaceName = resolveWorkspaceDisplayName(routing)
   const greeting = buildInboundCallerGreetingText(workspaceName)
   const continueUrl = buildInboundGreetingContinueUrl(incomingUrl)
-  return { kind: "raw", xml: buildInboundCallerGreetingOnlyTexml(greeting, continueUrl) }
+  const { voice, language } = getTexmlSayVoiceAttributes()
+  const cachedAudioUrl = await getCachedTtsAudioUrl(greeting, voice, language)
+  if (!cachedAudioUrl) {
+    cacheTtsAudioInBackground(greeting, voice, language)
+  }
+  return { kind: "raw", xml: buildInboundCallerGreetingOnlyTexml(greeting, continueUrl, cachedAudioUrl) }
 }
 
 export function shouldPlayInboundGreetingFirstPass(greetingPassDone: boolean, greetingEnabled = true): boolean {

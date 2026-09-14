@@ -806,7 +806,7 @@ async function handleIncomingCall(
     const greetingEnabled = isInboundCallerGreetingEnabled(routing)
 
     if (shouldPlayInboundGreetingFirstPass(greetingPassDone, greetingEnabled) && inboundCtx?.incomingUrl) {
-      return buildInboundGreetingFirstPassResult(routing, inboundCtx.incomingUrl)
+      return await buildInboundGreetingFirstPassResult(routing, inboundCtx.incomingUrl)
     }
 
     const adminOverrideDial = await tryAdminRoutingOverrideDial({
@@ -1845,7 +1845,7 @@ async function tryFastInboundReceptionistResponse(
 
   // Safety net when Edge/middleware miss pass 1 — never `<Dial>` (ringback) before the greeting.
   if (shouldPlayInboundGreetingFirstPass(greetingPassDone, greetingEnabled) && inboundCtx?.incomingUrl) {
-    const greetingPass = buildInboundGreetingFirstPassResult(routing, inboundCtx.incomingUrl)
+    const greetingPass = await buildInboundGreetingFirstPassResult(routing, inboundCtx.incomingUrl)
     return new NextResponse(texmlResponseBody(greetingPass), {
       headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
     })

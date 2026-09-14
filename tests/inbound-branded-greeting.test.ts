@@ -1,6 +1,7 @@
 import { describe, expect, it, afterEach, vi } from "vitest"
 import {
   buildInboundCallerGreetingOnlyTexml,
+  buildInboundGreetingFirstPassResult,
   buildInstantGenericGreetingFirstPassResult,
   resolveCallerGreetingForDialPass,
   resolveInboundPstnForwardAnswerOnBridge,
@@ -12,6 +13,12 @@ import {
   buildInboundGreetingContinueUrl,
   inboundGreetingPassDone,
 } from "@/lib/inbound-greeting-param"
+
+const { getCachedTtsAudioUrl, cacheTtsAudioInBackground } = vi.hoisted(() => ({
+  getCachedTtsAudioUrl: vi.fn(),
+  cacheTtsAudioInBackground: vi.fn(),
+}))
+vi.mock("@/lib/tts-audio-cache", () => ({ getCachedTtsAudioUrl, cacheTtsAudioInBackground }))
 
 describe("readInboundGreetingFirstPassEnabled", () => {
   afterEach(() => {
@@ -108,6 +115,35 @@ describe("resolveCallerGreetingForDialPass", () => {
   it("skips greeting when per-line toggle is off", () => {
     vi.stubEnv("LYNCR_INBOUND_GREETING_FIRST", "0")
     expect(resolveCallerGreetingForDialPass("Key Squad 502", false, false)).toBeUndefined()
+  })
+})
+
+describe("buildInboundGreetingFirstPassResult", () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("plays the cached clip and skips background generation on a cache hit", async () => {
+    getCachedTtsAudioUrl.mockResolvedValueOnce("https://blob.example/tts-cache/abc.mp3")
+    const out = await buildInboundGreetingFirstPassResult(
+      { organization_name: "Key Squad 502" },
+      "https://lyncr.app/api/voice/telnyx/incoming"
+    )
+    expect(out.xml).toContain("<Play>https://blob.example/tts-cache/abc.mp3</Play>")
+    expect(out.xml).not.toContain("<Say")
+    expect(cacheTtsAudioInBackground).not.toHaveBeenCalled()
+  })
+
+  it("falls back to live Say and renders the clip in the background on a cache miss", async () => {
+    getCachedTtsAudioUrl.mockResolvedValueOnce(null)
+    const out = await buildInboundGreetingFirstPassResult(
+      { organization_name: "Key Squad 502" },
+      "https://lyncr.app/api/voice/telnyx/incoming"
+    )
+    expect(out.xml).toContain("<Say ")
+    expect(out.xml).toContain("Key Squad five oh two")
+    expect(cacheTtsAudioInBackground).toHaveBeenCalledTimes(1)
+    expect(cacheTtsAudioInBackground.mock.calls[0][0]).toContain("Key Squad 502")
   })
 })
 
