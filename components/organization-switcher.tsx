@@ -232,6 +232,13 @@ export function OrganizationSwitcher({
   const active = organizations.find((o) => o.id === activeId) ?? organizations[0]
   const realWorkspaceCount = organizations.filter(isEditableWorkspace).length
   const canDeleteWorkspace = realWorkspaceCount > 1
+  // Multi-tenant workspaces are paused product-wide (lib/service-context.ts) — for the
+  // overwhelming majority of accounts that leaves exactly one workspace with no way to add
+  // a second, so a "Switch business" dropdown with a dead "Add workspace" upsell item reads
+  // as broken UI rather than a real control. Collapse to a plain rename-on-click chip instead;
+  // any account that can still add a workspace (QA bypass today, paid tiers later) keeps the
+  // full switcher unchanged.
+  const isSingleWorkspaceMode = realWorkspaceCount <= 1 && !canAddWorkspace
 
   function selectOrg(id: string) {
     if (id === activeId) return
@@ -384,104 +391,122 @@ export function OrganizationSwitcher({
 
   return (
     <>
-      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            aria-expanded={menuOpen}
-            aria-haspopup="menu"
-            className={cn(
-              // Stay inside the header center column — never paint over the logo.
-              "h-9 w-full min-w-0 max-w-full touch-manipulation gap-2 border-border/70 bg-card/80 px-2 text-xs font-medium pointer-events-auto sm:max-w-[14rem] sm:px-3 md:w-[16rem] md:max-w-[16rem] md:px-3",
-              className
-            )}
-          >
-            <Building2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-            <span className="min-w-0 truncate">{active?.name ?? "Business"}</span>
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="z-[9999] w-72 p-1">
-          <DropdownMenuLabel className="px-2 text-xs text-muted-foreground">Switch business</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {organizations.map((org) => {
-            const selected = org.id === activeId
-            const editable = isEditableWorkspace(org)
-            return (
-              <div
-                key={org.id}
-                className={cn(
-                  "group flex items-center gap-1 rounded-sm px-1 py-0.5",
-                  selected && "bg-primary/10"
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => selectOrg(org.id)}
+      {isSingleWorkspaceMode ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          aria-label={`Rename ${active?.name ?? "business"}`}
+          onClick={() => active && openRename(active)}
+          className={cn(
+            "h-9 w-full min-w-0 max-w-full touch-manipulation gap-2 border-border/70 bg-card/80 px-2 text-xs font-medium pointer-events-auto sm:max-w-[14rem] sm:px-3 md:w-[16rem] md:max-w-[16rem] md:px-3",
+            className
+          )}
+        >
+          <Building2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+          <span className="min-w-0 flex-1 truncate text-left">{active?.name ?? "Business"}</span>
+          <Pencil className="h-3.5 w-3.5 shrink-0 opacity-50" aria-hidden />
+        </Button>
+      ) : (
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              className={cn(
+                // Stay inside the header center column — never paint over the logo.
+                "h-9 w-full min-w-0 max-w-full touch-manipulation gap-2 border-border/70 bg-card/80 px-2 text-xs font-medium pointer-events-auto sm:max-w-[14rem] sm:px-3 md:w-[16rem] md:max-w-[16rem] md:px-3",
+                className
+              )}
+            >
+              <Building2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+              <span className="min-w-0 truncate">{active?.name ?? "Business"}</span>
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="z-[9999] w-72 p-1">
+            <DropdownMenuLabel className="px-2 text-xs text-muted-foreground">Switch business</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {organizations.map((org) => {
+              const selected = org.id === activeId
+              const editable = isEditableWorkspace(org)
+              return (
+                <div
+                  key={org.id}
                   className={cn(
-                    "flex min-w-0 flex-1 items-center gap-2 rounded-sm px-2 py-2 text-left text-sm outline-none",
-                    "hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-primary/40",
-                    selected ? "text-primary" : "text-foreground"
+                    "group flex items-center gap-1 rounded-sm px-1 py-0.5",
+                    selected && "bg-primary/10"
                   )}
                 >
-                  <span className="truncate font-medium">{org.name}</span>
-                  {org.is_default ? (
-                    <span className="ml-auto shrink-0 text-2xs text-muted-foreground">Default</span>
+                  <button
+                    type="button"
+                    onClick={() => selectOrg(org.id)}
+                    className={cn(
+                      "flex min-w-0 flex-1 items-center gap-2 rounded-sm px-2 py-2 text-left text-sm outline-none",
+                      "hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-primary/40",
+                      selected ? "text-primary" : "text-foreground"
+                    )}
+                  >
+                    <span className="truncate font-medium">{org.name}</span>
+                    {org.is_default ? (
+                      <span className="ml-auto shrink-0 text-2xs text-muted-foreground">Default</span>
+                    ) : null}
+                  </button>
+                  {editable ? (
+                    <div className="flex shrink-0 items-center gap-0.5 pr-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                      <button
+                        type="button"
+                        aria-label={`Rename ${org.name}`}
+                        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openRename(org)
+                        }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Delete ${org.name}`}
+                        disabled={!canDeleteWorkspace}
+                        className={cn(
+                          "rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
+                          !canDeleteWorkspace && "cursor-not-allowed opacity-40"
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!canDeleteWorkspace) {
+                            toast.error("You must keep at least one business workspace")
+                            return
+                          }
+                          setDeleteTarget(org)
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                      </button>
+                    </div>
                   ) : null}
-                </button>
-                {editable ? (
-                  <div className="flex shrink-0 items-center gap-0.5 pr-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                    <button
-                      type="button"
-                      aria-label={`Rename ${org.name}`}
-                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        openRename(org)
-                      }}
-                    >
-                      <Pencil className="h-3.5 w-3.5" aria-hidden />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Delete ${org.name}`}
-                      disabled={!canDeleteWorkspace}
-                      className={cn(
-                        "rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
-                        !canDeleteWorkspace && "cursor-not-allowed opacity-40"
-                      )}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (!canDeleteWorkspace) {
-                          toast.error("You must keep at least one business workspace")
-                          return
-                        }
-                        setDeleteTarget(org)
-                      }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            )
-          })}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="cursor-pointer gap-2 text-primary"
-            disabled={creating}
-            onSelect={(e) => {
-              e.preventDefault()
-              promptAddWorkspace()
-            }}
-          >
-            {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-            Add new business location / workspace
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+                </div>
+              )
+            })}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="cursor-pointer gap-2 text-primary"
+              disabled={creating}
+              onSelect={(e) => {
+                e.preventDefault()
+                promptAddWorkspace()
+              }}
+            >
+              {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              Add new business location / workspace
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       <Dialog
         open={renameTarget != null}
