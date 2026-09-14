@@ -13,21 +13,21 @@ describe("service-context", () => {
     expect(isMasterTestAccount("other@example.com")).toBe(false)
   })
 
-  it("grants all premium capabilities for master bypass", () => {
+  it("grants all premium capabilities for master bypass except paused multi-tenant workspaces", () => {
     const ctx = buildServiceContext({ email: MASTER_TEST_ACCOUNT_EMAIL }, { subscription_tier: "starter" })
     expect(ctx.master_test_bypass).toBe(true)
-    expect(ctx.capabilities.multi_tenant_workspaces).toBe(true)
+    expect(ctx.capabilities.multi_tenant_workspaces).toBe(false)
     expect(ctx.capabilities.operator_pooling).toBe(true)
     expect(ctx.capabilities.unlimited_text_dispatches).toBe(true)
     expect(ctx.capabilities.ai_voice_assistant).toBe(true)
     expect(ctx.active_number_limit).toBe(999)
   })
 
-  it("multi-tenant workspaces are paused product-wide, master bypass excepted", () => {
+  it("multi-tenant workspaces are paused product-wide, including the master bypass account", () => {
     expect(hasPremiumCapability("a@b.com", "starter", "multi_tenant_workspaces")).toBe(false)
     expect(hasPremiumCapability("a@b.com", "professional", "multi_tenant_workspaces")).toBe(false)
     expect(hasPremiumCapability("a@b.com", "business", "multi_tenant_workspaces")).toBe(false)
-    expect(hasPremiumCapability(MASTER_TEST_ACCOUNT_EMAIL, "starter", "multi_tenant_workspaces")).toBe(true)
+    expect(hasPremiumCapability(MASTER_TEST_ACCOUNT_EMAIL, "starter", "multi_tenant_workspaces")).toBe(false)
   })
 
   it("requires professional or business for the AI voice assistant (087)", () => {

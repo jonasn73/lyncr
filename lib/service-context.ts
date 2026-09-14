@@ -45,7 +45,10 @@ export function hasPremiumCapability(
   tier: SubscriptionTier,
   capability: PremiumCapability
 ): boolean {
-  if (isMasterTestAccount(email)) return true
+  // multi_tenant_workspaces stays paused even for the master QA account — the point of
+  // pausing it product-wide was to keep Jonas's own daily-use dashboard to one shop too,
+  // not just gate it away from other accounts. Every other capability still bypasses.
+  if (isMasterTestAccount(email)) return capability !== "multi_tenant_workspaces"
   if (!tierHasScaleCapabilities(tier)) return false
   return SCALE_TIER_CAPABILITIES.includes(capability)
 }
