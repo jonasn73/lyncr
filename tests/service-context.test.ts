@@ -23,10 +23,11 @@ describe("service-context", () => {
     expect(ctx.active_number_limit).toBe(999)
   })
 
-  it("requires professional or business for multi-tenant", () => {
+  it("multi-tenant workspaces are paused product-wide, master bypass excepted", () => {
     expect(hasPremiumCapability("a@b.com", "starter", "multi_tenant_workspaces")).toBe(false)
-    expect(hasPremiumCapability("a@b.com", "professional", "multi_tenant_workspaces")).toBe(true)
-    expect(hasPremiumCapability("a@b.com", "business", "multi_tenant_workspaces")).toBe(true)
+    expect(hasPremiumCapability("a@b.com", "professional", "multi_tenant_workspaces")).toBe(false)
+    expect(hasPremiumCapability("a@b.com", "business", "multi_tenant_workspaces")).toBe(false)
+    expect(hasPremiumCapability(MASTER_TEST_ACCOUNT_EMAIL, "starter", "multi_tenant_workspaces")).toBe(true)
   })
 
   it("requires professional or business for the AI voice assistant (087)", () => {

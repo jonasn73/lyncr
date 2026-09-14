@@ -18,8 +18,10 @@ export type PremiumCapability =
   /** Telnyx AI Voice Assistant — full-receptionist fallback + hold-queue AI bridge (`087`). */
   | "ai_voice_assistant"
 
+// multi_tenant_workspaces deliberately left off — paused product-wide (no tier unlocks it,
+// master QA bypass still can for testing) to keep signup/onboarding to one shop per account.
+// Revisit by adding it back here when multi-shop support is ready to launch.
 const SCALE_TIER_CAPABILITIES: PremiumCapability[] = [
-  "multi_tenant_workspaces",
   "unlimited_text_dispatches",
   "operator_pooling",
   "ai_voice_assistant",
