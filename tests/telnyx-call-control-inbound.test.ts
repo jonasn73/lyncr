@@ -125,6 +125,9 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
     vi.resetModules()
+    // vi.doMock registrations outlive resetModules — undo the one test that opts into it
+    // so every other test keeps hitting the real (DB-less-in-test, always-miss) module.
+    vi.doUnmock("@/lib/tts-audio-cache")
   })
 
   it("call.initiated answers immediately without speak", async () => {
@@ -1703,6 +1706,91 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(gatherBody.voice).toBeTruthy()
     const hangupCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/hangup"))
     expect(hangupCall).toBeFalsy()
+  })
+
+  it("call.answered Busy plays a cached greeting clip instead of live gather_using_speak", async () => {
+    resolveInboundCapturePlanMock.mockResolvedValue({ kind: "presence_on_job" })
+    getFirstAvailableOwnerReceptionistMock.mockResolvedValue(null)
+
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "voicemail",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: false,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => {
+        const d = p.replace(/\D/g, "")
+        if (d.length === 10) return `+1${d}`
+        return p.startsWith("+") ? p : `+${d}`
+      },
+    }))
+    vi.doMock("@/lib/inbound-booking-sms", () => ({
+      sendInboundBookingSmsAndTag: vi.fn(() => Promise.resolve({ outcome: "sent" })),
+      bookingSmsConfirmSpeech: vi.fn(() => "mock booking sms confirm speech"),
+    }))
+    const cacheTtsAudioInBackground = vi.fn()
+    vi.doMock("@/lib/tts-audio-cache", () => ({
+      getCachedTtsAudioUrl: vi.fn(() => Promise.resolve("https://blob.example/tts-cache/busy-abc.mp3")),
+      cacheTtsAudioInBackground,
+    }))
+
+    const answeredState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_caller_answered",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialTargetE164: "+15022602716",
+      ringTimeoutSec: 30,
+      fallbackType: "voicemail",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.answered",
+        id: "evt-busy-gather-cached",
+        payload: {
+          call_control_id: "cc-busy-gather-cached",
+          from: "+15025369252",
+          to: "+15025571219",
+          direction: "incoming",
+          client_state: answeredState,
+        },
+      },
+    })
+
+    const speakGatherCall = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/actions/gather_using_speak")
+    )
+    expect(speakGatherCall).toBeFalsy()
+
+    const playCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/playback_start"))
+    expect(playCall).toBeTruthy()
+    const playBody = JSON.parse(String(playCall![1]?.body || "{}")) as { audio_url?: string }
+    expect(playBody.audio_url).toBe("https://blob.example/tts-cache/busy-abc.mp3")
+
+    const plainGatherCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/gather"))
+    expect(plainGatherCall).toBeTruthy()
+    expect(String(plainGatherCall![0])).not.toContain("gather_using")
+
+    expect(cacheTtsAudioInBackground).not.toHaveBeenCalled()
   })
 
   it("call.gather.ended press 1 sends booking SMS then confirms", async () => {

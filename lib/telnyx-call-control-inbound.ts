@@ -8,6 +8,7 @@ import {
   telnyxCallControlBridge,
   telnyxCallControlClientStateUpdate,
   telnyxCallControlDial,
+  telnyxCallControlGather,
   telnyxCallControlGatherUsingSpeak,
   telnyxCallControlHangup,
   telnyxCallControlPlaybackStart,
@@ -15,7 +16,10 @@ import {
   telnyxCallControlRecordStart,
   telnyxCallControlSpeak,
   telnyxListActiveCalls,
+  type TelnyxCallControlActionResult,
 } from "@/lib/telnyx-call-control-api"
+import { getCallControlSpeakVoiceAttributes } from "@/lib/texml-say-voice"
+import { cacheTtsAudioInBackground, getCachedTtsAudioUrl } from "@/lib/tts-audio-cache"
 import {
   abandonHoldQueue,
   bridgeAgentToHoldQueue,
@@ -454,15 +458,44 @@ async function startBusyAutomationFlow(
       console.warn(lyncrLog("telnyx-cc-busy-menu-tag-failed", { error: String(e) }))
     }
   })()
-  const gatherRes = await telnyxCallControlGatherUsingSpeak(callControlId, {
-    text: say,
-    clientState: nextState,
-    maximumDigits: maxDigits,
-    timeoutMillis: 8000,
-    // Telnyx defaults to 3 tries — that replayed the full Busy greeting before music.
-    maximumTries: 1,
-    voice: voiceForGather,
-  })
+  // Pre-rendered clip for this exact Busy greeting (see tts-audio-cache): playback_start +
+  // plain gather instead of gather_using_speak's live TTS. Deliberately NOT gather_using_audio —
+  // production already saw gatherStatus=invalid within ~1s combining that action with an MP3
+  // (see telnyxCallControlGatherUsingAudio's doc comment) — playback_start + gather is the same
+  // "audio plays while gather listens" split already proven safe by the hold-music path.
+  const ttsLanguage = getCallControlSpeakVoiceAttributes({}).language
+  const cachedAudioUrl = await getCachedTtsAudioUrl(say, voiceForGather, ttsLanguage)
+  let gatherRes: TelnyxCallControlActionResult | undefined
+  if (cachedAudioUrl) {
+    const playRes = await telnyxCallControlPlaybackStart(callControlId, {
+      audioUrl: cachedAudioUrl,
+      clientState: nextState,
+      stop: "current",
+    })
+    if (playRes.ok) {
+      gatherRes = await telnyxCallControlGather(callControlId, {
+        clientState: nextState,
+        maximumDigits: maxDigits,
+        timeoutMillis: 8000,
+      })
+    } else {
+      console.warn(
+        lyncrLog("telnyx-cc-busy-cached-playback-failed", { callControlId, error: playRes.error })
+      )
+    }
+  }
+  if (!gatherRes) {
+    if (!cachedAudioUrl) cacheTtsAudioInBackground(say, voiceForGather, ttsLanguage)
+    gatherRes = await telnyxCallControlGatherUsingSpeak(callControlId, {
+      text: say,
+      clientState: nextState,
+      maximumDigits: maxDigits,
+      timeoutMillis: 8000,
+      // Telnyx defaults to 3 tries — that replayed the full Busy greeting before music.
+      maximumTries: 1,
+      voice: voiceForGather,
+    })
+  }
   if (!gatherRes.ok) {
     console.error(lyncrLog("telnyx-cc-busy-gather-failed", { error: gatherRes.error }))
     // HTTP path failed even after NaturalHD/Polly chain — SMS then hang up (not silence).
