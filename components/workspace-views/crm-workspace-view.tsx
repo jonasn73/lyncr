@@ -6,6 +6,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
+  ArrowLeft,
   CalendarCheck,
   Car,
   Check,
@@ -1815,7 +1816,19 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     })
   }
 
-  const closeProfile = () => setSelectedId(null)
+  const closeProfile = () => {
+    setSelectedId(null)
+    // Strip ?customer= so a refresh (or the reopen-on-?customer= effect above) doesn't
+    // silently reopen what was just closed. history.replaceState, not router.replace —
+    // going through the router here would re-suspend useSearchParams and remount the
+    // whole pane (see client-search-params-bridge.tsx's comment on that exact bug).
+    if (typeof window !== "undefined" && window.location.search.includes("customer=")) {
+      const params = new URLSearchParams(window.location.search)
+      params.delete("customer")
+      const qs = params.toString()
+      window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname)
+    }
+  }
   const profileOpen = selectedId != null
   const listSectionRef = useRef<HTMLElement>(null)
   const profileSectionRef = useRef<HTMLElement>(null)
@@ -3184,6 +3197,17 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         >
           {!selectedId ? null : (
             <>
+              {/* The only way back to the customer list on desktop — the side panel
+                  otherwise had no dismiss control at all (clearing the search box
+                  above is a separate, unrelated bit of state and never closed it). */}
+              <button
+                type="button"
+                onClick={closeProfile}
+                className="mb-3 inline-flex items-center gap-2 rounded-lg py-1 pr-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden />
+                Back to customers
+              </button>
               {selected ? (
                 <div className="mb-4 border-b border-border pb-3">
                   {renderProfileName("text-lg font-semibold text-foreground")}
