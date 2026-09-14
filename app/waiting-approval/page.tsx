@@ -47,21 +47,27 @@ export default function WaitingApprovalPage() {
   }, [router])
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background px-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-10">
-      <BrandWordmark className="text-lg" />
-      <h1 className="mt-10 text-2xl font-semibold text-foreground">We got your signup</h1>
-      <p className="mt-3 max-w-md text-sm text-muted-foreground">
-        {shop ? `${shop} is waiting for approval.` : "Your shop is waiting for approval."} You
-        can close this page. When we turn you on, log in again and continue setup.
-      </p>
-      <Button
-        type="button"
-        variant="outline"
-        className="mt-8 w-full max-w-sm"
-        onClick={() => void signOutAndGoToLogin()}
-      >
-        Log out
-      </Button>
+    <div className="flex min-h-dvh flex-col bg-background">
+      <header className="flex items-center justify-center px-6 py-6">
+        <BrandWordmark size="md" />
+      </header>
+      <main className="flex flex-1 flex-col items-center justify-center px-6 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
+        <div className="w-full max-w-sm animate-sigo-page-enter text-center">
+          <h1 className="text-2xl font-semibold text-foreground">We got your signup</h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {shop ? `${shop} is waiting for approval.` : "Your shop is waiting for approval."} You
+            can close this page. When we turn you on, log in again and continue setup.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-8 w-full"
+            onClick={() => void signOutAndGoToLogin()}
+          >
+            Log out
+          </Button>
+        </div>
+      </main>
     </div>
   )
 }
