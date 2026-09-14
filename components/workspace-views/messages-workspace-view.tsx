@@ -4,9 +4,11 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { AnimatePresence, motion } from "framer-motion"
 import { ArrowLeft, ClipboardList, CreditCard, Loader2, MessageSquare, Send, Sparkles, UserRound } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { MOTION_SPRING_LAYOUT } from "@/lib/motion"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -1079,11 +1081,20 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 }
               />
             ) : (
-              threads.map((thread) => {
+              // Was a plain .map — the list re-sorts by most-recent on every poll with no
+              // motion at all, rows just snapped into a new order. layout gives that a FLIP
+              // animation instead (job-pool-tray.tsx's exact pattern).
+              <AnimatePresence initial={false}>
+              {threads.map((thread) => {
                 const active = thread.customerPhone === selectedPhone
                 return (
-                  <button
+                  <motion.button
                     key={phoneMatchKey(thread.customerPhone) || thread.customerPhone}
+                    layout
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={MOTION_SPRING_LAYOUT}
                     type="button"
                     onClick={() => {
                       // Manual pick wins — clear any lingering ?phone= so poll cannot override.
@@ -1150,9 +1161,10 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                         )}
                       </p>
                     </div>
-                  </button>
+                  </motion.button>
                 )
-              })
+              })}
+              </AnimatePresence>
             )}
           </div>
         </div>
@@ -1316,12 +1328,21 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     aria-label="Loading conversation"
                   />
                 ) : (
-                  activeThread.messages.map((msg) => {
+                  // Was a plain .map with no motion — a new bubble on the next 12s poll just
+                  // snapped into place. AnimatePresence + layout fades/slides it in instead
+                  // (job-pool-tray.tsx's exact pattern for list items).
+                  <AnimatePresence initial={false}>
+                  {activeThread.messages.map((msg) => {
                   const outbound = msg.direction === "outbound"
                   const deliveryLabel = outbound ? formatOutboundDeliveryLabel(msg) : null
                   return (
-                    <div
+                    <motion.div
                       key={msg.id}
+                      layout
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={MOTION_SPRING_LAYOUT}
                       className={cn("flex", outbound ? "justify-end" : "justify-start")}
                     >
                       <div
@@ -1355,9 +1376,10 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                           </p>
                         ) : null}
                       </div>
-                    </div>
+                    </motion.div>
                   )
-                })
+                })}
+                  </AnimatePresence>
                 )}
                 <div ref={bottomRef} />
               </div>

@@ -5,6 +5,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { AnimatePresence, motion } from "framer-motion"
+import { MOTION_SPRING_LAYOUT } from "@/lib/motion"
 import {
   ArrowLeft,
   CalendarCheck,
@@ -3263,11 +3265,22 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                   !selectedId && "xl:grid xl:grid-cols-2 xl:gap-2 xl:space-y-0 2xl:grid-cols-3"
                 )}
               >
+                {/* Was a plain .map with no motion at all — filtering/searching just snapped to
+                    the new set. layout gives re-sorts a FLIP animation; enter/exit fades rows in
+                    and out instead of an instant swap (job-pool-tray.tsx's exact pattern). */}
+                <AnimatePresence initial={false}>
                 {rows.map((row) => {
                   const active = row.id === selectedId
                   const name = row.display_name.trim() || formatPhoneDisplay(row.phone_e164)
                   return (
-                    <li key={row.id}>
+                    <motion.li
+                      key={row.id}
+                      layout
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={MOTION_SPRING_LAYOUT}
+                    >
                       <button
                         type="button"
                         onClick={() => {
@@ -3329,9 +3342,10 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                           </p>
                         </div>
                       </button>
-                    </li>
+                    </motion.li>
                   )
                 })}
+                </AnimatePresence>
               </ul>
             )}
           </div>
