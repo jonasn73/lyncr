@@ -24,8 +24,10 @@ import {
   Wrench,
   X,
 } from "lucide-react"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
+import { WorkspaceStatCard } from "@/components/dashboard-workspace-ui"
 import { buildTelHref } from "@/lib/phone-e164"
 import {
   flickerSafeSearchParamNames,
@@ -163,6 +165,39 @@ function crmListStatusToneClass(
   if (tone === "sky") return "text-info/90"
   if (tone === "emerald") return "text-success/90"
   return "text-muted-foreground"
+}
+
+/**
+ * Lead-badge pill used the same monochrome gray for every type — booked vs. needs-recovery
+ * vs. brand-new all looked identical, so scanning the list required reading text instead of
+ * color. Groups by real urgency: won/repeat = success, new/quoted = info, needs attention =
+ * warning, missed-call callback = destructive (the one that should stand out most).
+ */
+function crmBadgeToneClass(badge: CrmLeadBadge): string {
+  switch (badge) {
+    case "booked_client":
+    case "repeat_customer":
+      return "border-success/30 bg-success/10 text-success"
+    case "price_quoted":
+    case "new_contact":
+      return "border-info/30 bg-info/10 text-info"
+    case "needs_followup":
+    case "needs_review":
+    case "needs_recovery":
+      return "border-warning/30 bg-warning/10 text-warning"
+    case "callback":
+      return "border-destructive/30 bg-destructive/10 text-destructive"
+    default:
+      return "border-border bg-background/80 text-muted-foreground"
+  }
+}
+
+/** Matches header-settings-sheet.tsx's initialsFromName — same avatar convention app-wide. */
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 /** Human service label from book chip or job_type (never invent Lockout from blanks). */
@@ -422,6 +457,53 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   }, [searchParams])
 
   const listScopeKey = `${crmOrgId ?? "default"}:${filter}:${debounced}`
+
+  // At-a-glance header counts. Deliberately reuses the same /api/crm/customers endpoint
+  // the list itself calls (with filter=all / needs_followup / needs_review) rather than a
+  // new backend aggregate — leads-vs-clients is computed application-side from a fairly
+  // involved ai_leads join (see listCrmCustomersForUser), not a simple SQL WHERE, so a
+  // dedicated counts query would mean re-deriving that logic a second time and risking it
+  // drifting out of sync with what the list itself shows. This guarantees they can't disagree.
+  const [counts, setCounts] = useState<{
+    leads: number
+    clients: number
+    needsFollowup: number
+    needsReview: number
+  } | null>(null)
+  useEffect(() => {
+    if (!isActive || !orgReady || orgResolving) return
+    let cancelled = false
+    const params = new URLSearchParams()
+    if (crmOrgId && !crmOrgId.startsWith("legacy-")) params.set("organization_id", crmOrgId)
+    const withFilter = (f: string) => {
+      const p = new URLSearchParams(params)
+      p.set("filter", f)
+      p.set("limit", "500")
+      return `/api/crm/customers?${p.toString()}`
+    }
+    Promise.all(
+      [withFilter("all"), withFilter("needs_followup"), withFilter("needs_review")].map((url) =>
+        fetch(url, { credentials: "include" })
+          .then((r) => (r.ok ? r.json() : { data: { customers: [] } }))
+          .then((j: { data?: { customers?: { lead_badge?: string }[] } }) => j.data?.customers ?? [])
+          .catch(() => [])
+      )
+    ).then(([all, needsFollowup, needsReview]) => {
+      if (cancelled) return
+      const clients = all.filter(
+        (c) => c.lead_badge === "booked_client" || c.lead_badge === "repeat_customer"
+      ).length
+      setCounts({
+        leads: all.length - clients,
+        clients,
+        needsFollowup: needsFollowup.length,
+        needsReview: needsReview.length,
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [isActive, orgReady, orgResolving, crmOrgId])
 
   const readCrmSession = useCallback(
     () => readCrmListCache(filter, debounced, crmPaint, crmOrgId),
@@ -3002,6 +3084,21 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         </p>
       </header>
 
+      <div className="grid min-h-[5.75rem] grid-cols-2 gap-3 lg:grid-cols-4">
+        <WorkspaceStatCard label="Leads" value={counts ? String(counts.leads) : "—"} accent="primary" />
+        <WorkspaceStatCard label="Clients" value={counts ? String(counts.clients) : "—"} accent="success" />
+        <WorkspaceStatCard
+          label="Needs follow-up"
+          value={counts ? String(counts.needsFollowup) : "—"}
+          accent="warning"
+        />
+        <WorkspaceStatCard
+          label="Needs review"
+          value={counts ? String(counts.needsReview) : "—"}
+          accent="warning"
+        />
+      </div>
+
       {/* One column until a customer is picked — the reserved profile pane was ~51% of a
           1280px screen sitting empty. From lg up a selection splits it side by side;
           at tablet the profile stacks under the list instead (768px cannot afford
@@ -3137,22 +3234,33 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                           setEditName(row.display_name || "")
                         }}
                         className={cn(
-                          "w-full rounded-xl border px-3 py-3 text-left",
+                          "flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
                           active
                             ? "border-info/40 bg-info/10"
                             : "border-border/80 bg-card/40 hover:border-border"
                         )}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="truncate text-sm font-semibold text-foreground">{name}</p>
-                          <span className="shrink-0 rounded-md bg-background/80 px-2 py-0.5 text-2xs font-medium text-muted-foreground">
-                            {BADGE_LABEL[row.lead_badge]}
-                          </span>
-                        </div>
-                        <p className="mt-0.5 truncate text-xs tabular-nums text-muted-foreground">
-                          {formatPhoneDisplay(row.phone_e164)}
-                        </p>
-                        <p className="mt-1 break-words text-2xs leading-snug text-muted-foreground">
+                        <Avatar className="mt-0.5 h-9 w-9 shrink-0">
+                          <AvatarFallback className="bg-primary/15 text-2xs font-semibold text-primary">
+                            {initialsFromName(name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="truncate text-sm font-semibold text-foreground">{name}</p>
+                            <span
+                              className={cn(
+                                "shrink-0 rounded-md border px-2 py-0.5 text-2xs font-medium",
+                                crmBadgeToneClass(row.lead_badge)
+                              )}
+                            >
+                              {BADGE_LABEL[row.lead_badge]}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 truncate text-xs tabular-nums text-muted-foreground">
+                            {formatPhoneDisplay(row.phone_e164)}
+                          </p>
+                          <p className="mt-1 break-words text-2xs leading-snug text-muted-foreground">
                           {(() => {
                             // Prefer latest open job status over booking source (“From book link”).
                             const status = String(row.job_status_label ?? "").trim()
@@ -3175,7 +3283,8 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                             }
                             return meta
                           })()}
-                        </p>
+                          </p>
+                        </div>
                       </button>
                     </li>
                   )
