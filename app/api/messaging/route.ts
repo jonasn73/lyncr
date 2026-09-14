@@ -3,11 +3,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import {
+  getCustomerNamesByPhonesForUser,
   getDefaultOrganizationForOwner,
   getOrganizationForOwner,
   getUser,
   listSmsMessagesForOrganization,
 } from "@/lib/db"
+import { phoneMatchKey } from "@/lib/messages-deep-link"
 
 export const dynamic = "force-dynamic"
 
@@ -40,6 +42,23 @@ export async function GET(req: NextRequest) {
 
     const limitRaw = Number(req.nextUrl.searchParams.get("limit") ?? "100")
     const messages = await listSmsMessagesForOrganization(userId, org.id, limitRaw)
+
+    // A name is a nicety — never fail the whole inbox over it (same stance as
+    // lib/receptionist-portal.ts's attachCustomerNames, which this mirrors).
+    try {
+      const names = await getCustomerNamesByPhonesForUser(
+        userId,
+        messages.map((m) => m.customer_phone)
+      )
+      if (names.size > 0) {
+        for (const m of messages) {
+          const name = names.get(phoneMatchKey(m.customer_phone))
+          if (name) m.customer_name = name
+        }
+      }
+    } catch {
+      /* list still works without names */
+    }
 
     return NextResponse.json({
       data: {

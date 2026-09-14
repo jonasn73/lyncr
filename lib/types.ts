@@ -1620,6 +1620,8 @@ export interface SmsMessage {
   delivered_at?: string | null
   failed_at?: string | null
   delivery_error?: string | null
+  /** CRM display_name for customer_phone, resolved server-side — a nicety, may be absent. */
+  customer_name?: string | null
 }
 
 // --- Phone Numbers ---

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, ClipboardList, CreditCard, Loader2, MessageSquare, Send, Sparkles, UserRound } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   flickerSafeSearchParamNames,
@@ -112,9 +113,18 @@ function readMessagesCache(
 
 type SmsThread = {
   customerPhone: string
+  customerName: string | null
   messages: SmsMessage[]
   lastMessage: SmsMessage
   needsReply: boolean
+}
+
+/** Matches header-settings-sheet.tsx's initialsFromName — same avatar convention app-wide. */
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 function formatOutboundDeliveryLabel(msg: SmsMessage): string | null {
@@ -150,6 +160,7 @@ function groupIntoThreads(messages: SmsMessage[]): SmsThread[] {
     if (!lastMessage) continue
     threads.push({
       customerPhone: displayPhone,
+      customerName: sorted.find((m) => m.customer_name?.trim())?.customer_name?.trim() ?? null,
       messages: sorted,
       lastMessage,
       needsReply: lastMessage.direction === "inbound",
@@ -561,6 +572,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     const now = new Date().toISOString()
     return {
       customerPhone: selectedPhone,
+      customerName: null,
       messages: [],
       lastMessage: {
         id: "__empty__",
@@ -1080,7 +1092,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                       setSendError(null)
                     }}
                     className={cn(
-                      "flex w-full flex-col gap-0.5 border-b border-border/40 px-4 py-3 text-left",
+                      "flex w-full items-start gap-3 border-b border-border/40 px-4 py-3 text-left",
                       "transition-colors duration-150 ease-out",
                       active
                         ? "bg-success/10"
@@ -1088,33 +1100,55 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                       thread.needsReply && !active && "bg-warning/5"
                     )}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-semibold text-foreground">
-                        {formatPhoneDisplay(thread.customerPhone)}
-                      </span>
-                      <span className="shrink-0 text-2xs tabular-nums text-muted-foreground">
-                        {threadTimeLabel(
+                    <Avatar className="mt-0.5 h-9 w-9 shrink-0">
+                      <AvatarFallback className="bg-primary/15 text-2xs font-semibold text-primary">
+                        {thread.customerName
+                          ? initialsFromName(thread.customerName)
+                          : (thread.customerPhone.replace(/\D/g, "").slice(-2) || "?")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                          <span className="truncate text-sm font-semibold text-foreground">
+                            {thread.customerName || formatPhoneDisplay(thread.customerPhone)}
+                          </span>
+                          {thread.customerName ? (
+                            <span className="shrink-0 text-2xs tabular-nums text-muted-foreground">
+                              {formatPhoneDisplay(thread.customerPhone)}
+                            </span>
+                          ) : null}
+                        </div>
+                        {thread.needsReply ? (
+                          <span
+                            className="h-2 w-2 shrink-0 rounded-full bg-warning"
+                            aria-label="Needs reply"
+                          />
+                        ) : null}
+                        <span className="shrink-0 text-2xs tabular-nums text-muted-foreground">
+                          {threadTimeLabel(
+                            thread.customerPhone,
+                            thread.lastMessage.id,
+                            thread.lastMessage.created_at
+                          )}
+                        </span>
+                      </div>
+                      <p
+                        className={cn(
+                          "mt-0.5 truncate text-xs",
+                          thread.needsReply
+                            ? "font-medium text-warning/90"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {thread.lastMessage.direction === "outbound" ? "You: " : ""}
+                        {threadPreviewBody(
                           thread.customerPhone,
                           thread.lastMessage.id,
-                          thread.lastMessage.created_at
+                          thread.lastMessage.body
                         )}
-                      </span>
+                      </p>
                     </div>
-                    <p
-                      className={cn(
-                        "truncate text-xs",
-                        thread.needsReply
-                          ? "font-medium text-warning/90"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      {thread.lastMessage.direction === "outbound" ? "You: " : ""}
-                      {threadPreviewBody(
-                        thread.customerPhone,
-                        thread.lastMessage.id,
-                        thread.lastMessage.body
-                      )}
-                    </p>
                   </button>
                 )
               })
@@ -1158,6 +1192,13 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
+                <Avatar className="hidden h-9 w-9 shrink-0 sm:flex">
+                  <AvatarFallback className="bg-primary/15 text-2xs font-semibold text-primary">
+                    {customerLookupDone && customerName?.trim()
+                      ? initialsFromName(customerName)
+                      : (threadPhoneLabel.replace(/\D/g, "").slice(-2) || "?")}
+                  </AvatarFallback>
+                </Avatar>
                 {/* Always two lines — CRM name must not grow the header after lookup. */}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-foreground">
