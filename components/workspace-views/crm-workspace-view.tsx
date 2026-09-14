@@ -3126,32 +3126,53 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   // pb clears the fixed mobile dock so the last list cards stay reachable while main scrolls.
   return (
     <div className="mx-auto flex w-full max-w-workspace flex-col gap-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 md:pb-8">
-      <header className="flex flex-col gap-1">
-        <p className="hidden text-micro font-semibold uppercase tracking-wider text-muted-foreground md:block">
-          CRM
-        </p>
-        <h1 className="text-lg font-semibold tracking-tight text-foreground sm:text-2xl">
-          Customers &amp; Leads
-        </h1>
-        <p className="hidden text-sm text-muted-foreground md:block">
-          People, vehicles, history, and follow-ups — including book-form submissions (stay here after
-          you clear Lines alerts). Use Book forms to find customer-filled requests that still need a call.
-        </p>
-      </header>
+      {/* Sticky so the title and at-a-glance counts stay put while a long customer list
+          scrolls underneath — was scrolling out of view on phones (no internal list scroll
+          below md) and on tablet-width profile-stacked layouts. */}
+      <div className="sticky top-0 z-20 flex flex-col gap-3 bg-background pb-3">
+        <header className="flex flex-col gap-1">
+          <p className="hidden text-micro font-semibold uppercase tracking-wider text-muted-foreground md:block">
+            CRM
+          </p>
+          <h1 className="text-lg font-semibold tracking-tight text-foreground sm:text-2xl">
+            Customers &amp; Leads
+          </h1>
+          <p className="hidden text-sm text-muted-foreground md:block">
+            People, vehicles, history, and follow-ups — including book-form submissions (stay here after
+            you clear Lines alerts). Use Book forms to find customer-filled requests that still need a call.
+          </p>
+        </header>
 
-      <div className="grid min-h-[5.75rem] grid-cols-2 gap-3 lg:grid-cols-4">
-        <WorkspaceStatCard label="Leads" value={counts ? String(counts.leads) : "—"} accent="primary" />
-        <WorkspaceStatCard label="Clients" value={counts ? String(counts.clients) : "—"} accent="success" />
-        <WorkspaceStatCard
-          label="Needs follow-up"
-          value={counts ? String(counts.needsFollowup) : "—"}
-          accent="warning"
-        />
-        <WorkspaceStatCard
-          label="Needs review"
-          value={counts ? String(counts.needsReview) : "—"}
-          accent="warning"
-        />
+        <div className="grid min-h-[5.75rem] grid-cols-2 gap-3 lg:grid-cols-4">
+          <WorkspaceStatCard
+            label="Leads"
+            value={counts ? String(counts.leads) : "—"}
+            accent="primary"
+            active={filter === "leads"}
+            onClick={() => setFilter("leads")}
+          />
+          <WorkspaceStatCard
+            label="Clients"
+            value={counts ? String(counts.clients) : "—"}
+            accent="success"
+            active={filter === "clients"}
+            onClick={() => setFilter("clients")}
+          />
+          <WorkspaceStatCard
+            label="Needs follow-up"
+            value={counts ? String(counts.needsFollowup) : "—"}
+            accent="warning"
+            active={filter === "needs_followup"}
+            onClick={() => setFilter("needs_followup")}
+          />
+          <WorkspaceStatCard
+            label="Needs review"
+            value={counts ? String(counts.needsReview) : "—"}
+            accent="warning"
+            active={filter === "needs_review"}
+            onClick={() => setFilter("needs_review")}
+          />
+        </div>
       </div>
 
       {/* One column until a customer is picked — the reserved profile pane was ~51% of a

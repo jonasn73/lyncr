@@ -1950,46 +1950,50 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
 
   return (
     <WorkspacePage>
-      <WorkspacePageHeader
-        eyebrow="Call history"
-        title={
-          filter === "missed"
-            ? "Missed calls today"
-            : filter === "hold"
-              ? "Hold queue"
-              : filter === "press1"
-                ? "Press 1 bookings"
-                : filter === "follow_up"
-                  ? "Needs follow-up"
-                  : "Activities"
-        }
-      />
-      {/* Desktop-only shortcuts — kept out of the header so mobile never gets a status row under the title. */}
-      <div className="hidden flex-wrap items-center gap-3 sm:flex">
-        <Link
-          href="/dashboard/contacts"
-          className="inline-flex items-center gap-2 rounded-lg border border-info/40 bg-info/10 px-3 py-2 text-xs font-semibold text-info transition-[color,background-color,border-color] duration-150 hover:border-info/50 hover:bg-muted hover:text-info"
-        >
-          Dispatch Map
-        </Link>
-        <Link
-          href="/dashboard/scheduler"
-          className="inline-flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition-[color,background-color,border-color] duration-150 hover:border-primary/50 hover:bg-muted hover:text-primary"
-        >
-          <CalendarDays className="h-3.5 w-3.5" aria-hidden />
-          Job scheduler
-        </Link>
-      </div>
+      {/* Sticky so the title and filter bar stay put while a long call list scrolls
+          underneath, same treatment as CRM's header. */}
+      <div className="sticky top-0 z-20 flex flex-col gap-6 bg-background pb-3 sm:gap-8">
+        <WorkspacePageHeader
+          eyebrow="Call history"
+          title={
+            filter === "missed"
+              ? "Missed calls today"
+              : filter === "hold"
+                ? "Hold queue"
+                : filter === "press1"
+                  ? "Press 1 bookings"
+                  : filter === "follow_up"
+                    ? "Needs follow-up"
+                    : "Activities"
+          }
+        />
+        {/* Desktop-only shortcuts — kept out of the header so mobile never gets a status row under the title. */}
+        <div className="hidden flex-wrap items-center gap-3 sm:flex">
+          <Link
+            href="/dashboard/contacts"
+            className="inline-flex items-center gap-2 rounded-lg border border-info/40 bg-info/10 px-3 py-2 text-xs font-semibold text-info transition-[color,background-color,border-color] duration-150 hover:border-info/50 hover:bg-muted hover:text-info"
+          >
+            Dispatch Map
+          </Link>
+          <Link
+            href="/dashboard/scheduler"
+            className="inline-flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition-[color,background-color,border-color] duration-150 hover:border-primary/50 hover:bg-muted hover:text-primary"
+          >
+            <CalendarDays className="h-3.5 w-3.5" aria-hidden />
+            Job scheduler
+          </Link>
+        </div>
 
-      {/* Call activity only — assign / pins live on Map + Scheduler. */}
-      <ActivityCallFilterBar
-        filter={filter}
-        missedCount={missedCount}
-        holdCount={holdCount}
-        press1Count={press1Count}
-        followUpCount={followUpCount}
-        onChange={onFilterChange}
-      />
+        {/* Call activity only — assign / pins live on Map + Scheduler. */}
+        <ActivityCallFilterBar
+          filter={filter}
+          missedCount={missedCount}
+          holdCount={holdCount}
+          press1Count={press1Count}
+          followUpCount={followUpCount}
+          onChange={onFilterChange}
+        />
+      </div>
       {showingQuietLoad ? (
         <div
           className="min-h-[16rem] rounded-2xl border border-border/60 bg-background"
