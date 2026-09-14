@@ -109,7 +109,7 @@ export function OwnerHelpSheet() {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent
         side="bottom"
-        className="flex max-h-[92dvh] flex-col gap-0 p-0 sm:mx-auto sm:max-w-lg"
+        className="flex max-h-[92dvh] flex-col gap-0 p-0"
       >
         <SheetHeader className="border-b border-border/70 px-4 py-3 text-left">
           <div className="flex items-center gap-2">

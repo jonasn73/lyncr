@@ -562,7 +562,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
       </main>
 
       <Sheet open={onboardingSheetKey != null} onOpenChange={(open) => !open && setOnboardingSheetKey(null)} modal>
-        <SheetContent side="bottom" className="gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3">
+        <SheetContent side="bottom" className="gap-0 p-0 [&>button]:top-3">
           {/* Heading comes from the story body — name the sheet for screen readers. */}
           <SheetTitle className="sr-only">Setup details</SheetTitle>
           {(() => {

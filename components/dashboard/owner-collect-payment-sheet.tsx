@@ -1619,7 +1619,7 @@ export function OwnerCollectPaymentSheet({
           showCloseButton={false}
           className={cn(
             // Content-height bottom sheet (not sparse full-screen) — matches Latest / job sheets.
-            "flex h-auto flex-col gap-0 rounded-t-2xl rounded-b-none border-border bg-[#101018] p-0 sm:max-w-lg",
+            "flex h-auto flex-col gap-0 rounded-t-2xl rounded-b-none border-border bg-[#101018] p-0",
             mode === "tip_sign" ||
             mode === "send_link" ||
             mode === "link_sent" ||

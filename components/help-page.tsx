@@ -286,7 +286,7 @@ export function HelpPage() {
       )}
 
       <Sheet open={helpSheetKey != null} onOpenChange={(open) => !open && setHelpSheetKey(null)} modal>
-        <SheetContent side="bottom" className="gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3">
+        <SheetContent side="bottom" className="gap-0 p-0 [&>button]:top-3">
           {/* Heading comes from the story body — name the sheet for screen readers. */}
           <SheetTitle className="sr-only">Help details</SheetTitle>
           {(() => {

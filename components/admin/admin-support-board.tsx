@@ -341,7 +341,7 @@ function LiveChatQueue({ initialThreadId }: { initialThreadId?: string | null })
       >
         <SheetContent
           side="bottom"
-          className="flex max-h-[92vh] flex-col gap-0 border-border bg-background p-0 text-foreground sm:mx-auto sm:max-w-lg"
+          className="flex max-h-[92vh] flex-col gap-0 border-border bg-background p-0 text-foreground"
         >
           <SheetHeader className="border-b border-border px-4 py-3 text-left">
             <div className="flex items-start justify-between gap-2 pr-8">
@@ -658,7 +658,7 @@ function FeedbackQueue({ initialFeedbackId }: { initialFeedbackId?: string | nul
       <Sheet open={sheet != null} onOpenChange={(o) => !o && setSheet(null)}>
         <SheetContent
           side="bottom"
-          className="gap-0 border-border bg-background p-0 text-foreground sm:mx-auto sm:max-w-lg"
+          className="gap-0 border-border bg-background p-0 text-foreground"
         >
           {sheet ? (
             <>
@@ -870,7 +870,7 @@ function EmailInbox({ initialEmailId }: { initialEmailId?: string | null }) {
       >
         <SheetContent
           side="bottom"
-          className="gap-0 border-border bg-background p-0 text-foreground sm:mx-auto sm:max-w-lg"
+          className="gap-0 border-border bg-background p-0 text-foreground"
         >
           {detailLoading && !detail ? (
             <div className="flex justify-center py-16">

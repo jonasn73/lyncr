@@ -838,9 +838,8 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
             className={cn(
               "flex flex-col gap-0 overflow-hidden rounded-t-2xl border-border bg-[#101018] p-0",
               isReplyThreadItem(selected)
-                ? "h-[min(88dvh,44rem)]"
+                ? cn("h-[min(88dvh,44rem)]", "sm:max-w-lg md:max-w-2xl lg:max-w-3xl md:h-[min(85dvh,48rem)]")
                 : "h-auto max-h-[min(85dvh,40rem)]",
-              "sm:mx-auto sm:max-w-lg",
               "pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
             )}
           >

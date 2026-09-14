@@ -95,7 +95,7 @@ export function InvoicePreviewSheet({
         // Sit above CRM customer sheets (z~7200) and Money payments sheet.
         overlayClassName="z-[7400]"
         className={cn(
-          "z-[7410] flex max-h-[94dvh] flex-col gap-0 overflow-hidden rounded-t-2xl border-border bg-[#101018] p-0 sm:max-w-lg"
+          "z-[7410] flex max-h-[94dvh] flex-col gap-0 overflow-hidden rounded-t-2xl border-border bg-[#101018] p-0"
         )}
       >
         <SheetHeader className="shrink-0 border-b border-border px-4 pb-3 pt-4 text-left">
