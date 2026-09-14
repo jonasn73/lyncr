@@ -392,21 +392,16 @@ export function OrganizationSwitcher({
   return (
     <>
       {isSingleWorkspaceMode ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          aria-label={`Rename ${active?.name ?? "business"}`}
-          onClick={() => active && openRename(active)}
+        // Plain label, not a control — renaming lives in Settings → Business profile now.
+        <div
           className={cn(
-            "h-9 w-full min-w-0 max-w-full touch-manipulation gap-2 border-border/70 bg-card/80 px-2 text-xs font-medium pointer-events-auto sm:max-w-[14rem] sm:px-3 md:w-[16rem] md:max-w-[16rem] md:px-3",
+            "flex h-9 w-full min-w-0 max-w-full items-center gap-2 rounded-md border border-border/70 bg-card/80 px-2 text-xs font-medium sm:max-w-[14rem] sm:px-3 md:w-[16rem] md:max-w-[16rem] md:px-3",
             className
           )}
         >
           <Building2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
           <span className="min-w-0 flex-1 truncate text-left">{active?.name ?? "Business"}</span>
-          <Pencil className="h-3.5 w-3.5 shrink-0 opacity-50" aria-hidden />
-        </Button>
+        </div>
       ) : (
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal>
           <DropdownMenuTrigger asChild>

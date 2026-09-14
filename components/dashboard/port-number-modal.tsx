@@ -578,8 +578,8 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="flex max-h-[min(92dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-overlay">
+    <div className="fixed inset-0 z-50 flex animate-in items-center justify-center bg-black/60 p-4 fade-in-0 duration-200">
+      <div className="flex max-h-[min(92dvh,720px)] w-full max-w-lg animate-in flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-overlay zoom-in-95 duration-200 ease-out">
         {inner}
         <button
           type="button"

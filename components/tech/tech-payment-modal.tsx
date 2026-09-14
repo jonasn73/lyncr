@@ -1167,13 +1167,13 @@ export function TechPaymentModal(props: {
   const modal = (
     <>
     <div
-      className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[7000] flex animate-in items-end justify-center bg-black/60 fade-in-0 backdrop-blur-sm duration-200"
       role="dialog"
       aria-modal="true"
       aria-label="Charge"
     >
       {tapListening ? (
-        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-sidebar/95 px-8 text-center">
+        <div className="fixed inset-0 z-[60] flex animate-in flex-col items-center justify-center bg-sidebar/95 px-8 text-center fade-in-0 duration-150">
           <div className="relative mb-6 flex h-28 w-28 items-center justify-center">
             <span className="absolute inset-0 animate-ping rounded-full bg-operator/30" />
             <span className="relative flex h-24 w-24 items-center justify-center rounded-full border border-operator/40 bg-operator/15">
@@ -1192,7 +1192,7 @@ export function TechPaymentModal(props: {
       <div
         className={cn(
           // Content-height sheet — tip+sign hugs content (no empty full-screen void).
-          "flex w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-b-0 border-border bg-card pb-[env(safe-area-inset-bottom)] shadow-overlay sm:max-w-md",
+          "flex w-full max-w-lg animate-in flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-b-0 border-border bg-card pb-[env(safe-area-inset-bottom)] shadow-overlay slide-in-from-bottom-8 duration-200 ease-out sm:max-w-md",
           postPayStep === "tip_sign" ||
           postPayStep === "sign" ||
           postPayStep === "card_entry" ||
@@ -2106,13 +2106,13 @@ function NestedPayPopup(props: {
 }) {
   return (
     // Full-screen dimmer above the main payment sheet (z above 7000).
-    <div className="fixed inset-0 z-[7200] flex items-end justify-center bg-black/55 backdrop-blur-[2px] sm:items-center">
+    <div className="fixed inset-0 z-[7200] flex animate-in items-end justify-center bg-black/55 fade-in-0 backdrop-blur-[2px] duration-200 sm:items-center">
       {/* Compact panel — scrolls inside if the form is tall. */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label={props.title}
-        className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-overlay sm:rounded-3xl"
+        className="flex max-h-[85dvh] w-full max-w-md animate-in flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-overlay slide-in-from-bottom-8 duration-200 ease-out sm:rounded-3xl sm:zoom-in-95 sm:slide-in-from-bottom-0"
       >
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <h3 className="text-sm font-bold text-white">{props.title}</h3>

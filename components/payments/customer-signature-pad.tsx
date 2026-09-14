@@ -219,7 +219,7 @@ function FullscreenSignatureOverlay({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[8000] flex flex-col bg-[#0b0b12] text-white"
+      className="fixed inset-0 z-[8000] flex animate-in flex-col bg-[#0b0b12] text-white fade-in-0 slide-in-from-bottom-4 duration-200 ease-out"
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}

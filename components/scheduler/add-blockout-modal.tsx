@@ -90,7 +90,7 @@ function AddBlockoutModalForm({
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[80] flex animate-in items-end justify-center bg-black/60 p-0 fade-in-0 duration-200 sm:items-center sm:p-4">
       <button
         type="button"
         className="absolute inset-0 cursor-default"
@@ -100,7 +100,7 @@ function AddBlockoutModalForm({
       <div
         role="dialog"
         aria-labelledby="add-blockout-title"
-        className="relative z-[1] flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-overlay sm:rounded-2xl"
+        className="relative z-[1] flex max-h-[90dvh] w-full max-w-md animate-in flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-overlay slide-in-from-bottom-8 duration-200 ease-out sm:rounded-2xl sm:zoom-in-95 sm:slide-in-from-bottom-0"
       >
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h2 id="add-blockout-title" className="text-base font-semibold text-foreground">

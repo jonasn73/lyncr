@@ -248,9 +248,9 @@ export function CompanyBriefingCard({
   const script = `Thank you for calling ${businessName}, this is ${operator}, how can I help you?`
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex animate-in items-center justify-center bg-black/70 p-4 fade-in-0 backdrop-blur-sm duration-150">
       <div
-        className="flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-overlay shadow-black/50"
+        className="flex w-full max-w-2xl animate-in flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-overlay shadow-black/50 zoom-in-95 duration-150 ease-out"
         style={{ maxHeight: "calc(100dvh - 2rem)" }}
       >
         {/* Scrollable body — everything except the phone controls, which stay pinned below so
