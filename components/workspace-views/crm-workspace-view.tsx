@@ -173,22 +173,54 @@ function crmListStatusToneClass(
  * color. Groups by real urgency: won/repeat = success, new/quoted = info, needs attention =
  * warning, missed-call callback = destructive (the one that should stand out most).
  */
-function crmBadgeToneClass(badge: CrmLeadBadge): string {
+function crmBadgeTone(badge: CrmLeadBadge): "success" | "info" | "warning" | "destructive" | "neutral" {
   switch (badge) {
     case "booked_client":
     case "repeat_customer":
-      return "border-success/30 bg-success/10 text-success"
+      return "success"
     case "price_quoted":
     case "new_contact":
-      return "border-info/30 bg-info/10 text-info"
+      return "info"
     case "needs_followup":
     case "needs_review":
     case "needs_recovery":
-      return "border-warning/30 bg-warning/10 text-warning"
+      return "warning"
     case "callback":
+      return "destructive"
+    default:
+      return "neutral"
+  }
+}
+
+/** Full pill treatment (border + fill + text) for the list-row badge. */
+function crmBadgeToneClass(badge: CrmLeadBadge): string {
+  switch (crmBadgeTone(badge)) {
+    case "success":
+      return "border-success/30 bg-success/10 text-success"
+    case "info":
+      return "border-info/30 bg-info/10 text-info"
+    case "warning":
+      return "border-warning/30 bg-warning/10 text-warning"
+    case "destructive":
       return "border-destructive/30 bg-destructive/10 text-destructive"
     default:
       return "border-border bg-background/80 text-muted-foreground"
+  }
+}
+
+/** Text-only variant for inline meta chips (profile header) — no border/fill needed there. */
+function crmBadgeTextToneClass(badge: CrmLeadBadge): string {
+  switch (crmBadgeTone(badge)) {
+    case "success":
+      return "text-success"
+    case "info":
+      return "text-info"
+    case "warning":
+      return "text-warning"
+    case "destructive":
+      return "text-destructive"
+    default:
+      return "text-muted-foreground"
   }
 }
 
@@ -3044,22 +3076,33 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       </div>
     )
 
+  // Was a plain " · "-joined text line — every other section (Vehicles, Payments) leads with
+  // an icon, this was the odd one out. Small icon chips instead, same info, easier to scan.
   const renderProfileMeta = () =>
     selected ? (
-      <>
-        <span className="tabular-nums">{formatPhoneDisplay(selected.phone_e164)}</span>
-        {" · "}
-        {headerJobTarget?.is_open_lead
-          ? headerJobTarget.status_label
-          : BADGE_LABEL[selected.lead_badge]}
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="inline-flex items-center gap-1 tabular-nums">
+          <Phone className="h-3 w-3 shrink-0" aria-hidden />
+          {formatPhoneDisplay(selected.phone_e164)}
+        </span>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1",
+            headerJobTarget?.is_open_lead
+              ? crmListStatusToneClass(headerJobTarget.status_tone)
+              : crmBadgeTextToneClass(selected.lead_badge)
+          )}
+        >
+          <Wrench className="h-3 w-3 shrink-0" aria-hidden />
+          {headerJobTarget?.is_open_lead ? headerJobTarget.status_label : BADGE_LABEL[selected.lead_badge]}
+        </span>
         {selected.jobs_completed > 0 ? (
-          <>
-            {" · "}
-            {selected.jobs_completed} job
-            {selected.jobs_completed === 1 ? "" : "s"}
-          </>
+          <span className="inline-flex items-center gap-1">
+            <CalendarCheck className="h-3 w-3 shrink-0" aria-hidden />
+            {selected.jobs_completed} job{selected.jobs_completed === 1 ? "" : "s"}
+          </span>
         ) : null}
-      </>
+      </span>
     ) : null
 
   // Messages CRM chip with no saved row — don’t say the whole shop is empty.
