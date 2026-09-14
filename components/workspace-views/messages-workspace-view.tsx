@@ -8,6 +8,7 @@ import { ArrowLeft, ClipboardList, CreditCard, Loader2, MessageSquare, Send, Spa
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   flickerSafeSearchParamNames,
@@ -1063,20 +1064,20 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 ))}
               </div>
             ) : threads.length === 0 ? (
-              <div className="flex h-full min-h-[12rem] flex-col items-center gap-3 px-6 py-16 text-center">
-                <MessageSquare className="h-9 w-9 text-muted-foreground/50" aria-hidden />
-                <p className="text-sm font-medium text-foreground">No texts yet</p>
-                <p className="max-w-xs text-xs text-muted-foreground">
-                  When a customer texts your line — or you text from Activity / CRM — the thread
-                  shows up here.
-                </p>
-                <Link
-                  href="/dashboard/activity"
-                  className="inline-flex h-9 items-center justify-center rounded-lg border border-info/40 bg-info/10 px-4 text-xs font-semibold text-info hover:bg-info/20"
-                >
-                  Open Activity
-                </Link>
-              </div>
+              <EmptyState
+                icon={MessageSquare}
+                title="No texts yet"
+                description="When a customer texts your line — or you text from Activity / CRM — the thread shows up here."
+                className="min-h-[18rem]"
+                action={
+                  <Link
+                    href="/dashboard/activity"
+                    className="inline-flex h-9 items-center justify-center rounded-lg border border-info/40 bg-info/10 px-4 text-xs font-semibold text-info hover:bg-info/20"
+                  >
+                    Open Activity
+                  </Link>
+                }
+              />
             ) : (
               threads.map((thread) => {
                 const active = thread.customerPhone === selectedPhone
@@ -1172,9 +1173,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 aria-label={!inboxSettled || loading ? "Loading conversations" : undefined}
               />
             ) : (
-              <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
-                <MessageSquare className="h-9 w-9 opacity-40" aria-hidden />
-                <p className="text-sm">Select a conversation to read and reply</p>
+              <div className="flex flex-1 items-center justify-center px-6">
+                <EmptyState icon={MessageSquare} title="Select a conversation to read and reply" />
               </div>
             )
           ) : (
@@ -1331,14 +1331,18 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                             ? msg.status === "failed"
                               ? "rounded-br-md bg-destructive text-destructive-foreground"
                               : "rounded-br-md bg-success text-success-foreground"
-                            : "rounded-bl-md border border-border/60 bg-muted/50 text-foreground"
+                            // Used to be a thin-bordered flat bg-muted card next to outbound's
+                            // solid filled pill — different visual weight for what should be a
+                            // matched two-color bubble pair. Solid info fill instead, same
+                            // treatment as outbound just a different hue (them vs. you).
+                            : "rounded-bl-md bg-info text-info-foreground"
                         )}
                       >
                         <p className="whitespace-pre-wrap break-words">{msg.body}</p>
                         <p
                           className={cn(
                             "mt-1 text-2xs tabular-nums",
-                            outbound ? "text-success/80" : "text-muted-foreground",
+                            outbound ? "text-success/80" : "text-info-foreground/70",
                             outbound && msg.status === "failed" && "text-destructive/90"
                           )}
                         >
@@ -1363,7 +1367,10 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                   <p className="mb-2 text-xs text-destructive">{sendError}</p>
                 ) : null}
 
-                {/* Quick reply chips — tap fills the box. You still tap Send. */}
+                {/* Quick reply chips — tap fills the box. You still tap Send. Same operator
+                    tone as Suggest reply below — both are "assistive" actions and used to
+                    clash on unrelated colors (info here, operator there) for no real reason;
+                    info is now the incoming-message bubble's color instead. */}
                 {replySuggest.chips.length > 0 ? (
                   <div className="mb-2 flex flex-wrap gap-2">
                     {replySuggest.chips.map((chip) => (
@@ -1371,7 +1378,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                         key={chip.id}
                         type="button"
                         onClick={() => setDraft(chip.body)}
-                        className="rounded-full border border-info/30 bg-info/10 px-3 py-1 text-2xs font-semibold text-info hover:bg-info/20"
+                        className="rounded-full border border-operator/30 bg-operator/10 px-3 py-1 text-2xs font-semibold text-operator hover:bg-operator/20"
                       >
                         {chip.label}
                       </button>
