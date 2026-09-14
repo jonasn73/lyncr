@@ -484,10 +484,20 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   const [q, setQ] = useState("")
   const [debounced, setDebounced] = useState("")
   const [filter, setFilter] = useState<CrmFilter>(initialFilter)
-  // Seed list search from ?phone= (waiting-card CRM deep-link).
+  // Seed list search from ?phone= (waiting-card CRM deep-link). Strip it from the URL right
+  // after consuming it — same history.replaceState pattern as closeProfile's ?customer=
+  // cleanup below — so a refresh (or reopening CRM later) doesn't keep re-seeding a stale
+  // search box from a phone number the user may have already cleared or changed.
   useEffect(() => {
     const phoneParam = searchParams.get("phone")?.trim() || ""
-    if (phoneParam) setQ(phoneParam)
+    if (!phoneParam) return
+    setQ(phoneParam)
+    if (typeof window !== "undefined" && window.location.search.includes("phone=")) {
+      const params = new URLSearchParams(window.location.search)
+      params.delete("phone")
+      const qs = params.toString()
+      window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname)
+    }
   }, [searchParams])
 
   const listScopeKey = `${crmOrgId ?? "default"}:${filter}:${debounced}`
