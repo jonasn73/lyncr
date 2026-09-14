@@ -47,12 +47,22 @@ export function mergePaintedThreadHeads(
   const kept: SmsMessage[] = []
   const keptPhones = new Set<string>()
   const byId = new Map(painted.map((m) => [m.id, m]))
+  const liveById = new Map(fullInbox.map((m) => [m.id, m]))
   for (const [phone, id] of paintedLatest) {
     const liveId = liveLatest.get(phone)
     if (liveId && liveId === id) {
       const row = byId.get(id)
       if (row) {
-        kept.push(row)
+        // Keep the painted row's identity (avoids flicker) but pick up a customer_name
+        // that resolved server-side after this row was first painted — otherwise a name
+        // becoming available would never reach an already-open session (see the same
+        // patch in mergeVisibleSmsMessages below).
+        const liveRow = liveById.get(id)
+        kept.push(
+          liveRow?.customer_name && liveRow.customer_name !== row.customer_name
+            ? { ...row, customer_name: liveRow.customer_name }
+            : row
+        )
         keptPhones.add(phone)
       }
     } else if (liveId) {
@@ -84,10 +94,19 @@ export function mergeVisibleSmsMessages(
 ): SmsMessage[] {
   if (visible.length === 0) return live
   const visibleIds = new Set(visible.map((m) => m.id))
-  const liveIds = new Set(live.map((m) => m.id))
+  const liveById = new Map(live.map((m) => [m.id, m]))
   const merged: SmsMessage[] = []
   for (const msg of visible) {
-    if (liveIds.has(msg.id)) merged.push(msg)
+    const liveMsg = liveById.get(msg.id)
+    if (!liveMsg) continue
+    // Keep the visible object's identity (avoids body/status/time flicker) but pick up a
+    // customer_name that resolved server-side after this message was first cached —
+    // otherwise a name becoming available would never reach an already-open session.
+    merged.push(
+      liveMsg.customer_name && liveMsg.customer_name !== msg.customer_name
+        ? { ...msg, customer_name: liveMsg.customer_name }
+        : msg
+    )
   }
   for (const msg of live) {
     if (!visibleIds.has(msg.id)) merged.push(msg)
