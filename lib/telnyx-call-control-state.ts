@@ -103,6 +103,14 @@ export type TelnyxCallControlClientState = {
    * isRepeatCaller so the SMS confirmation can reuse it without re-querying.
    */
   callerDisplayName?: string
+  /**
+   * True when a customers row exists for this caller phone (any booking type — the same
+   * lookup that resolves callerDisplayName, just capturing existence too) — computed once
+   * at Busy entry. Lets the hold loop skip re-asking intake questions to someone we
+   * already have real details on file for, not just someone who answered them earlier
+   * on a recent call.
+   */
+  isKnownCustomer?: boolean
   /** Unix ms when ai_assistant_start was issued — used to bill AI-conversation minutes accurately (`087`). */
   aiAssistantStartedAtMs?: number
   /**

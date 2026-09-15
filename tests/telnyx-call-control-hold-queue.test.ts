@@ -49,6 +49,7 @@ vi.mock("@/lib/account-presence", () => ({
 vi.mock("@/lib/hold-queue", () => ({
   HOLD_REPROMPT_DEFAULT: "Still here — thanks for waiting.",
   HOLD_REPROMPT_ALREADY_ANSWERED: "Thanks for those details. Press 1 to book by text, press 2 for a callback.",
+  HOLD_REPROMPT_KNOWN_CUSTOMER: "Our team members are still tied up. Press 1 to book by text, press 2 for a callback.",
   holdLongWaitAlertMs: (...args: unknown[]) => holdLongWaitAlertMs(...args),
   holdMaxConcurrent: vi.fn(() => 5),
   holdMaxWaitSecs: vi.fn((override?: number) => override ?? 40),
@@ -528,5 +529,68 @@ describe("hold-queue reuses a recent caller's prior answers instead of re-asking
     })
 
     expect(getRecentHoldIntakeForCaller).not.toHaveBeenCalled()
+  })
+})
+
+describe("hold-queue skips intake for any known customer, not just recent DTMF answers", () => {
+  it("skips the question for a known customer with no recent hold-queue history", async () => {
+    getRecentHoldIntakeForCaller.mockResolvedValue(null)
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-known-customer",
+      state: {
+        ...timedOutState(),
+        holdStartedAtMs: Date.now(),
+        holdSegment: "music",
+        isKnownCustomer: true,
+      },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    expect(getUser).not.toHaveBeenCalled()
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    // Known-customer skip has no specific summary to reference, so it must use the
+    // "team members are still tied up" copy, not the "thanks for those details" one
+    // (which would falsely imply they just answered something on this call).
+    expect(opts.text).toContain("Our team members are still tied up")
+    expect(opts.text).not.toContain("Thanks for those details")
+    expect(opts.validDigits).toBe("12")
+  })
+
+  it("prefers a specific recent-answers match over the generic known-customer copy", async () => {
+    getRecentHoldIntakeForCaller.mockResolvedValue({
+      intent_label: "Active leak",
+    })
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-known-customer-with-history",
+      state: {
+        ...timedOutState(),
+        holdStartedAtMs: Date.now(),
+        holdSegment: "music",
+        isKnownCustomer: true,
+      },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    expect(opts.text).toContain("Thanks for those details")
+  })
+
+  it("still asks normally when the caller is neither a known customer nor has recent history", async () => {
+    getRecentHoldIntakeForCaller.mockResolvedValue(null)
+    getUser.mockResolvedValue({ industry: "plumbing" })
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-unknown-caller",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdSegment: "music", isKnownCustomer: false },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    expect(opts.text).toContain("leak or flooding")
   })
 })

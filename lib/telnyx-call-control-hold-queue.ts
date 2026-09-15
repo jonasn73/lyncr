@@ -28,6 +28,7 @@ import {
   HOLD_INTAKE_CAPTURED_ALERT_MIN_WAIT_MS,
   HOLD_REPROMPT_ALREADY_ANSWERED,
   HOLD_REPROMPT_DEFAULT,
+  HOLD_REPROMPT_KNOWN_CUSTOMER,
   holdLongWaitAlertMs,
   holdMaxConcurrent,
   holdMaxWaitSecs,
@@ -178,7 +179,14 @@ async function buildHoldRepromptText(
   // isRepeatCaller (set once at Busy entry, lib/telnyx-call-control-inbound.ts) still drives
   // internal signals (urgency, receptionist context) but is deliberately never spoken to the
   // caller — requested directly, "Still with us" / repeat-caller framing read as unnecessary.
-  const base = isHoldIntakeFullyAnswered(state) ? HOLD_REPROMPT_ALREADY_ANSWERED : HOLD_REPROMPT_DEFAULT
+  // holdIntakeSummary present = we have real answers from THIS caller to reference ("Thanks
+  // for those details"); answered but no summary = skipped purely because they're a known
+  // customer on file, so it'd be wrong to thank them for details they didn't just give us.
+  const base = !isHoldIntakeFullyAnswered(state)
+    ? HOLD_REPROMPT_DEFAULT
+    : state.holdIntakeSummary
+      ? HOLD_REPROMPT_ALREADY_ANSWERED
+      : HOLD_REPROMPT_KNOWN_CUSTOMER
   return `${base}${hint}`
 }
 
@@ -706,6 +714,14 @@ async function startHoldRepromptGather(
       console.log(
         lyncrLog("telnyx-cc-hold-intake-reused", { callControlId, summary: reusedIntakeSummary })
       )
+    } else if (state.isKnownCustomer) {
+      // No specific recent DTMF answers to reuse, but we already have a real customers
+      // record for this phone (any booking type) — still skip asking, just without a
+      // summary to reference (buildHoldRepromptText picks HOLD_REPROMPT_KNOWN_CUSTOMER
+      // over HOLD_REPROMPT_ALREADY_ANSWERED when there's no holdIntakeSummary set).
+      intakeAnswered = true
+      followUpAnswered = true
+      console.log(lyncrLog("telnyx-cc-hold-intake-skipped-known-customer", { callControlId }))
     }
   }
 
@@ -741,6 +757,7 @@ async function startHoldRepromptGather(
             // the press-2-for-callback offer) on this very first cycle.
             holdIntakeAnswered: intakeAnswered,
             holdIntakeFollowUpAnswered: followUpAnswered,
+            holdIntakeSummary: reusedIntakeSummary || state.holdIntakeSummary,
           },
           callControlId
         )

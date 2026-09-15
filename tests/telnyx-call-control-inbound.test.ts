@@ -2501,11 +2501,17 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       String(c[0]).includes("/actions/gather_using_speak")
     )
     expect(gatherCall).toBeTruthy()
-    const gatherBody = JSON.parse(String(gatherCall![1]?.body || "{}")) as { payload?: string }
+    const gatherBody = JSON.parse(String(gatherCall![1]?.body || "{}")) as {
+      payload?: string
+      client_state?: string
+    }
     expect(gatherBody.payload).not.toContain("Briann")
     expect(gatherBody.payload).not.toContain("Hey ")
     expect(gatherBody.payload).not.toContain("trying us again")
     expect(gatherBody.payload).toContain("We are with another customer.")
+    // Never spoken (same as the name/repeat-caller status above), but carried in state so
+    // the hold loop can skip re-asking intake questions to someone already on file.
+    expect(decodeTelnyxCallControlState(gatherBody.client_state || "")?.isKnownCustomer).toBe(true)
   })
 
   it("a missing customer-name lookup does not break the repeat-caller signal", async () => {

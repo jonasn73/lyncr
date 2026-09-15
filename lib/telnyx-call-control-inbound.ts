@@ -348,6 +348,7 @@ async function startBusyAutomationFlow(
   // blocks are deliberate: a problem with one lookup must never also zero out the other.
   let isRepeatCaller = false
   let callerDisplayName = ""
+  let isKnownCustomer = false
   try {
     const { listTodaysCallLogsForCaller } = await import("@/lib/db")
     const todaysLogs = await listTodaysCallLogsForCaller(routing.user_id, state.callerE164)
@@ -361,6 +362,10 @@ async function startBusyAutomationFlow(
     const { getCustomerByPhoneForUser } = await import("@/lib/db")
     const customer = await getCustomerByPhoneForUser(routing.user_id, state.callerE164)
     callerDisplayName = sanitizeCallerNameForSpeech(customer?.display_name)
+    // Any customers row at all (any booking type — manual, AI intake, public book form)
+    // means we already have real details on this person, not just DTMF answers from a
+    // recent hold session — the hold loop uses this to skip re-asking intake outright.
+    isKnownCustomer = Boolean(customer)
   } catch (e) {
     console.warn("[telnyx-cc] customer-name lookup skipped:", e)
   }
@@ -404,6 +409,7 @@ async function startBusyAutomationFlow(
     holdSpeakVoice: voiceForGather,
     isRepeatCaller,
     callerDisplayName: callerDisplayName || undefined,
+    isKnownCustomer,
   })
   console.log(
     lyncrLog("telnyx-cc-busy-automation-gather", {

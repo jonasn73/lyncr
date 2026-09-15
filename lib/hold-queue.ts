@@ -176,6 +176,17 @@ export const HOLD_REPROMPT_ALREADY_ANSWERED =
   "Thanks for those details — you're still in line. Press 1 to book by text, " +
   "press 2 if you'd rather we call you back, or stay on the line."
 
+/**
+ * Same reminder, for a caller we already have real details on file for (any existing
+ * booking/customer record — a returning customer calling back, not necessarily someone
+ * who just answered on hold this session) — skips the intake questions outright rather
+ * than re-collecting what's already known, without falsely thanking them for "details"
+ * they didn't just give us on THIS call.
+ */
+export const HOLD_REPROMPT_KNOWN_CUSTOMER =
+  "Our team members are still tied up right now. Press 1 to book by text, " +
+  "press 2 if you'd rather we call you back, or stay on the line."
+
 /** Spoken when max wait is reached — offer SMS once, then hang up. */
 export const HOLD_MAX_WAIT_SMS_PROMPT =
   "We are still tied up. We just texted you a booking link so you can tell us when you need us. Goodbye."
