@@ -97,11 +97,20 @@ describe("AMD early-machine helpers", () => {
     expect(resolveAmdMinMachineAgeMs()).toBe(15_000)
   })
 
-  it("raises trust age near the configured ring timeout", () => {
+  it("trusts machine at the floor age on a normal-length ring, not just the last 3s", () => {
     vi.stubEnv("LYNCR_INBOUND_AMD_MIN_MACHINE_AGE_MS", "12000")
-    // 20s ring → trust only after 17s (ring − 3s), not the 12s floor alone.
-    expect(resolveAmdMinMachineAgeForRingSec(20)).toBe(17_000)
-    expect(resolveAmdMinMachineAgeForRingSec(25)).toBe(22_000)
+    // 20s and 25s rings both comfortably exceed the 12s floor + 3s safety margin, so the
+    // floor itself is the trust age — a real carrier voicemail pickup around 15-20s must be
+    // trusted well before the ring ends, not waved through as an "early false positive"
+    // just because it landed outside the final 3 seconds.
+    expect(resolveAmdMinMachineAgeForRingSec(20)).toBe(12_000)
+    expect(resolveAmdMinMachineAgeForRingSec(25)).toBe(12_000)
+  })
+
+  it("caps trust age down for a short ring so 3s remain to redirect before it naturally times out", () => {
+    vi.stubEnv("LYNCR_INBOUND_AMD_MIN_MACHINE_AGE_MS", "18000")
+    // 15s ring can't wait for an 18s floor — clamp to ring − 3s instead.
+    expect(resolveAmdMinMachineAgeForRingSec(15)).toBe(12_000)
   })
 
   it("builds conservative classic AMD config, capped so the caller isn't left on ringback too long", () => {

@@ -154,15 +154,25 @@ export function resolveAmdMinMachineAgeMs(): number {
 }
 
 /**
- * Effective AMD machine trust age for this Dial — at least the env floor, and never
- * earlier than ~3s before the configured ring timeout (so Hold gets a full cell ring).
+ * Effective AMD machine trust age for this Dial — normally the env floor (default 18s, so a
+ * real ~15-20s carrier voicemail pickup is trusted well before the ring ends), but capped down
+ * for a short custom ring timeout so there's still ~3s left to hang up and redirect before the
+ * ring naturally times out.
+ *
+ * Was `Math.max(floorMs, ringMs - 3000)` — inverted from this intent: for any ring ≥ ~21s
+ * (the common 25-30s Hold/day_dial case) that picked the LATER of the two, pushing the trust
+ * age to the last 3 seconds of the ring instead of the 18s floor. A carrier voicemail that
+ * intercepted at ~20s (very common) landed just under that moved-out threshold and got
+ * misclassified as an "early false positive" human pickup — bridging straight into personal
+ * voicemail on Hold/AI/voicemail fallback dials, the exact failure this function exists to
+ * prevent. `Math.min` restores the floor as the actual trust age, only lowering it when the
+ * ring itself is too short to reach it.
  */
 export function resolveAmdMinMachineAgeForRingSec(ringTimeoutSec: number): number {
   const floorMs = resolveAmdMinMachineAgeMs()
   const ringMs = Math.max(5, Number(ringTimeoutSec) || 20) * 1000
-  // Trust machine only near the end of the ring window (leave 3s for hangup → Busy menu).
-  const nearTimeoutMs = Math.max(floorMs, ringMs - 3000)
-  return Math.min(nearTimeoutMs, 60_000)
+  const safetyCeilingMs = Math.max(3000, ringMs - 3000)
+  return Math.min(floorMs, safetyCeilingMs, 60_000)
 }
 
 /**
