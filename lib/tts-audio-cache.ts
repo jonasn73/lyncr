@@ -40,15 +40,23 @@ export function computeTtsCacheKey(text: string, voice: string, language: string
 }
 
 /**
- * Rough speech duration for a cached clip, for sizing a `gather` that runs *alongside* a
- * separate `playback_start` (unlike `gather_using_speak`, where the timeout only starts
- * after the speech finishes, a decoupled `playback_start` + `gather` starts its timer
- * immediately — too short a timeout here cuts the clip off mid-sentence into hold music).
- * Deliberately conservative (slow speaking rate) so we wait too long rather than too little.
+ * Fallback-only rough speech duration (character-count estimate) — used solely when a cached
+ * row predates the duration_ms column (migration 174) and has no measured value stored.
+ * Deliberately conservative (slow speaking rate) so a caller using this alone waits too long
+ * rather than too little; prefer the clip's real measured duration wherever one exists.
  */
 export function estimateSpeechMillis(text: string): number {
   const CONSERVATIVE_CHARS_PER_SECOND = 12
   return Math.round((text.length / CONSERVATIVE_CHARS_PER_SECOND) * 1000)
+}
+
+// Telnyx's /text-to-speech/speech endpoint returns constant-bitrate MP3 at this rate —
+// confirmed directly (`file` reported "128 kbps" on real output, not "VBR"). CBR duration
+// is exact from file size alone: no need to parse frames or guess from character count.
+const TELNYX_TTS_MP3_BITRATE_BPS = 128_000
+
+function measureMp3DurationMillis(byteLength: number): number {
+  return Math.round((byteLength * 8 * 1000) / TELNYX_TTS_MP3_BITRATE_BPS)
 }
 
 /** Lookup only. Returns null on a miss OR any failure — never throws. */
@@ -56,16 +64,21 @@ export async function getCachedTtsAudioUrl(
   text: string,
   voice: string,
   language: string
-): Promise<string | null> {
+): Promise<{ url: string; durationMs: number | null } | null> {
   try {
     // Same phonetic cleanup the live-speak path applies (e.g. "502" -> "five oh two") — the
     // cache key must be computed from what actually gets spoken, matching populateTtsAudioCache
     // below, or a lookup here can never hit what that function stored.
     const cacheKey = computeTtsCacheKey(cleanTextForTTS(text), voice, language)
     const sql = sqlClient()
-    const rows = await sql`SELECT blob_url FROM tts_audio_cache WHERE cache_key = ${cacheKey} LIMIT 1`
-    const url = (rows[0] as { blob_url?: unknown } | undefined)?.blob_url
-    return typeof url === "string" && url ? url : null
+    const rows = await sql`
+      SELECT blob_url, duration_ms FROM tts_audio_cache WHERE cache_key = ${cacheKey} LIMIT 1
+    `
+    const row = rows[0] as { blob_url?: unknown; duration_ms?: unknown } | undefined
+    const url = row?.blob_url
+    if (typeof url !== "string" || !url) return null
+    const durationMs = typeof row?.duration_ms === "number" ? row.duration_ms : null
+    return { url, durationMs }
   } catch (e) {
     console.warn("[tts-audio-cache] lookup failed, falling back to live TTS:", e)
     return null
@@ -87,6 +100,10 @@ export async function populateTtsAudioCache(text: string, voice: string, languag
   try {
     const { buffer, contentType } = await telnyxSynthesizeSpeechPreview(spoken, voice)
     const ext = contentType.includes("wav") ? "wav" : "mp3"
+    // Real measured length beats a text-length guess — that guess previously overshot by
+    // several real seconds, leaving dead air between the clip ending and hold music starting.
+    const durationMs =
+      ext === "mp3" ? measureMp3DurationMillis(buffer.byteLength) : estimateSpeechMillis(spoken)
     const blob = await put(`tts-cache/${cacheKey}.${ext}`, Buffer.from(buffer), {
       access: "public",
       contentType,
@@ -95,11 +112,11 @@ export async function populateTtsAudioCache(text: string, voice: string, languag
     })
     const sql = sqlClient()
     await sql`
-      INSERT INTO tts_audio_cache (cache_key, blob_url, voice, spoken_text)
-      VALUES (${cacheKey}, ${blob.url}, ${voice}, ${spoken})
-      ON CONFLICT (cache_key) DO UPDATE SET blob_url = EXCLUDED.blob_url
+      INSERT INTO tts_audio_cache (cache_key, blob_url, voice, spoken_text, duration_ms)
+      VALUES (${cacheKey}, ${blob.url}, ${voice}, ${spoken}, ${durationMs})
+      ON CONFLICT (cache_key) DO UPDATE SET blob_url = EXCLUDED.blob_url, duration_ms = EXCLUDED.duration_ms
     `
-    console.log("[tts-audio-cache] cached", { cacheKey, blobUrl: blob.url })
+    console.log("[tts-audio-cache] cached", { cacheKey, blobUrl: blob.url, durationMs })
   } catch (e) {
     // Missing table (migration not run yet), Telnyx TTS error, Blob misconfig, etc. — stay silent to logs only.
     console.warn("[tts-audio-cache] background generation failed:", { cacheKey, error: String(e) })

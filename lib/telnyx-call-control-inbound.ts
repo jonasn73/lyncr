@@ -456,23 +456,26 @@ async function startBusyAutomationFlow(
   // (see telnyxCallControlGatherUsingAudio's doc comment) — playback_start + gather is the same
   // "audio plays while gather listens" split already proven safe by the hold-music path.
   const ttsLanguage = getCallControlSpeakVoiceAttributes({}).language
-  const cachedAudioUrl = await getCachedTtsAudioUrl(say, voiceForGather, ttsLanguage)
+  const cached = await getCachedTtsAudioUrl(say, voiceForGather, ttsLanguage)
   let gatherRes: TelnyxCallControlActionResult | undefined
-  if (cachedAudioUrl) {
+  if (cached) {
     const playRes = await telnyxCallControlPlaybackStart(callControlId, {
-      audioUrl: cachedAudioUrl,
+      audioUrl: cached.url,
       clientState: nextState,
       stop: "current",
     })
     if (playRes.ok) {
       // Unlike gather_using_speak (timeout starts only after speech ends), this gather's
       // timer starts immediately, in parallel with playback_start's clip — a flat 8s here
-      // cut real greetings off mid-sentence into hold music. Size it to the clip's own
-      // estimated length (+ same 8s post-speech listening window as the live-TTS path).
+      // cut real greetings off mid-sentence into hold music. Use the clip's real measured
+      // duration (falls back to a conservative text-length estimate only for a pre-migration-174
+      // row with no stored duration) + the same 8s post-speech listening window as live TTS —
+      // a text-length *estimate* alone previously overshot the real clip by 7+ seconds,
+      // leaving dead air between the greeting ending and hold music starting.
       gatherRes = await telnyxCallControlGather(callControlId, {
         clientState: nextState,
         maximumDigits: maxDigits,
-        timeoutMillis: estimateSpeechMillis(say) + 8000,
+        timeoutMillis: (cached.durationMs ?? estimateSpeechMillis(say)) + 8000,
       })
     } else {
       console.warn(
@@ -481,7 +484,7 @@ async function startBusyAutomationFlow(
     }
   }
   if (!gatherRes) {
-    if (!cachedAudioUrl) cacheTtsAudioInBackground(say, voiceForGather, ttsLanguage)
+    if (!cached) cacheTtsAudioInBackground(say, voiceForGather, ttsLanguage)
     gatherRes = await telnyxCallControlGatherUsingSpeak(callControlId, {
       text: say,
       clientState: nextState,

@@ -1746,7 +1746,9 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     }))
     const cacheTtsAudioInBackground = vi.fn()
     vi.doMock("@/lib/tts-audio-cache", () => ({
-      getCachedTtsAudioUrl: vi.fn(() => Promise.resolve("https://blob.example/tts-cache/busy-abc.mp3")),
+      getCachedTtsAudioUrl: vi.fn(() =>
+        Promise.resolve({ url: "https://blob.example/tts-cache/busy-abc.mp3", durationMs: 15408 })
+      ),
       cacheTtsAudioInBackground,
       estimateSpeechMillis: (text: string) => Math.round((text.length / 12) * 1000),
     }))

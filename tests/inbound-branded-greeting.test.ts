@@ -124,7 +124,10 @@ describe("buildInboundGreetingFirstPassResult", () => {
   })
 
   it("plays the cached clip and skips background generation on a cache hit", async () => {
-    getCachedTtsAudioUrl.mockResolvedValueOnce("https://blob.example/tts-cache/abc.mp3")
+    getCachedTtsAudioUrl.mockResolvedValueOnce({
+      url: "https://blob.example/tts-cache/abc.mp3",
+      durationMs: 15000,
+    })
     const out = await buildInboundGreetingFirstPassResult(
       { organization_name: "Key Squad 502" },
       "https://lyncr.app/api/voice/telnyx/incoming"

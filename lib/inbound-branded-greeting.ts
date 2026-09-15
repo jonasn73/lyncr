@@ -173,11 +173,14 @@ export async function buildInboundGreetingFirstPassResult(
   const greeting = buildInboundCallerGreetingText(workspaceName)
   const continueUrl = buildInboundGreetingContinueUrl(incomingUrl)
   const { voice, language } = getTexmlSayVoiceAttributes()
-  const cachedAudioUrl = await getCachedTtsAudioUrl(greeting, voice, language)
-  if (!cachedAudioUrl) {
+  const cached = await getCachedTtsAudioUrl(greeting, voice, language)
+  if (!cached) {
     cacheTtsAudioInBackground(greeting, voice, language)
   }
-  return { kind: "raw", xml: buildInboundCallerGreetingOnlyTexml(greeting, continueUrl, cachedAudioUrl) }
+  return {
+    kind: "raw",
+    xml: buildInboundCallerGreetingOnlyTexml(greeting, continueUrl, cached?.url ?? null),
+  }
 }
 
 export function shouldPlayInboundGreetingFirstPass(greetingPassDone: boolean, greetingEnabled = true): boolean {

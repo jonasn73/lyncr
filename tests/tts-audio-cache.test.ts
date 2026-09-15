@@ -71,4 +71,27 @@ describe("tts-audio-cache phonetic cleanup", () => {
     await populateTtsAudioCache("Thanks for calling Key Squad 502.", "Telnyx.NaturalHD.astra", "en-US")
     expect(telnyxSynthesizeSpeechPreviewMock).not.toHaveBeenCalled()
   })
+
+  it("stores the clip's real measured duration, not a text-length guess", async () => {
+    // 128 kbps CBR MP3: a 16000-byte clip is exactly 1000ms — real duration from file size
+    // alone, not estimated from character count (that estimate previously overshot the real
+    // clip by 7+ seconds, leaving dead air before hold music started).
+    telnyxSynthesizeSpeechPreviewMock.mockResolvedValueOnce({
+      buffer: new ArrayBuffer(16000),
+      contentType: "audio/mpeg",
+    })
+    const { populateTtsAudioCache } = await import("@/lib/tts-audio-cache")
+    await populateTtsAudioCache("Thanks for calling Key Squad 502.", "Telnyx.NaturalHD.astra", "en-US")
+
+    const insertCall = sqlCalls.find((c) => c.strings.join("").includes("INSERT INTO tts_audio_cache"))
+    const insertedDurationMs = insertCall!.values[4]
+    expect(insertedDurationMs).toBe(1000)
+  })
+
+  it("returns the stored duration on a cache hit", async () => {
+    sqlMock.mockResolvedValueOnce([{ blob_url: "https://blob.example/tts-cache/fake.mp3", duration_ms: 15408 }])
+    const { getCachedTtsAudioUrl } = await import("@/lib/tts-audio-cache")
+    const hit = await getCachedTtsAudioUrl("Thanks for calling Key Squad 502.", "Telnyx.NaturalHD.astra", "en-US")
+    expect(hit).toEqual({ url: "https://blob.example/tts-cache/fake.mp3", durationMs: 15408 })
+  })
 })
