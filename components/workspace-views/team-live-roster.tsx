@@ -3,13 +3,24 @@
 // Dense live technician availability roster for the Team tab.
 
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { Loader2, Navigation, UsersRound } from "lucide-react"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
+import { MOTION_SPRING_LAYOUT } from "@/lib/motion"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { organizationQueryString } from "@/lib/workspace-organizations"
 import { calculateTechETA, type DispatchGeoPoint } from "@/lib/dispatch-eta"
 import type { DispatchJob, FieldTechnician, TechLiveLocation } from "@/lib/types"
 import { TEAM_ROSTER_CHANGED_EVENT } from "@/lib/team-invite-events"
+
+/** "Alex M." → "AM" (shortDisplayName's output — the roster never keeps the full name). */
+function initialsFromShortName(shortName: string): string {
+  const parts = shortName.replace(/\./g, "").trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[1][0]).toUpperCase()
+}
 
 type RosterPresence = "on_job" | "standby" | "away"
 
@@ -255,32 +266,49 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({
         </p>
       ) : (
         <ul className="divide-y divide-border/60">
+          <AnimatePresence initial={false}>
           {rows.map((row) => (
-            <li
+            <motion.li
               key={row.id}
+              layout
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={MOTION_SPRING_LAYOUT}
               className="flex items-center justify-between gap-3 px-4 py-3"
             >
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <div className="flex min-w-0 items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="relative shrink-0">
+                  <Avatar className="h-7 w-7">
+                    <AvatarFallback className="bg-muted text-2xs font-semibold text-foreground">
+                      {initialsFromShortName(row.shortName)}
+                    </AvatarFallback>
+                  </Avatar>
                   <span
-                    className={cn("h-2 w-2 shrink-0 rounded-full", PRESENCE_DOT[row.presence])}
+                    className={cn(
+                      "absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-card",
+                      PRESENCE_DOT[row.presence]
+                    )}
                     title={PRESENCE_LABEL[row.presence]}
                     aria-label={PRESENCE_LABEL[row.presence]}
                   />
-                  <span className="truncate text-sm font-semibold text-foreground">{row.shortName}</span>
                 </div>
-                {row.fieldDistanceLabel ? (
-                  <p className="text-muted-foreground text-xs flex items-center gap-1 pl-[18px]">
-                    <Navigation className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
-                    <span>{row.fieldDistanceLabel}</span>
-                  </p>
-                ) : null}
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="truncate text-sm font-semibold text-foreground">{row.shortName}</span>
+                  {row.fieldDistanceLabel ? (
+                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Navigation className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
+                      <span>{row.fieldDistanceLabel}</span>
+                    </p>
+                  ) : null}
+                </div>
               </div>
               <span className="shrink-0 text-right text-2xs font-medium text-muted-foreground">
                 {row.detail}
               </span>
-            </li>
+            </motion.li>
           ))}
+          </AnimatePresence>
         </ul>
       )}
     </section>
