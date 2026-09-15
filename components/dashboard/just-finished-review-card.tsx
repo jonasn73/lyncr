@@ -6,6 +6,8 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
+import { AnimatePresence, motion } from "framer-motion"
+import { MOTION_SPRING_LAYOUT } from "@/lib/motion"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { useRecentArrivals } from "@/lib/hooks/use-recent-arrivals"
 import {
@@ -634,6 +636,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
           </div>
 
           <ul className="space-y-2">
+            <AnimatePresence initial={false}>
             {items.map((item) => {
               const isJob = item.event === "job_finished"
               const isPaid = item.event === "customer_paid"
@@ -641,7 +644,14 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
               // Replies in this list are unread by definition (read ones were filtered out).
               const unread = item.event === "replied"
               return (
-                <li key={item.id}>
+                <motion.li
+                  key={item.id}
+                  layout
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={MOTION_SPRING_LAYOUT}
+                >
                   <div
                     className={cn(
                       "flex w-full items-center gap-2 rounded-xl border px-3 py-3 text-left transition-colors transition-shadow duration-700",
@@ -824,9 +834,10 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                       <X className="h-3.5 w-3.5" aria-hidden />
                     </button>
                   </div>
-                </li>
+                </motion.li>
               )
             })}
+            </AnimatePresence>
           </ul>
         </div>
       ) : null}

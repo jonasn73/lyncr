@@ -4,8 +4,10 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
+import { AnimatePresence, motion } from "framer-motion"
 import { PhoneIncoming } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MOTION_SPRING_LAYOUT } from "@/lib/motion"
 import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
@@ -329,6 +331,7 @@ export function HoldQueueWaitingCard({
       ) : null}
 
       <ul className="space-y-2">
+        <AnimatePresence initial={false}>
         {callers.map((c, idx) => {
           // Deep-link to Customers filtered by this caller’s phone.
           const crmHref = crmHrefForCaller(c.callerE164)
@@ -338,8 +341,13 @@ export function HoldQueueWaitingCard({
           const canAnswer = isHoldQueueAnswerable(c.status, c.enqueuedAt)
           const answerLockedBriefly = inBusyMenu && !canAnswer
           return (
-            <li
+            <motion.li
               key={c.id}
+              layout
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={MOTION_SPRING_LAYOUT}
               // Stack on narrow screens so the phone isn’t squeezed beside buttons.
               className="flex flex-col gap-2 rounded-xl border border-border/50 bg-background/60 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
             >
@@ -416,9 +424,10 @@ export function HoldQueueWaitingCard({
                   </button>
                 )}
               </div>
-            </li>
+            </motion.li>
           )
         })}
+        </AnimatePresence>
       </ul>
 
       {holdQueueStatsHaveTodayActivity(stats) ? (
