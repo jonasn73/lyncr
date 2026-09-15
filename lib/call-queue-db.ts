@@ -473,6 +473,24 @@ export async function mergeCallQueueCollected(
   }
 }
 
+/** Read call_queue.collected — used to carry intake answers over into a callback lead. */
+export async function getCallQueueCollectedByCallControlId(
+  callControlId: string
+): Promise<Record<string, unknown>> {
+  try {
+    const sql = getSql()
+    const rows = await sql`
+      SELECT collected FROM call_queue WHERE call_control_id = ${callControlId} LIMIT 1
+    `
+    const collected = (rows[0] as { collected?: unknown } | undefined)?.collected
+    return collected && typeof collected === "object" ? (collected as Record<string, unknown>) : {}
+  } catch (e) {
+    if (isMissingCallQueueTable(e) || isMissingCollectedColumn(e)) return {}
+    console.warn(lyncrLog("call-queue-collected-read-failed", { error: String(e) }))
+    return {}
+  }
+}
+
 /** 1-based position in the waiting queue (for “you’re next” TTS). */
 export async function getCallQueuePosition(
   userId: string,

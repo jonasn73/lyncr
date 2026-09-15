@@ -18,15 +18,24 @@ const telnyxCallControlStartAiAssistant = vi.fn<AnyFn>()
 const telnyxCallControlStopAiAssistant = vi.fn<AnyFn>()
 const sendHoldLongWaitOwnerAlert = vi.fn<AnyFn>()
 const holdLongWaitAlertMs = vi.fn<AnyFn>()
+const getCallQueueCollectedByCallControlId = vi.fn<AnyFn>()
+const saveCallIntake = vi.fn<AnyFn>()
 
 vi.mock("@/lib/call-queue-db", () => ({
   countWaitingCallQueue: vi.fn(() => Promise.resolve(0)),
   getAccountHoldSettings: vi.fn(() => Promise.resolve(null)),
+  getCallQueueCollectedByCallControlId: (...args: unknown[]) =>
+    getCallQueueCollectedByCallControlId(...args),
   getCallQueuePosition: vi.fn(() => Promise.resolve(null)),
   getCallQueueStatusByCallControlId: (...args: unknown[]) =>
     getCallQueueStatusByCallControlId(...args),
+  mergeCallQueueCollected: vi.fn(() => Promise.resolve()),
   updateCallQueueStatus: (...args: unknown[]) => updateCallQueueStatus(...args),
   upsertCallQueueWaiting: vi.fn(() => Promise.resolve()),
+}))
+
+vi.mock("@/lib/intake-engine", () => ({
+  saveCallIntake: (...args: unknown[]) => saveCallIntake(...args),
 }))
 
 vi.mock("@/lib/account-presence", () => ({
@@ -86,6 +95,11 @@ vi.mock("@/lib/telnyx-call-control-api", () => ({
 
 vi.mock("@/lib/db", () => ({
   getUser: (...args: unknown[]) => getUser(...args),
+  normalizePhoneNumberE164: (p: string) => {
+    const d = p.replace(/\D/g, "")
+    if (d.length === 10) return `+1${d}`
+    return p.startsWith("+") ? p : `+${d}`
+  },
   updateCallLog: (...args: unknown[]) => updateCallLog(...args),
 }))
 
@@ -121,6 +135,8 @@ beforeEach(() => {
   sendInboundBookingSmsAndTag.mockResolvedValue({ outcome: "sent" })
   sendHoldLongWaitOwnerAlert.mockResolvedValue({ ok: true, sent: true })
   holdLongWaitAlertMs.mockReturnValue(999_000)
+  getCallQueueCollectedByCallControlId.mockResolvedValue({})
+  saveCallIntake.mockResolvedValue({ id: "lead-1", sms_sent: true, sms_error: null })
 })
 
 describe("hold-queue max-wait AI bridge (087)", () => {
@@ -287,5 +303,117 @@ describe("hold-queue long-wait owner alert", () => {
     })
 
     expect(sendHoldLongWaitOwnerAlert).not.toHaveBeenCalled()
+  })
+})
+
+describe("hold-queue callback request (press 2)", () => {
+  it("pressing 2 during a plain reprompt starts the callback-number confirm", async () => {
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-cb-start",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now() },
+      digits: "2",
+      gatherStatus: "valid",
+    })
+
+    expect(telnyxCallControlGatherUsingSpeak).toHaveBeenCalledTimes(1)
+    const [callControlId, opts] = telnyxCallControlGatherUsingSpeak.mock.calls[0]
+    expect(callControlId).toBe("cc-cb-start")
+    expect(opts.text).toContain("5 0 2 5 5 5 9 9 9 9")
+    expect(opts.validDigits).toBe("12")
+    // Not yet a lead — only the confirm step, no save/leave yet.
+    expect(saveCallIntake).not.toHaveBeenCalled()
+  })
+
+  it("confirming with 1 finalizes a callback lead using the caller's own number", async () => {
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-cb-confirm",
+      state: {
+        ...timedOutState(),
+        holdStartedAtMs: Date.now(),
+        holdAwaitingCallbackConfirm: true,
+        holdIntakeSummary: "Won't start / stranded — Year 2018",
+      },
+      digits: "1",
+      gatherStatus: "valid",
+    })
+
+    expect(telnyxCallControlLeaveQueue).toHaveBeenCalledTimes(1)
+    expect(updateCallQueueStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ callControlId: "cc-cb-confirm", status: "left" })
+    )
+    expect(saveCallIntake).toHaveBeenCalledTimes(1)
+    expect(saveCallIntake.mock.calls[0][0]).toMatchObject({
+      user_id: "owner-1",
+      caller_e164: "+15025559999",
+      summary: "Callback requested — Won't start / stranded — Year 2018",
+      collected: expect.objectContaining({ callback_requested: true, callback_number: "+15025559999" }),
+    })
+    expect(telnyxCallControlSpeak).toHaveBeenCalledTimes(1)
+    expect(String(telnyxCallControlSpeak.mock.calls[0][1])).toContain("we'll call you back")
+    expect(telnyxCallControlHangup).not.toHaveBeenCalled()
+  })
+
+  it("pressing 2 to confirm instead asks for a different number", async () => {
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-cb-different",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdAwaitingCallbackConfirm: true },
+      digits: "2",
+      gatherStatus: "valid",
+    })
+
+    expect(saveCallIntake).not.toHaveBeenCalled()
+    expect(telnyxCallControlGatherUsingSpeak).toHaveBeenCalledTimes(1)
+    const [, opts] = telnyxCallControlGatherUsingSpeak.mock.calls[0]
+    expect(opts.maximumDigits).toBe(10)
+    expect(opts.validDigits).toBe("0123456789")
+  })
+
+  it("a typed replacement number finalizes the lead with that number instead", async () => {
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-cb-typed",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdAwaitingCallbackNumber: true },
+      digits: "5025550123",
+      gatherStatus: "valid",
+    })
+
+    expect(saveCallIntake).toHaveBeenCalledTimes(1)
+    expect(saveCallIntake.mock.calls[0][0]).toMatchObject({
+      caller_e164: "+15025550123",
+      collected: expect.objectContaining({ callback_number: "+15025550123" }),
+    })
+  })
+
+  it("a timed-out/too-short replacement number falls back to the caller's own number", async () => {
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-cb-fallback",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdAwaitingCallbackNumber: true },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    expect(saveCallIntake).toHaveBeenCalledTimes(1)
+    expect(saveCallIntake.mock.calls[0][0]).toMatchObject({
+      caller_e164: "+15025559999",
+      collected: expect.objectContaining({ callback_number: "+15025559999" }),
+    })
+  })
+
+  it("carries forward whatever was already collected on hold into the lead", async () => {
+    getCallQueueCollectedByCallControlId.mockResolvedValue({
+      intent_slug: "auto_repair_diagnostic",
+      vehicle_year: "2018",
+    })
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-cb-collected",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdAwaitingCallbackConfirm: true },
+      digits: "1",
+      gatherStatus: "valid",
+    })
+
+    expect(saveCallIntake.mock.calls[0][0]).toMatchObject({
+      intent_slug: "auto_repair_diagnostic",
+      collected: expect.objectContaining({ vehicle_year: "2018", callback_requested: true }),
+    })
   })
 })

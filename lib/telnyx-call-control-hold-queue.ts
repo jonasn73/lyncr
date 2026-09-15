@@ -14,6 +14,7 @@
 import {
   countWaitingCallQueue,
   getAccountHoldSettings,
+  getCallQueueCollectedByCallControlId,
   getCallQueuePosition,
   getCallQueueStatusByCallControlId,
   mergeCallQueueCollected,
@@ -66,7 +67,8 @@ import {
   encodeTelnyxCallControlState,
   type TelnyxCallControlClientState,
 } from "@/lib/telnyx-call-control-state"
-import { getUser, updateCallLog } from "@/lib/db"
+import { getUser, normalizePhoneNumberE164, updateCallLog } from "@/lib/db"
+import { saveCallIntake } from "@/lib/intake-engine"
 import {
   holdQueueIntakeValidDigits,
   resolveHoldQueueIntakeOption,
@@ -386,7 +388,7 @@ async function attachHoldMusicGatherOnly(
     clientState: encoded,
     timeoutMillis: repromptMs,
     maximumDigits: 1,
-    validDigits: "1",
+    validDigits: "12",
   })
   console.log(
     lyncrLog("telnyx-cc-hold-gather-attached", {
@@ -516,7 +518,7 @@ async function startHoldMusicGather(
       clientState: encoded,
       timeoutMillis: repromptMs,
       maximumDigits: 1,
-      validDigits: "1",
+      validDigits: "12",
     })
     if (gatherRes.ok) return true
     console.warn(
@@ -596,7 +598,7 @@ async function startHoldMusicGather(
       clientState: encoded,
       timeoutMillis: repromptMs,
       maximumDigits: 1,
-      validDigits: "1",
+      validDigits: "12",
     })
     if (audioGather.ok) {
       logMusicStarted("gather_using_audio", { musicUrl })
@@ -638,7 +640,7 @@ async function startHoldMusicGather(
     text,
     clientState: encoded,
     maximumDigits: 1,
-    validDigits: "1",
+    validDigits: "12",
     timeoutMillis: repromptMs,
     maximumTries: 1,
     voice: fallbackVoice || "Telnyx.NaturalHD.astra",
@@ -788,6 +790,158 @@ async function leaveHoldQueueWithSms(
       intakeSummary: state.holdIntakeSummary,
     }),
     confirmState
+  )
+  if (!speakRes.ok) {
+    await telnyxCallControlHangup(callControlId)
+  }
+}
+
+/** Speak a phone number digit-by-digit (clearer to verify aloud than a run-together number). */
+function spellPhoneDigitsForSpeech(e164: string): string {
+  const digits = e164.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "")
+  return digits.split("").join(" ")
+}
+
+/**
+ * Press 2 while on hold — offer a callback instead of waiting, confirming the caller's own
+ * number first (or letting them type a different one) before handing off to
+ * finalizeCallbackRequest. Requested directly: a caller who's already given their details
+ * shouldn't just sit through hold music with no other option.
+ */
+async function startCallbackConfirm(
+  callControlId: string,
+  state: TelnyxCallControlClientState
+): Promise<void> {
+  const speakVoice = await resolveHoldSpeakVoice(state)
+  const nextState: TelnyxCallControlClientState = {
+    ...state,
+    phase: "await_busy_hold_loop",
+    holdSegment: "reprompt",
+    holdSpeakVoice: speakVoice,
+    holdAwaitingCallbackConfirm: true,
+  }
+  const spelledNumber = spellPhoneDigitsForSpeech(state.callerE164)
+  const text = spelledNumber
+    ? `We'll call you back at ${spelledNumber}. If that's right, press 1. To use a different number instead, press 2.`
+    : "Press 1 to confirm we should call the number you're on now, or press 2 to use a different number."
+  console.log(lyncrLog("telnyx-cc-hold-callback-confirm-start", { callControlId }))
+  const gatherRes = await telnyxCallControlGatherUsingSpeak(callControlId, {
+    text,
+    clientState: encodeTelnyxCallControlState(nextState),
+    maximumDigits: 1,
+    validDigits: "12",
+    timeoutMillis: 10_000,
+    maximumTries: 1,
+    voice: speakVoice,
+  })
+  if (!gatherRes.ok) {
+    await startHoldMusicGather(callControlId, { ...state, holdSpeakVoice: speakVoice })
+  }
+}
+
+/** gather.ended answering the callback-number confirm (press 1 = correct, press 2 = type a different one). */
+async function handleCallbackConfirmAnswer(
+  callControlId: string,
+  state: TelnyxCallControlClientState,
+  digits: string
+): Promise<void> {
+  const baseState: TelnyxCallControlClientState = { ...state, holdAwaitingCallbackConfirm: false }
+  if (digits === "2") {
+    await startCallbackNumberCapture(callControlId, baseState)
+    return
+  }
+  // "1", a timeout, or anything else unrecognized — default to the number they're calling
+  // from rather than leaving them stuck in a confirm loop.
+  await finalizeCallbackRequest(callControlId, baseState, baseState.callerE164)
+}
+
+/** Ask for a replacement callback number, 10 digits terminated by #. */
+async function startCallbackNumberCapture(
+  callControlId: string,
+  state: TelnyxCallControlClientState
+): Promise<void> {
+  const speakVoice = await resolveHoldSpeakVoice(state)
+  const nextState: TelnyxCallControlClientState = {
+    ...state,
+    phase: "await_busy_hold_loop",
+    holdSegment: "reprompt",
+    holdSpeakVoice: speakVoice,
+    holdAwaitingCallbackNumber: true,
+  }
+  console.log(lyncrLog("telnyx-cc-hold-callback-number-start", { callControlId }))
+  const gatherRes = await telnyxCallControlGatherUsingSpeak(callControlId, {
+    text: "Okay, type the 10-digit number to call you back on, then press pound.",
+    clientState: encodeTelnyxCallControlState(nextState),
+    maximumDigits: 10,
+    validDigits: "0123456789",
+    timeoutMillis: 15_000,
+    maximumTries: 1,
+    voice: speakVoice,
+  })
+  if (!gatherRes.ok) {
+    await finalizeCallbackRequest(callControlId, state, state.callerE164)
+  }
+}
+
+/**
+ * gather.ended answering the replacement callback number. Any 10+ digit answer is used
+ * as-is; a short/empty one (timeout, gave up mid-entry) falls back to the caller's own
+ * number rather than leaving the request stuck.
+ */
+async function handleCallbackNumberAnswer(
+  callControlId: string,
+  state: TelnyxCallControlClientState,
+  digits: string
+): Promise<void> {
+  const baseState: TelnyxCallControlClientState = { ...state, holdAwaitingCallbackNumber: false }
+  const normalized = digits.length >= 10 ? normalizePhoneNumberE164(digits) : ""
+  const callbackNumber = normalized || baseState.callerE164
+  await finalizeCallbackRequest(callControlId, baseState, callbackNumber)
+}
+
+/**
+ * Leave the queue and save a callback lead — same mechanism as AI-intake leads (Lead
+ * Salvage queue + owner SMS alert via saveCallIntake), carrying forward whatever the
+ * caller already answered on hold. A callback here is a promise a human will call back,
+ * not an automatic redial — the lead is how the team finds out to actually do it.
+ */
+async function finalizeCallbackRequest(
+  callControlId: string,
+  state: TelnyxCallControlClientState,
+  callbackE164: string
+): Promise<void> {
+  await telnyxCallControlPlaybackStop(callControlId).catch(() => undefined)
+  await telnyxCallControlLeaveQueue(callControlId).catch(() => undefined)
+  await updateCallQueueStatus({ callControlId, status: "left" })
+
+  const collected = await getCallQueueCollectedByCallControlId(callControlId)
+  const intentSlug = typeof collected.intent_slug === "string" ? collected.intent_slug : null
+  const summary = state.holdIntakeSummary
+    ? `Callback requested — ${state.holdIntakeSummary}`
+    : "Callback requested while on hold"
+
+  await saveCallIntake({
+    user_id: state.userId,
+    caller_e164: callbackE164,
+    intent_slug: intentSlug,
+    collected: { ...collected, callback_requested: true, callback_number: callbackE164 },
+    summary,
+    vapi_call_id: null,
+  }).catch((e) => console.warn(lyncrLog("telnyx-cc-hold-callback-save-failed", { error: String(e) })))
+
+  console.log(lyncrLog("telnyx-cc-hold-callback-requested", { callControlId, callbackE164 }))
+
+  const speakVoice = await resolveHoldSpeakVoice(state)
+  const confirmState = encodeTelnyxCallControlState({
+    ...state,
+    phase: "await_busy_sms_confirm_end",
+    dialReason: "busy_automation",
+  })
+  const speakRes = await telnyxCallControlSpeak(
+    callControlId,
+    "Got it — we'll call you back within a few minutes. Thanks for your patience!",
+    confirmState,
+    { voice: speakVoice }
   )
   if (!speakRes.ok) {
     await telnyxCallControlHangup(callControlId)
@@ -1173,8 +1327,27 @@ export async function handleHoldLoopGatherEnded(params: {
     return
   }
 
+  // Same reasoning again for the two callback sub-steps (confirm number / type a new one) —
+  // check state before falling through to the plain "press 1 / press 2" reprompt digits.
+  if (state.holdAwaitingCallbackConfirm) {
+    await handleCallbackConfirmAnswer(callControlId, state, digits)
+    return
+  }
+
+  if (state.holdAwaitingCallbackNumber) {
+    await handleCallbackNumberAnswer(callControlId, state, digits)
+    return
+  }
+
   if (digits === "1") {
     await leaveHoldQueueWithSms(callControlId, state, "cc_busy_hold_press1")
+    return
+  }
+
+  // Press 2 to request a callback instead of waiting — honored any time it's pressed,
+  // even before the reprompt copy has explicitly offered it yet.
+  if (digits === "2") {
+    await startCallbackConfirm(callControlId, state)
     return
   }
 

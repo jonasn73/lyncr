@@ -143,6 +143,13 @@ export type TelnyxCallControlClientState = {
   holdIntakeSummary?: string
   /** One-time owner SMS once intake is fully captured AND the caller has waited a bit — never repeats. */
   holdIntakeCapturedAlerted?: boolean
+  /**
+   * True only while a gather is waiting on the callback-number confirm ("press 1, that's
+   * right" / "press 2, use a different number") triggered by pressing 2 during hold.
+   */
+  holdAwaitingCallbackConfirm?: boolean
+  /** True only while a gather is waiting on a caller-typed replacement callback number. */
+  holdAwaitingCallbackNumber?: boolean
 }
 
 export function encodeTelnyxCallControlState(state: TelnyxCallControlClientState): string {
