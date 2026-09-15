@@ -275,8 +275,8 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
         className={cn("w-full space-y-2 py-0 md:hidden", className)}
         aria-label="Today's dispatch metrics"
       >
-        {/* Tighter 3×2 on mobile so Latest / Messages sit higher in the viewport. */}
-        <div className={cn(LINES_MOBILE_CARD, "grid grid-cols-3 gap-px p-1")}>
+        {/* 4+3 (not 3×3, which leaves Press 1 alone on its own row for 7 metrics). */}
+        <div className={cn(LINES_MOBILE_CARD, "grid grid-cols-4 gap-px p-1")}>
           <TelemetryTickerItem label="Live" value={linesDisplay} animatedValue={linesAnimated} />
           <TelemetryTickerItem
             label="Calls"
@@ -329,7 +329,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
         className={cn("hidden w-full space-y-2 md:block", className)}
         aria-label="Today's workspace telemetry"
       >
-        <div className="relative grid grid-cols-3 gap-2 rounded-2xl border border-white/5 bg-background/40 px-4 py-3 backdrop-blur-md">
+        <div className="relative grid grid-cols-4 gap-2 rounded-2xl border border-white/5 bg-background/40 px-4 py-3 backdrop-blur-md">
           <Popover>
             <PopoverTrigger asChild>
               <button
