@@ -44,8 +44,12 @@ export async function getCachedTtsAudioUrl(
 
 /** Synthesize + store one clip. Awaitable for callers that want completion, but never throws. */
 export async function populateTtsAudioCache(text: string, voice: string, language: string): Promise<void> {
-  if (!isBlobConfigured()) return
   const cacheKey = computeTtsCacheKey(text, voice, language)
+  if (!isBlobConfigured()) {
+    console.warn("[tts-audio-cache] skipped: BLOB_READ_WRITE_TOKEN not set at runtime", { cacheKey })
+    return
+  }
+  console.log("[tts-audio-cache] rendering", { cacheKey, voice, language, textLen: text.length })
   try {
     const { buffer, contentType } = await telnyxSynthesizeSpeechPreview(text, voice)
     const ext = contentType.includes("wav") ? "wav" : "mp3"
@@ -62,9 +66,10 @@ export async function populateTtsAudioCache(text: string, voice: string, languag
       VALUES (${cacheKey}, ${blob.url}, ${voice}, ${text})
       ON CONFLICT (cache_key) DO UPDATE SET blob_url = EXCLUDED.blob_url
     `
+    console.log("[tts-audio-cache] cached", { cacheKey, blobUrl: blob.url })
   } catch (e) {
     // Missing table (migration not run yet), Telnyx TTS error, Blob misconfig, etc. — stay silent to logs only.
-    console.warn("[tts-audio-cache] background generation failed:", e)
+    console.warn("[tts-audio-cache] background generation failed:", { cacheKey, error: String(e) })
   }
 }
 
@@ -79,7 +84,8 @@ export async function populateTtsAudioCache(text: string, voice: string, languag
 export function cacheTtsAudioInBackground(text: string, voice: string, language: string): void {
   try {
     after(() => populateTtsAudioCache(text, voice, language))
-  } catch {
+  } catch (e) {
+    console.warn("[tts-audio-cache] after() unavailable, using detached promise fallback:", String(e))
     void populateTtsAudioCache(text, voice, language)
   }
 }
