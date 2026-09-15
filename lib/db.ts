@@ -3615,6 +3615,54 @@ export async function deleteTelnyxCallLegLink(inboundCallControlId: string): Pro
   }
 }
 
+/** Register (or refresh) a mobile device's Expo push token — scripts/175-device-push-tokens.sql. */
+export async function upsertDevicePushToken(params: {
+  userId: string
+  platform: "ios" | "android"
+  expoPushToken: string
+}): Promise<void> {
+  const token = params.expoPushToken.trim()
+  if (!token) return
+  const sql = getSql()
+  try {
+    await sql`
+      INSERT INTO device_push_tokens (user_id, platform, expo_push_token, created_at, last_seen_at)
+      VALUES (${params.userId}, ${params.platform}, ${token}, now(), now())
+      ON CONFLICT (expo_push_token) DO UPDATE SET
+        user_id = EXCLUDED.user_id,
+        platform = EXCLUDED.platform,
+        last_seen_at = now()
+    `
+  } catch (e) {
+    const msg = pgErrorMessage(e)
+    if (msg.includes("device_push_tokens") && (pgErrorCode(e) === "42P01" || msg.includes("does not exist"))) {
+      console.warn("[push] device_push_tokens table missing — run scripts/175-device-push-tokens.sql")
+      return
+    }
+    console.error("[push] upsertDevicePushToken failed:", e)
+  }
+}
+
+/** All Expo push tokens on file for a user (may be several devices) — see notifyOwnerOfCallEvent. */
+export async function getDevicePushTokensForUser(userId: string): Promise<string[]> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT expo_push_token FROM device_push_tokens WHERE user_id = ${userId}
+    `
+    return rows
+      .map((r) => String((r as { expo_push_token?: string }).expo_push_token || "").trim())
+      .filter(Boolean)
+  } catch (e) {
+    const msg = pgErrorMessage(e)
+    if (msg.includes("device_push_tokens") && (pgErrorCode(e) === "42P01" || msg.includes("does not exist"))) {
+      return []
+    }
+    console.error("[push] getDevicePushTokensForUser failed:", e)
+    return []
+  }
+}
+
 // Insert a call log
 export async function insertCallLog(log: Omit<CallLog, "id" | "created_at">): Promise<string | null> {
   const sql = getSql()

@@ -1,13 +1,15 @@
 // Realtime owner-channel events that keep the routing HUD call metrics fresh.
 
 import { getCallLogSnapshotForTelemetry, getCallLogUserIdByProviderSid } from "@/lib/db"
-import type {
-  OwnerCallAnsweredPayload,
-  OwnerCallCompletedPayload,
-  OwnerCallInitiatedPayload,
-  OwnerCallRecordingReadyPayload,
+import {
+  isMissedCallTelemetry,
+  type OwnerCallAnsweredPayload,
+  type OwnerCallCompletedPayload,
+  type OwnerCallInitiatedPayload,
+  type OwnerCallRecordingReadyPayload,
 } from "@/lib/realtime/owner-call-event-types"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
+import { notifyOwnerOfCompletedCall, notifyOwnerOfIncomingCall } from "@/lib/push-notifications"
 
 /** Fired when an inbound call row is created (Telnyx call.initiated / first ring). */
 export async function broadcastCallInitiated(params: {
@@ -34,6 +36,13 @@ export async function broadcastCallInitiated(params: {
     dial_reason: params.dialReason ?? null,
   }
   await publishOwnerEvent(params.ownerUserId, "call-initiated", payload)
+  // Parallel, independently-failing delivery path — native push alongside Pusher, never
+  // instead of it. Skips busy_automation itself (see notifyOwnerOfIncomingCall).
+  await notifyOwnerOfIncomingCall({
+    ownerUserId: params.ownerUserId,
+    fromNumber: params.fromNumber,
+    dialReason: params.dialReason,
+  })
 }
 
 /** Fired when an inbound call is answered / bridged — opens the intake sheet while the caller is still on the line. */
@@ -123,6 +132,12 @@ export async function broadcastCallCompleted(params: {
     routed_to_name: params.routedToName ?? null,
   }
   await publishOwnerEvent(params.ownerUserId, "call-completed", payload)
+  await notifyOwnerOfCompletedCall({
+    ownerUserId: params.ownerUserId,
+    isMissed: isMissedCallTelemetry(payload),
+    fromNumber: params.fromNumber,
+    callLogId: params.callLogId,
+  })
 
   // Return the receptionist's live HUD to idle the moment the call ends.
   const receptionistId = params.receptionistId?.trim() || ""

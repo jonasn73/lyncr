@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router"
 import { Text, View, StyleSheet } from "react-native"
 import { SITE_NAME } from "@/lib/brand"
+import { PushNotificationsBootstrap } from "@/components/PushNotificationsBootstrap"
 
 function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
   return (
@@ -12,62 +13,64 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
 
 export default function TabsLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        headerStyle: { backgroundColor: "#0f172a" },
-        headerTintColor: "#f8fafc",
-        tabBarStyle: { backgroundColor: "#0f172a", borderTopColor: "#1e293b" },
-        tabBarActiveTintColor: "#6366f1",
-        tabBarInactiveTintColor: "#64748b",
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: SITE_NAME,
-          headerTitle: "Routing",
-          tabBarLabel: "Routing",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="⚡" focused={focused} />,
+    <PushNotificationsBootstrap>
+      <Tabs
+        screenOptions={{
+          headerStyle: { backgroundColor: "#0f172a" },
+          headerTintColor: "#f8fafc",
+          tabBarStyle: { backgroundColor: "#0f172a", borderTopColor: "#1e293b" },
+          tabBarActiveTintColor: "#6366f1",
+          tabBarInactiveTintColor: "#64748b",
         }}
-      />
-      <Tabs.Screen
-        name="activity"
-        options={{
-          title: "Activity",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📋" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="contacts"
-        options={{
-          title: "Contacts",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="collect"
-        options={{
-          title: "Collect",
-          headerTitle: "Collect Payment",
-          tabBarLabel: "Collect",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="💳" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="pay"
-        options={{
-          title: "Pay",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📊" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Settings",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="⚙️" focused={focused} />,
-        }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: SITE_NAME,
+            headerTitle: "Routing",
+            tabBarLabel: "Routing",
+            tabBarIcon: ({ focused }) => <TabIcon emoji="⚡" focused={focused} />,
+          }}
+        />
+        <Tabs.Screen
+          name="activity"
+          options={{
+            title: "Activity",
+            tabBarIcon: ({ focused }) => <TabIcon emoji="📋" focused={focused} />,
+          }}
+        />
+        <Tabs.Screen
+          name="contacts"
+          options={{
+            title: "Contacts",
+            tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} />,
+          }}
+        />
+        <Tabs.Screen
+          name="collect"
+          options={{
+            title: "Collect",
+            headerTitle: "Collect Payment",
+            tabBarLabel: "Collect",
+            tabBarIcon: ({ focused }) => <TabIcon emoji="💳" focused={focused} />,
+          }}
+        />
+        <Tabs.Screen
+          name="pay"
+          options={{
+            title: "Pay",
+            tabBarIcon: ({ focused }) => <TabIcon emoji="📊" focused={focused} />,
+          }}
+        />
+        <Tabs.Screen
+          name="settings"
+          options={{
+            title: "Settings",
+            tabBarIcon: ({ focused }) => <TabIcon emoji="⚙️" focused={focused} />,
+          }}
+        />
+      </Tabs>
+    </PushNotificationsBootstrap>
   )
 }
 

@@ -38,6 +38,12 @@
       "expo-router",
       "expo-secure-store",
       [
+        "expo-notifications",
+        {
+          "color": "#5f6ef4"
+        }
+      ],
+      [
         "@stripe/stripe-terminal-react-native",
         {
           "bluetoothBackgroundMode": false,
