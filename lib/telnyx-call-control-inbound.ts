@@ -424,6 +424,13 @@ async function startBusyAutomationFlow(
     if (!lower.includes("press 1") && !lower.includes("press one")) {
       say = `${say.trim()} Press 1 and we'll text you a short form, or stay on the line.`
     }
+    // The initial branded greeting ("Thanks for calling X, connecting you now") already said
+    // the business name when it played before this ring — don't repeat it here. When it did
+    // NOT play (busy_automation answers first, or the greeting Speak itself failed), this is
+    // the caller's first and only greeting, so say the name once here instead of never.
+    if (!state.brandedGreetingPlayed) {
+      say = `Thank you for calling ${resolveWorkspaceDisplayName(routing)}. ${say.trim()}`
+    }
     maxDigits = resolveAutomationGatherNumDigits(presence.ivrBypassCode)
     speakVoice = resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel)
   } catch (e) {
@@ -594,7 +601,10 @@ async function handleSpeakFailed(
           .slice(-4) || null,
       })
     )
-    await continueAfterInboundGreeting(event, state)
+    // The Speak was accepted and optimistically marked brandedGreetingPlayed:true, but this
+    // webhook says it never actually rendered/played — correct that before continuing, so
+    // Busy/Hold automation still says the business name once instead of assuming it was heard.
+    await continueAfterInboundGreeting(event, { ...state, brandedGreetingPlayed: false })
   }
 }
 
@@ -1393,6 +1403,9 @@ async function handleCallAnswered(
       // Snapshot so a later speak.failed knows which voice died.
       holdSpeakVoice: greetVoice,
       dialReason: dialPlan.reason,
+      // Optimistic — handleSpeakFailed flips this back to false if the async
+      // call.speak.failed webhook says it never actually played.
+      brandedGreetingPlayed: true,
     })
     const speakRes = await telnyxCallControlSpeak(
       event.callControlId,

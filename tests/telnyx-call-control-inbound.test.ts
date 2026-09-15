@@ -480,6 +480,8 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       amdGuard: true,
       // Dial started 23s ago — past ring−3s (25s → 22s) so machine is trusted.
       dialStartedAtMs: Date.now() - 23_000,
+      // The initial branded greeting played before this ring (normal day_dial+Hold flow).
+      brandedGreetingPlayed: true,
     })
 
     const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
@@ -510,12 +512,103 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     )
     expect(gatherCall).toBeTruthy()
     expect(String(gatherCall![0])).toContain("cc-in-amd-m")
+    // The branded greeting already said "Thanks for calling Key Squad 502" before this ring —
+    // Hold's own greeting must not repeat the business name.
+    const gatherBody = JSON.parse(String(gatherCall![1]?.body || "{}")) as { payload?: string }
+    expect(gatherBody.payload || "").not.toContain("Thank you for calling")
     // Must not hang up the waiting caller.
     const inboundHangup = fetchMock.mock.calls.find(
       (c) =>
         String(c[0]).includes("cc-in-amd-m") && String(c[0]).includes("/actions/hangup")
     )
     expect(inboundHangup).toBeFalsy()
+  })
+
+  it("Busy answers first (no ring) — Hold's greeting says the business name since nothing said it yet", async () => {
+    resolveInboundCapturePlanMock.mockResolvedValue({ kind: "presence_on_job" })
+    getFirstAvailableOwnerReceptionistMock.mockResolvedValue(null)
+
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "hold",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: true,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+    }))
+    vi.doMock("@/lib/account-presence", () => ({
+      getAccountPresence: vi.fn(() =>
+        Promise.resolve({
+          presenceStatus: "ON_JOB",
+          onJobGreetingText: "All of our team members are currently helping other customers.",
+          closedGreetingText: "",
+          ivrBypassCode: "9",
+          ivrVoiceEngineModel: "Telnyx.NaturalHD.astra",
+          holidayOverrideStart: null,
+          holidayOverrideEnd: null,
+          holidayGreetingText: null,
+        })
+      ),
+      resolvePresenceAutomationGreeting: vi.fn(
+        () => "All of our team members are currently helping other customers."
+      ),
+    }))
+    vi.doMock("@/lib/inbound-booking-sms", () => ({
+      sendInboundBookingSmsAndTag: vi.fn(() => Promise.resolve({ outcome: "sent" })),
+      bookingSmsConfirmSpeech: vi.fn(() => "mock booking sms confirm speech"),
+    }))
+
+    // Busy answers first — dialPlan.reason is "busy_automation" from the very start, so
+    // handleCallAnswered never attempts the branded greeting (brandedGreetingPlayed unset).
+    const answeredState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_caller_answered",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialTargetE164: "+15022602716",
+      ringTimeoutSec: 30,
+      fallbackType: "hold",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.answered",
+        id: "evt-busy-first-gather",
+        payload: {
+          call_control_id: "cc-busy-first-gather",
+          from: "+15025369252",
+          to: "+15025571219",
+          direction: "incoming",
+          client_state: answeredState,
+        },
+      },
+    })
+
+    const gatherCall = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/actions/gather_using_speak")
+    )
+    expect(gatherCall).toBeTruthy()
+    const gatherBody = JSON.parse(String(gatherCall![1]?.body || "{}")) as { payload?: string }
+    // cleanTextForTTS spells "502" out for speech ("five oh two") — assert on the intro phrase.
+    expect(gatherBody.payload || "").toContain("Thank you for calling Key Squad")
   })
 
   it("early AMD machine (false positive) bridges as human instead of killing the ring", async () => {

@@ -92,6 +92,13 @@ export type TelnyxCallControlClientState = {
   /** Unix ms when we POSTed the outbound Dial — used for AMD early-false-positive guards + logs. */
   dialStartedAtMs?: number
   /**
+   * True once the caller has actually heard the initial branded greeting ("Thanks for
+   * calling X, connecting you now") — set when its Speak succeeds, cleared if it fails.
+   * Busy/Hold automation reads this to decide whether its own greeting needs to (re-)say
+   * the business name, so the caller hears it exactly once rather than twice or never.
+   */
+  brandedGreetingPlayed?: boolean
+  /**
    * True when this caller had a missed/dropped attempt earlier today — computed once at
    * Busy entry so the greeting + hold reprompts can acknowledge a repeat caller without
    * re-querying call history on every reprompt cycle.
