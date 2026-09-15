@@ -17,6 +17,7 @@ import {
   getCallQueueCollectedByCallControlId,
   getCallQueuePosition,
   getCallQueueStatusByCallControlId,
+  getRecentHoldIntakeForCaller,
   mergeCallQueueCollected,
   updateCallQueueStatus,
   upsertCallQueueWaiting,
@@ -680,9 +681,34 @@ async function startHoldRepromptGather(
   //     incomplete (fewer than the full digit count).
   //  3) the original generic "press 1 for a text" reprompt, unchanged.
   let intakePrompt: HoldQueueIntakePrompt | null = null
-  const intakeAnswered = Boolean(state.holdIntakeAnswered)
+  let intakeAnswered = Boolean(state.holdIntakeAnswered)
   const intakeAttempts = state.holdIntakeAttempts ?? 0
   let industryHasNoPrompt = false
+  let followUpAnswered = Boolean(state.holdIntakeFollowUpAnswered)
+  let reusedIntakeSummary: string | null = null
+
+  // A caller who already answered these on a recent, different call (calling back an
+  // hour later, not asking fresh) shouldn't get asked again — reuse what's already known.
+  // Reported directly: a caller with an existing lead on file still got the same DTMF
+  // questions on a callback. Checked once, on the first reprompt cycle only, so this
+  // never adds a lookup to every cycle — and never touches hold entry's own no-Neon-
+  // before-music latency budget, since the first music segment always plays first.
+  if (!intakeAnswered && promptCount === 1) {
+    const recent = await getRecentHoldIntakeForCaller(state.userId, state.callerE164, callControlId).catch(
+      () => null
+    )
+    const recentIntentLabel = typeof recent?.intent_label === "string" ? recent.intent_label.trim() : ""
+    const recentYearLabel = typeof recent?.vehicle_year_label === "string" ? recent.vehicle_year_label.trim() : ""
+    if (recentIntentLabel) {
+      intakeAnswered = true
+      followUpAnswered = followUpAnswered || Boolean(recentYearLabel)
+      reusedIntakeSummary = recentYearLabel ? `${recentIntentLabel} — ${recentYearLabel}` : recentIntentLabel
+      console.log(
+        lyncrLog("telnyx-cc-hold-intake-reused", { callControlId, summary: reusedIntakeSummary })
+      )
+    }
+  }
+
   if (!intakeAnswered && intakeAttempts < MAX_INTAKE_ATTEMPTS) {
     try {
       const user = await getUser(state.userId)
@@ -694,7 +720,6 @@ async function startHoldRepromptGather(
       industryHasNoPrompt = true
     }
   }
-  const followUpAnswered = Boolean(state.holdIntakeFollowUpAnswered)
   const followUpAttempts = state.holdIntakeFollowUpAttempts ?? 0
   const askFollowUp =
     !intakePrompt &&
@@ -706,7 +731,19 @@ async function startHoldRepromptGather(
     ? intakePrompt.text
     : askFollowUp
       ? state.holdIntakeFollowUp!.text
-      : await buildHoldRepromptText({ ...state, holdPromptCount: promptCount }, callControlId)
+      : await buildHoldRepromptText(
+          {
+            ...state,
+            holdPromptCount: promptCount,
+            // Reflect this cycle's just-computed answered status, not the stale incoming
+            // state — otherwise a caller whose history was just reused above still hears
+            // the plain "still waiting" text instead of the already-answered one (with
+            // the press-2-for-callback offer) on this very first cycle.
+            holdIntakeAnswered: intakeAnswered,
+            holdIntakeFollowUpAnswered: followUpAnswered,
+          },
+          callControlId
+        )
 
   // Same premium voice as the Busy gather.
   const speakVoice = await resolveHoldSpeakVoice(state)
@@ -723,6 +760,7 @@ async function startHoldRepromptGather(
     holdIntakeFollowUpAnswered: followUpAnswered,
     holdIntakeFollowUpAttempts: askFollowUp ? followUpAttempts + 1 : followUpAttempts,
     holdAwaitingIntakeFollowUpAnswer: askFollowUp,
+    holdIntakeSummary: reusedIntakeSummary || state.holdIntakeSummary,
   }
 
   console.log(

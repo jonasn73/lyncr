@@ -19,6 +19,7 @@ const telnyxCallControlStopAiAssistant = vi.fn<AnyFn>()
 const sendHoldLongWaitOwnerAlert = vi.fn<AnyFn>()
 const holdLongWaitAlertMs = vi.fn<AnyFn>()
 const getCallQueueCollectedByCallControlId = vi.fn<AnyFn>()
+const getRecentHoldIntakeForCaller = vi.fn<AnyFn>()
 const saveCallIntake = vi.fn<AnyFn>()
 
 vi.mock("@/lib/call-queue-db", () => ({
@@ -29,6 +30,7 @@ vi.mock("@/lib/call-queue-db", () => ({
   getCallQueuePosition: vi.fn(() => Promise.resolve(null)),
   getCallQueueStatusByCallControlId: (...args: unknown[]) =>
     getCallQueueStatusByCallControlId(...args),
+  getRecentHoldIntakeForCaller: (...args: unknown[]) => getRecentHoldIntakeForCaller(...args),
   mergeCallQueueCollected: vi.fn(() => Promise.resolve()),
   updateCallQueueStatus: (...args: unknown[]) => updateCallQueueStatus(...args),
   upsertCallQueueWaiting: vi.fn(() => Promise.resolve()),
@@ -137,6 +139,7 @@ beforeEach(() => {
   sendHoldLongWaitOwnerAlert.mockResolvedValue({ ok: true, sent: true })
   holdLongWaitAlertMs.mockReturnValue(999_000)
   getCallQueueCollectedByCallControlId.mockResolvedValue({})
+  getRecentHoldIntakeForCaller.mockResolvedValue(null)
   saveCallIntake.mockResolvedValue({ id: "lead-1", sms_sent: true, sms_error: null })
 })
 
@@ -441,5 +444,89 @@ describe("hold-queue callback request (press 2)", () => {
     expect(telnyxCallControlGatherUsingSpeak).toHaveBeenCalledTimes(1)
     const [, opts] = telnyxCallControlGatherUsingSpeak.mock.calls[0]
     expect(opts.validDigits).toBe("12")
+  })
+})
+
+describe("hold-queue reuses a recent caller's prior answers instead of re-asking", () => {
+  it("skips the intake question on a callback and speaks the already-answered reprompt", async () => {
+    getRecentHoldIntakeForCaller.mockResolvedValue({
+      intent_label: "Lost key / needs new key made",
+      vehicle_year_label: "Year 2016",
+    })
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-repeat-caller",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdSegment: "music" },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    expect(getRecentHoldIntakeForCaller).toHaveBeenCalledWith(
+      "owner-1",
+      "+15025559999",
+      "cc-repeat-caller"
+    )
+    // Never asked the Phase-1 question — getUser (industry lookup) is only reached when
+    // intake is still unanswered, so it must not have fired here.
+    expect(getUser).not.toHaveBeenCalled()
+    expect(telnyxCallControlGatherUsingSpeak).toHaveBeenCalledTimes(1)
+    const [, opts] = telnyxCallControlGatherUsingSpeak.mock.calls[0]
+    expect(opts.text).toContain("Thanks for those details")
+    expect(opts.validDigits).toBe("12")
+  })
+
+  it("carries the reused summary onto state for the SMS/callback lead", async () => {
+    getRecentHoldIntakeForCaller.mockResolvedValue({
+      intent_label: "Won't start / stranded",
+      vehicle_year_label: "Year 2018",
+    })
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-repeat-caller-2",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdSegment: "music" },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    // Decode the client_state passed to the reprompt gather and confirm the summary landed.
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    const decoded = JSON.parse(Buffer.from(opts.clientState, "base64").toString("utf8"))
+    expect(decoded.holdIntakeSummary).toBe("Won't start / stranded — Year 2018")
+    expect(decoded.holdIntakeAnswered).toBe(true)
+    expect(decoded.holdIntakeFollowUpAnswered).toBe(true)
+  })
+
+  it("still asks normally when there's no recent history for this caller", async () => {
+    getRecentHoldIntakeForCaller.mockResolvedValue(null)
+    getUser.mockResolvedValue({ industry: "roofing" })
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-fresh-caller",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdSegment: "music" },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    expect(getRecentHoldIntakeForCaller).toHaveBeenCalledTimes(1)
+    expect(getUser).toHaveBeenCalledTimes(1)
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    expect(opts.text).toContain("active leak")
+  })
+
+  it("only checks history once — not on a later reprompt cycle within the same call", async () => {
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-cycle-two",
+      state: {
+        ...timedOutState(),
+        holdStartedAtMs: Date.now(),
+        holdSegment: "music",
+        holdPromptCount: 1,
+        holdIntakeAnswered: true,
+      },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    expect(getRecentHoldIntakeForCaller).not.toHaveBeenCalled()
   })
 })

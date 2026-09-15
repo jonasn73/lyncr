@@ -491,6 +491,42 @@ export async function getCallQueueCollectedByCallControlId(
   }
 }
 
+/**
+ * Most recent PRIOR hold-queue answers from this same caller (any earlier call, this
+ * shop), within the window — lets a caller who already answered on a call an hour ago
+ * skip being asked the exact same questions again on a callback. Excludes the current
+ * call explicitly so a still-open row for THIS call never matches itself.
+ */
+export async function getRecentHoldIntakeForCaller(
+  userId: string,
+  callerE164: string,
+  excludeCallControlId: string,
+  withinHours = 24
+): Promise<Record<string, unknown> | null> {
+  try {
+    const sql = getSql()
+    const rows = await sql`
+      SELECT collected FROM call_queue
+      WHERE user_id = ${userId}
+        AND caller_e164 = ${callerE164}
+        AND call_control_id <> ${excludeCallControlId}
+        AND collected IS NOT NULL
+        AND collected <> '{}'::jsonb
+        AND enqueued_at > now() - (${withinHours}::text || ' hours')::interval
+      ORDER BY enqueued_at DESC
+      LIMIT 1
+    `
+    const collected = (rows[0] as { collected?: unknown } | undefined)?.collected
+    return collected && typeof collected === "object" && Object.keys(collected).length > 0
+      ? (collected as Record<string, unknown>)
+      : null
+  } catch (e) {
+    if (isMissingCallQueueTable(e) || isMissingCollectedColumn(e)) return null
+    console.warn(lyncrLog("call-queue-recent-intake-lookup-failed", { error: String(e) }))
+    return null
+  }
+}
+
 /** 1-based position in the waiting queue (for “you’re next” TTS). */
 export async function getCallQueuePosition(
   userId: string,
