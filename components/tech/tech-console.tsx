@@ -9,6 +9,7 @@
 
 import type { FieldTechnicianCapabilities } from "@/lib/types"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { toast } from "sonner"
 import {
   MapPin,
@@ -32,6 +33,7 @@ import { buildJobCardSummary } from "@/lib/job-card-summary"
 import { googleMapsSearchUrl } from "@/lib/google-maps-search-url"
 import { vehicleLabelFromParts } from "@/lib/job-pool"
 import { cn } from "@/lib/utils"
+import { MOTION_SPRING_LAYOUT } from "@/lib/motion"
 import type { DispatchJob, UnassignedPoolJob } from "@/lib/types"
 
 /** Derive the tech's overall live status from their active jobs. */
@@ -327,9 +329,15 @@ export function TechConsole(props: {
                 <p className="mb-2 px-1 text-xs font-bold uppercase tracking-wider text-muted-foreground font-[family-name:var(--font-tech-heading)]">
                   Completed today
                 </p>
+                <AnimatePresence initial={false}>
                 {done.map((job) => (
-                  <div
+                  <motion.div
                     key={job.id}
+                    layout
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={MOTION_SPRING_LAYOUT}
                     className="mb-2 flex items-center gap-3 rounded-2xl border border-border/60 bg-card/40 px-4 py-3 opacity-70"
                   >
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground/80 font-[family-name:var(--font-tech-heading)]">
@@ -341,8 +349,9 @@ export function TechConsole(props: {
                     <span className="shrink-0 rounded-full bg-success/20 px-3 py-0.5 text-2xs font-medium text-success">
                       Completed
                     </span>
-                  </div>
+                  </motion.div>
                 ))}
+                </AnimatePresence>
               </div>
             )}
           </>

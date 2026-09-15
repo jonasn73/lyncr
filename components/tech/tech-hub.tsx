@@ -7,6 +7,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { AnimatePresence, motion } from "framer-motion"
+import { MOTION_SPRING_LAYOUT } from "@/lib/motion"
 import {
   LogOut,
   RefreshCw,
@@ -407,30 +409,40 @@ export function TechHub(props: {
                   Later today
                 </p>
                 <div className="flex flex-col gap-3">
+                  <AnimatePresence initial={false}>
                   {laterJobs.map((job) => (
-                    <Link
+                    <motion.div
                       key={job.id}
-                      href="/tech/dashboard/jobs"
-                      className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card/60 p-4 transition active:scale-[0.98]"
+                      layout
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={MOTION_SPRING_LAYOUT}
                     >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground/80 font-[family-name:var(--font-tech-heading)]">
-                        {initialsFor(job.customer_name, job.customer_phone)}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold">
-                          {job.customer_name || job.customer_phone || "Customer"}
+                      <Link
+                        href="/tech/dashboard/jobs"
+                        className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card/60 p-4 transition active:scale-[0.98]"
+                      >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground/80 font-[family-name:var(--font-tech-heading)]">
+                          {initialsFor(job.customer_name, job.customer_phone)}
                         </span>
-                        <span className="block truncate text-2xs text-muted-foreground">
-                          {shortStatusLabel(job)}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold">
+                            {job.customer_name || job.customer_phone || "Customer"}
+                          </span>
+                          <span className="block truncate text-2xs text-muted-foreground">
+                            {shortStatusLabel(job)}
+                          </span>
                         </span>
-                      </span>
-                      {job.job_status === "assigned" && !job.accepted_at ? (
-                        <span className="shrink-0 rounded-full bg-warning/16 px-3 py-1 text-2xs font-bold text-warning">
-                          New
-                        </span>
-                      ) : null}
-                    </Link>
+                        {job.job_status === "assigned" && !job.accepted_at ? (
+                          <span className="shrink-0 rounded-full bg-warning/16 px-3 py-1 text-2xs font-bold text-warning">
+                            New
+                          </span>
+                        ) : null}
+                      </Link>
+                    </motion.div>
                   ))}
+                  </AnimatePresence>
                 </div>
               </>
             ) : null}
