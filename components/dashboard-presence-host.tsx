@@ -126,7 +126,10 @@ const PresencePane = memo(function PresencePane({
       aria-label={label}
       aria-hidden={!active}
       hidden={!active}
-      className="w-full"
+      // h-full/flex only takes effect once an ancestor (DashboardPageView in `fill`
+      // mode) actually gives this section a real height — for every other pane's
+      // min-height-only ancestor it resolves to `auto` and is a no-op.
+      className="flex h-full min-h-0 w-full flex-col"
     >
       {children}
     </section>
@@ -209,7 +212,10 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
   }, [])
 
   return (
-    <div className="w-full min-h-0">
+    // h-full/flex: no-op unless DashboardPageView is in `fill` mode (Messages) — see
+    // PresencePane's comment. Hidden panes (`[hidden]{display:none}`) never
+    // participate in this flex row regardless, so only the one visible pane is sized.
+    <div className="flex h-full min-h-0 w-full flex-col">
       {/* Lines is statically imported here — intake lives in shell (LyncEngine), not this pane. */}
       <PresencePane active={activePage === "dashboard"} label="Routing">
         <RoutingPane />

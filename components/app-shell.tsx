@@ -310,13 +310,22 @@ function AppShellInner({
         <main
           ref={mainRef}
           className={cn(
-            "min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y",
+            "min-h-0 flex-1",
             "bg-gradient-to-b from-background to-muted/15",
-            // Clear the fixed mobile dock + Safari home-indicator so last content stays
-            // tappable — skipped on the messages route, where there's no dock to clear
-            // and this reserve would otherwise just be a dead scroll gutter under the
-            // thread (WORKSPACE_VIEWPORT_H already sizes the panel against --shell-dock-h).
-            isMessagesRoute ? "pb-0" : "pb-[calc(env(safe-area-inset-bottom,0px)+4rem)] md:pb-0"
+            // Messages route: the thread panel is a fixed-height flex box that fills
+            // this exactly (see messages-workspace-view.tsx) — it must never scroll
+            // itself, or a focused reply box drags the whole panel (customer header
+            // included) up under the sticky app header on mobile when the keyboard
+            // opens, leaving blank space below. Only the panel's own two internal
+            // regions (thread list, message bubbles) should ever scroll.
+            isMessagesRoute
+              ? "flex flex-col overflow-hidden pb-0"
+              : cn(
+                  "overflow-y-auto overscroll-y-contain touch-pan-y",
+                  // Clear the fixed mobile dock + Safari home-indicator so last content
+                  // stays tappable.
+                  "pb-[calc(env(safe-area-inset-bottom,0px)+4rem)] md:pb-0"
+                )
           )}
         >
           {children}

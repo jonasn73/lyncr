@@ -35,7 +35,6 @@ import { useOwnerLatest } from "@/lib/hooks/use-owner-latest"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { useSettledListSurface } from "@/lib/hooks/use-settled-list-surface"
 import { useWorkspaceOrgId } from "@/lib/hooks/use-workspace-org-id"
-import { WORKSPACE_VIEWPORT_H } from "@/lib/mobile-shell"
 import { pickOpenCollectJobForPhone } from "@/lib/collect-job-match"
 import { openCollectPaymentModal } from "@/lib/settings-modals-events"
 import { markLatestReplySeen } from "@/lib/latest-seen"
@@ -967,7 +966,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
 
   // Stable page chrome — never change gap/padding when a thread opens (that was the CLS).
   return (
-    <WorkspacePage className="gap-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:gap-6 md:pb-8">
+    <WorkspacePage className="h-full min-h-0 gap-3 pb-0 sm:gap-6">
       {/* Title row — fixed geometry whether a conversation is open or not */}
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">
@@ -1032,12 +1031,14 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
 
       <WorkspacePanel
         className={cn(
-          // Same full-height-tab-body math as Map/boards (WORKSPACE_VIEWPORT_H) —
-          // this view previously hardcoded its own, much larger subtraction
-          // (8.5rem/12rem vs the correct 3rem/4.5rem), leaving the thread pane
-          // far shorter than the screen actually had room for, especially on
-          // mobile where the extra ~5.5rem was pure wasted space above the dock.
-          WORKSPACE_VIEWPORT_H,
+          // flex-1 (not a hardcoded dvh calc) — the title row above has variable
+          // height (icon/back-button wrapping, safe-area insets), and a fixed calc
+          // that didn't account for it left `<main>` with baked-in overflow even
+          // with no keyboard involved. `<main>` is non-scrollable on this route
+          // (app-shell.tsx), so this panel must be the thing that exactly fills it,
+          // or a focused reply box's native "scroll into view" has nowhere to grab
+          // but the page itself — dragging the thread header off under the app nav.
+          "min-h-0 flex-1",
           "flex flex-col overflow-hidden bg-background shadow-none ring-0",
           // Side-by-side only from lg, and only with a thread open: the reserved
           // conversation pane was ~65% of a 1280px screen sitting empty, and at 768px

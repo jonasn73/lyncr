@@ -31,7 +31,10 @@ export const DashboardMainContent = memo(function DashboardMainContent({
   if (isPresence) {
     return (
       // No enter animation on primary tabs — that opacity-0 → 1 read as a refresh flash.
-      <DashboardPageView>
+      // fill: Messages is a fixed-height thread panel that must never let the outer
+      // page scroll (see DashboardPageView's `fill` doc) — every other presence tab
+      // still gets the normal min-height/scrolling shape.
+      <DashboardPageView fill={activePage === "messages"}>
         {/* ssrActiveSlot is the statically imported page.tsx view for this URL. */}
         <DashboardPresenceHost activePage={activePage} ssrActiveSlot={routedChildren} />
       </DashboardPageView>
