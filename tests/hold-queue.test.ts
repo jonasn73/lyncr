@@ -6,6 +6,8 @@ import {
   HOLD_AWARE_BUSY_PROMPT,
   HOLD_REPROMPT_DEFAULT,
   resolveHoldMusicUrl,
+  describeVehicleForSpeech,
+  holdVehicleConfirmPrompt,
 } from "@/lib/hold-queue"
 import {
   busyMenuAnswerUnlockMs,
@@ -100,6 +102,24 @@ describe("hold-queue helpers", () => {
       "https://lyncr.app/audio/hold-calm.wav"
     )
     expect(resolveHoldMusicUrl(null)).toBe("https://lyncr.app/audio/hold-calm.wav")
+  })
+
+  it("describes a vehicle for speech only when make and model are both present", () => {
+    expect(describeVehicleForSpeech({ year: "2016", make: "Chrysler", model: "200" })).toBe(
+      "2016 Chrysler 200"
+    )
+    // Year is optional — still reads naturally without it.
+    expect(describeVehicleForSpeech({ make: "Chrysler", model: "200" })).toBe("Chrysler 200")
+    // Make/model missing — nothing safe to speak.
+    expect(describeVehicleForSpeech({ year: "2016" })).toBe("")
+    expect(describeVehicleForSpeech({})).toBe("")
+  })
+
+  it("builds the vehicle-confirm prompt without any 'we recognize you' wording", () => {
+    const text = holdVehicleConfirmPrompt("2016 Chrysler 200")
+    expect(text).toBe("If you're calling about your 2016 Chrysler 200, press 1. If not, press 2.")
+    expect(text.toLowerCase()).not.toContain("welcome back")
+    expect(text.toLowerCase()).not.toContain("recogni")
   })
 })
 

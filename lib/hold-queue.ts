@@ -190,15 +190,48 @@ export const HOLD_REPROMPT_KNOWN_CUSTOMER =
   "press 2 if you'd rather we call you back, or stay on the line."
 
 /**
- * For a caller whose most recent hold-queue call was only minutes ago (see
- * getRecentHoldIntakeForCaller's minutesAgo) — almost certainly a retry of the exact same
- * request (dropped call, hung up and redialed), not a new one. Asks directly whether
- * anything changed instead of silently reusing stale answers or re-asking from scratch.
+ * Asked once, on the first reprompt cycle, when we have a specific vehicle on file for this
+ * caller (customer_vehicles, most recently updated) — instead of any "we recognize you"
+ * framing. Requested directly: recognition should only ever change internal routing, never
+ * be spoken — no "welcome back", no acknowledging we know who they are. This reads like an
+ * ordinary targeted question, not a callback: "If you're calling about your 2016 Chrysler
+ * 200, press 1. If not, press 2."
  */
-export const HOLD_REPROMPT_RECENT_CALLBACK =
-  "Welcome back — looks like this is about the same thing from just a few minutes ago. " +
-  "If anything's changed, press 1 to send us a quick text. Otherwise press 2 for a callback, " +
-  "or stay on the line and we'll be right with you."
+export function holdVehicleConfirmPrompt(vehicleDescription: string): string {
+  return `If you're calling about your ${vehicleDescription}, press 1. If not, press 2.`
+}
+
+/** After confirming it's the same vehicle — find out if there's anything new to relay. */
+export const HOLD_VEHICLE_CHANGED_PROMPT =
+  "Has anything changed since we last spoke? Press 1 if something's different, " +
+  "or press 2 if it's the same."
+
+/**
+ * "Nothing's changed" branch of the vehicle-confirm flow — they almost certainly just want
+ * a status check, not a fresh intake. Skips straight to the wait-or-callback offer, no
+ * re-asking of any question, and no "press 1 to book by text" (there's nothing new to send).
+ */
+export const HOLD_VEHICLE_NO_CHANGE_REPROMPT =
+  "Our team members are still tied up right now. Stay on the line, or press 2 for a callback."
+
+/**
+ * "2016 Chrysler 200" style descriptor for the vehicle-confirm prompt above — year is
+ * optional (a bare "Chrysler 200" still reads naturally), make/model are not: without at
+ * least those two this returns "" and the caller falls back to the generic reprompt tiers.
+ */
+export function describeVehicleForSpeech(v: {
+  year?: string | null
+  make?: string | null
+  model?: string | null
+}): string {
+  const year = String(v.year ?? "").trim()
+  const make = String(v.make ?? "").trim()
+  const model = String(v.model ?? "").trim()
+  if (!make || !model) return ""
+  const parts = [year, make, model].filter(Boolean)
+  const out = parts.join(" ")
+  return out.length > 60 ? "" : out
+}
 
 /** Spoken when max wait is reached — offer SMS once, then hang up. */
 export const HOLD_MAX_WAIT_SMS_PROMPT =

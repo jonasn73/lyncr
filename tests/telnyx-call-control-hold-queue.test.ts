@@ -50,8 +50,10 @@ vi.mock("@/lib/hold-queue", () => ({
   HOLD_REPROMPT_DEFAULT: "Still here — thanks for waiting.",
   HOLD_REPROMPT_ALREADY_ANSWERED: "Thanks for those details. Press 1 to book by text, press 2 for a callback.",
   HOLD_REPROMPT_KNOWN_CUSTOMER: "Our team members are still tied up. Press 1 for a text, press 2 for a callback.",
-  HOLD_REPROMPT_RECENT_CALLBACK:
-    "Welcome back — same thing from a few minutes ago. Press 1 if anything's changed, press 2 for a callback.",
+  HOLD_VEHICLE_CHANGED_PROMPT: "Has anything changed since we last spoke? Press 1 if yes, press 2 if no.",
+  HOLD_VEHICLE_NO_CHANGE_REPROMPT: "Our team members are still tied up right now. Stay on the line, or press 2 for a callback.",
+  holdVehicleConfirmPrompt: (vehicle: string) =>
+    `If you're calling about your ${vehicle}, press 1. If not, press 2.`,
   holdLongWaitAlertMs: (...args: unknown[]) => holdLongWaitAlertMs(...args),
   holdMaxConcurrent: vi.fn(() => 5),
   holdMaxWaitSecs: vi.fn((override?: number) => override ?? 40),
@@ -598,8 +600,8 @@ describe("hold-queue skips intake for any known customer, not just recent DTMF a
   })
 })
 
-describe("hold-queue distinguishes a just-now callback from a known-but-unrelated one", () => {
-  it("asks whether anything changed when the prior call was minutes ago", async () => {
+describe("hold-queue never speaks recognition — same reprompt copy regardless of recency", () => {
+  it("uses the plain already-answered copy for a match minutes ago (no 'welcome back')", async () => {
     getRecentHoldIntakeForCaller.mockResolvedValue({
       collected: { intent_label: "Lost key / needs new key made" },
       minutesAgo: 8,
@@ -613,14 +615,12 @@ describe("hold-queue distinguishes a just-now callback from a known-but-unrelate
     })
 
     const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
-    expect(opts.text).toContain("Welcome back")
-    expect(opts.text).toContain("anything's changed")
-    expect(opts.text).not.toContain("Thanks for those details")
-    const decoded = JSON.parse(Buffer.from(opts.clientState, "base64").toString("utf8"))
-    expect(decoded.holdRecentCallback).toBe(true)
+    expect(opts.text).not.toContain("Welcome back")
+    expect(opts.text).not.toContain("welcome back")
+    expect(opts.text).toContain("Thanks for those details")
   })
 
-  it("does not use the just-now framing once it's been a couple hours", async () => {
+  it("uses the same copy for a match a couple hours ago", async () => {
     getRecentHoldIntakeForCaller.mockResolvedValue({
       collected: { intent_label: "Lost key / needs new key made" },
       minutesAgo: 150,
@@ -651,5 +651,122 @@ describe("hold-queue distinguishes a just-now callback from a known-but-unrelate
     const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
     expect(opts.text).not.toContain("book by text")
     expect(opts.text).toContain("Press 1 for a text")
+  })
+})
+
+describe("hold-queue vehicle-confirm — names the specific vehicle on file instead of any recognition wording", () => {
+  it("asks about the vehicle on file before anything else, once, with no 'we know you' language", async () => {
+    getRecentHoldIntakeForCaller.mockResolvedValue(null)
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-vehicle-on-file",
+      state: {
+        ...timedOutState(),
+        holdStartedAtMs: Date.now(),
+        holdSegment: "music",
+        isKnownCustomer: true,
+        holdVehicleOnFile: "2016 Chrysler 200",
+      },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    expect(getUser).not.toHaveBeenCalled()
+    expect(getRecentHoldIntakeForCaller).not.toHaveBeenCalled()
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    expect(opts.text).toBe("If you're calling about your 2016 Chrysler 200, press 1. If not, press 2.")
+    expect(opts.text).not.toMatch(/welcome back/i)
+    expect(opts.text).not.toMatch(/recogni/i)
+    expect(opts.validDigits).toBe("12")
+    const decoded = JSON.parse(Buffer.from(opts.clientState, "base64").toString("utf8"))
+    expect(decoded.holdVehicleConfirmOffered).toBe(true)
+    expect(decoded.holdAwaitingVehicleConfirm).toBe(true)
+  })
+
+  it("press 1 (confirmed) asks whether anything changed next", async () => {
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-vehicle-confirmed",
+      state: {
+        ...timedOutState(),
+        holdVehicleOnFile: "2016 Chrysler 200",
+        holdVehicleConfirmOffered: true,
+        holdAwaitingVehicleConfirm: true,
+      },
+      digits: "1",
+      gatherStatus: "digit",
+    })
+
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    expect(opts.text).toContain("anything changed")
+    expect(opts.validDigits).toBe("12")
+    const decoded = JSON.parse(Buffer.from(opts.clientState, "base64").toString("utf8"))
+    expect(decoded.holdAwaitingVehicleConfirm).toBe(false)
+    expect(decoded.holdAwaitingVehicleChangedAnswer).toBe(true)
+  })
+
+  it("press 2 (not that vehicle) falls through to the normal reprompt/intake flow, never re-asking", async () => {
+    getUser.mockResolvedValue({ industry: "plumbing" })
+    getRecentHoldIntakeForCaller.mockResolvedValue(null)
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-vehicle-declined",
+      state: {
+        ...timedOutState(),
+        holdStartedAtMs: Date.now(),
+        holdVehicleOnFile: "2016 Chrysler 200",
+        holdVehicleConfirmOffered: true,
+        holdAwaitingVehicleConfirm: true,
+      },
+      digits: "2",
+      gatherStatus: "digit",
+    })
+
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    expect(opts.text).toContain("leak or flooding")
+    const decoded = JSON.parse(Buffer.from(opts.clientState, "base64").toString("utf8"))
+    expect(decoded.holdVehicleConfirmOffered).toBe(true)
+    expect(decoded.holdAwaitingVehicleConfirm).toBeFalsy()
+  })
+
+  it("changed=yes (press 1) sends the booking-link SMS instead of re-asking anything", async () => {
+    sendInboundBookingSmsAndTag.mockResolvedValue({ outcome: "sent" })
+    bookingSmsConfirmSpeech.mockReturnValue("We texted you a link.")
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-vehicle-changed-yes",
+      state: {
+        ...timedOutState(),
+        holdVehicleOnFile: "2016 Chrysler 200",
+        holdVehicleConfirmOffered: true,
+        holdAwaitingVehicleChangedAnswer: true,
+      },
+      digits: "1",
+      gatherStatus: "digit",
+    })
+
+    expect(sendInboundBookingSmsAndTag).toHaveBeenCalled()
+    expect(telnyxCallControlSpeak).toHaveBeenCalled()
+  })
+
+  it("changed=no (press 2) skips straight to status/wait-or-callback with no re-ask", async () => {
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-vehicle-changed-no",
+      state: {
+        ...timedOutState(),
+        holdVehicleOnFile: "2016 Chrysler 200",
+        holdVehicleConfirmOffered: true,
+        holdAwaitingVehicleChangedAnswer: true,
+      },
+      digits: "2",
+      gatherStatus: "digit",
+    })
+
+    expect(sendInboundBookingSmsAndTag).not.toHaveBeenCalled()
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    expect(opts.text).toContain("still tied up")
+    expect(opts.text).toContain("press 2 for a callback")
+    const decoded = JSON.parse(Buffer.from(opts.clientState, "base64").toString("utf8"))
+    expect(decoded.holdIntakeAnswered).toBe(true)
+    expect(decoded.holdAwaitingVehicleChangedAnswer).toBe(false)
   })
 })

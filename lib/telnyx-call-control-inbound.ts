@@ -35,7 +35,11 @@ import {
   prefetchUsRingbackPlaybackContent,
 } from "@/lib/us-ringback-inline-audio"
 import { upsertCallQueueBusyMenu, updateCallQueueStatus } from "@/lib/call-queue-db"
-import { HOLD_AWARE_BUSY_PROMPT, sanitizeCallerNameForSpeech } from "@/lib/hold-queue"
+import {
+  describeVehicleForSpeech,
+  HOLD_AWARE_BUSY_PROMPT,
+  sanitizeCallerNameForSpeech,
+} from "@/lib/hold-queue"
 import { resolveRepeatCallerUrgency } from "@/lib/repeat-caller-urgency"
 import { envFlagOn, lyncrLog } from "@/lib/lyncr-env"
 import { parseTelnyxVoiceWebhookEvent } from "@/lib/telnyx-call-control-parse"
@@ -349,6 +353,7 @@ async function startBusyAutomationFlow(
   let isRepeatCaller = false
   let callerDisplayName = ""
   let isKnownCustomer = false
+  let holdVehicleOnFile = ""
   try {
     const { listTodaysCallLogsForCaller } = await import("@/lib/db")
     const todaysLogs = await listTodaysCallLogsForCaller(routing.user_id, state.callerE164)
@@ -358,6 +363,7 @@ async function startBusyAutomationFlow(
   } catch (e) {
     console.warn("[telnyx-cc] repeat-caller lookup skipped:", e)
   }
+  let knownCustomerId = ""
   try {
     const { getCustomerByPhoneForUser } = await import("@/lib/db")
     const customer = await getCustomerByPhoneForUser(routing.user_id, state.callerE164)
@@ -366,8 +372,24 @@ async function startBusyAutomationFlow(
     // means we already have real details on this person, not just DTMF answers from a
     // recent hold session — the hold loop uses this to skip re-asking intake outright.
     isKnownCustomer = Boolean(customer)
+    knownCustomerId = customer?.id || ""
   } catch (e) {
     console.warn("[telnyx-cc] customer-name lookup skipped:", e)
+  }
+  if (knownCustomerId) {
+    // Separate try/catch — a vehicle-lookup problem must never also zero out
+    // isKnownCustomer/callerDisplayName above.
+    try {
+      const { listCustomerVehiclesForCustomer } = await import("@/lib/db")
+      // Most recently updated garage vehicle — feeds the hold loop's vehicle-confirm
+      // question ("if you're calling about your 2016 Chrysler 200, press 1"). Requires
+      // at least make + model (describeVehicleForSpeech returns "" without both), so a
+      // customer record with no real vehicle on file just skips that question.
+      const vehicles = await listCustomerVehiclesForCustomer(routing.user_id, knownCustomerId)
+      holdVehicleOnFile = describeVehicleForSpeech(vehicles[0] || {})
+    } catch (e) {
+      console.warn("[telnyx-cc] customer-vehicle lookup skipped:", e)
+    }
   }
   try {
     const presence = await getAccountPresence(routing.user_id)
@@ -410,6 +432,7 @@ async function startBusyAutomationFlow(
     isRepeatCaller,
     callerDisplayName: callerDisplayName || undefined,
     isKnownCustomer,
+    holdVehicleOnFile: holdVehicleOnFile || undefined,
   })
   console.log(
     lyncrLog("telnyx-cc-busy-automation-gather", {

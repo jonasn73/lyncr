@@ -112,13 +112,19 @@ export type TelnyxCallControlClientState = {
    */
   isKnownCustomer?: boolean
   /**
-   * True when the reused intake answers (see holdIntakeSummary) came from a call within
-   * the last ~30 minutes — almost certainly the same request (a dropped call, redialing),
-   * not a new one. Set once, on the first reprompt cycle, and carried for the rest of the
-   * call so the reprompt copy asks "has anything changed" instead of the plain
-   * already-answered framing.
+   * Spoken vehicle descriptor ("2016 Chrysler 200") when a real customer_vehicles row
+   * exists for this caller — computed once at Busy entry (see describeVehicleForSpeech),
+   * carried like isKnownCustomer. Drives the vehicle-confirm question on the first hold
+   * reprompt cycle; never implies recognition was spoken, only that we CAN ask about a
+   * specific vehicle instead of a generic one.
    */
-  holdRecentCallback?: boolean
+  holdVehicleOnFile?: string
+  /** True once the vehicle-confirm question (holdVehicleOnFile) has been asked — asked only once. */
+  holdVehicleConfirmOffered?: boolean
+  /** True only while a gather is waiting on the vehicle-confirm answer (press 1 = yes, 2 = no). */
+  holdAwaitingVehicleConfirm?: boolean
+  /** True only while a gather is waiting on the "has anything changed" follow-up answer. */
+  holdAwaitingVehicleChangedAnswer?: boolean
   /** Unix ms when ai_assistant_start was issued — used to bill AI-conversation minutes accurately (`087`). */
   aiAssistantStartedAtMs?: number
   /**

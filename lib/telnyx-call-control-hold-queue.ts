@@ -29,12 +29,14 @@ import {
   HOLD_REPROMPT_ALREADY_ANSWERED,
   HOLD_REPROMPT_DEFAULT,
   HOLD_REPROMPT_KNOWN_CUSTOMER,
-  HOLD_REPROMPT_RECENT_CALLBACK,
+  HOLD_VEHICLE_CHANGED_PROMPT,
+  HOLD_VEHICLE_NO_CHANGE_REPROMPT,
   holdLongWaitAlertMs,
   holdMaxConcurrent,
   holdMaxWaitSecs,
   holdMusicMediaName,
   holdRePromptIntervalMs,
+  holdVehicleConfirmPrompt,
   lyncrHoldQueueName,
   resolveHoldMusicUrlCandidates,
 } from "@/lib/hold-queue"
@@ -177,22 +179,19 @@ async function buildHoldRepromptText(
   } catch {
     /* position is polish only */
   }
-  // isRepeatCaller (set once at Busy entry, lib/telnyx-call-control-inbound.ts) still drives
-  // internal signals (urgency, receptionist context) but is deliberately never spoken to the
-  // caller — requested directly, "Still with us" / repeat-caller framing read as unnecessary.
-  // Three tiers once intake is answered: holdRecentCallback (their last call was minutes
-  // ago — almost certainly the same request, ask if anything changed) beats holdIntakeSummary
-  // present (real answers from THIS caller to reference, "Thanks for those details") beats
-  // answered-with-no-summary (skipped purely because they're a known customer on file — never
-  // thank them for details they didn't just give us, and never invite them to "book" when
-  // they may already have something on the books).
+  // isRepeatCaller / isKnownCustomer (set once at Busy entry, lib/telnyx-call-control-inbound.ts)
+  // still drive internal signals (urgency, receptionist context, which reprompt tier below) but
+  // are deliberately never spoken to the caller — requested directly, any "we recognize you" /
+  // "welcome back" framing read as unnecessary. Two tiers once intake is answered:
+  // holdIntakeSummary present (real answers from THIS caller to reference, "Thanks for those
+  // details") beats answered-with-no-summary (skipped purely because they're a known customer
+  // on file — never thank them for details they didn't just give us, and never invite them to
+  // "book" when they may already have something on the books).
   const base = !isHoldIntakeFullyAnswered(state)
     ? HOLD_REPROMPT_DEFAULT
-    : state.holdRecentCallback
-      ? HOLD_REPROMPT_RECENT_CALLBACK
-      : state.holdIntakeSummary
-        ? HOLD_REPROMPT_ALREADY_ANSWERED
-        : HOLD_REPROMPT_KNOWN_CUSTOMER
+    : state.holdIntakeSummary
+      ? HOLD_REPROMPT_ALREADY_ANSWERED
+      : HOLD_REPROMPT_KNOWN_CUSTOMER
   return `${base}${hint}`
 }
 
@@ -683,6 +682,15 @@ async function startHoldRepromptGather(
   // Brief pause only — same short script every time (not a second Busy greeting).
   await telnyxCallControlPlaybackStop(callControlId).catch(() => undefined)
 
+  // Highest priority of all — a specific vehicle on file (customer_vehicles), asked about
+  // directly and only once. Never phrased as "we recognize you"; reads like an ordinary
+  // targeted question ("if you're calling about your 2016 Chrysler 200, press 1"). Recognition
+  // still only ever changes ROUTING here, never spoken acknowledgment — requested directly.
+  if (state.holdVehicleOnFile && !state.holdVehicleConfirmOffered) {
+    await startVehicleConfirmGather(callControlId, state)
+    return
+  }
+
   const promptCount = (state.holdPromptCount ?? 0) + 1
 
   // Smart hold, in order of priority per reprompt cycle:
@@ -700,7 +708,6 @@ async function startHoldRepromptGather(
   let industryHasNoPrompt = false
   let followUpAnswered = Boolean(state.holdIntakeFollowUpAnswered)
   let reusedIntakeSummary: string | null = null
-  let recentCallback = false
 
   // A caller who already answered these on a recent, different call (calling back an
   // hour later, not asking fresh) shouldn't get asked again — reuse what's already known.
@@ -720,16 +727,11 @@ async function startHoldRepromptGather(
       intakeAnswered = true
       followUpAnswered = followUpAnswered || Boolean(recentYearLabel)
       reusedIntakeSummary = recentYearLabel ? `${recentIntentLabel} — ${recentYearLabel}` : recentIntentLabel
-      // Within the last ~30 minutes is almost certainly the same request (a dropped call,
-      // redialing) — asked directly to acknowledge that rather than treat it identically
-      // to a same-day-but-unrelated callback.
-      recentCallback = recent.minutesAgo < 30
       console.log(
         lyncrLog("telnyx-cc-hold-intake-reused", {
           callControlId,
           summary: reusedIntakeSummary,
           minutesAgo: Math.round(recent.minutesAgo),
-          recentCallback,
         })
       )
     } else if (state.isKnownCustomer) {
@@ -776,7 +778,6 @@ async function startHoldRepromptGather(
             holdIntakeAnswered: intakeAnswered,
             holdIntakeFollowUpAnswered: followUpAnswered,
             holdIntakeSummary: reusedIntakeSummary || state.holdIntakeSummary,
-            holdRecentCallback: recentCallback || state.holdRecentCallback,
           },
           callControlId
         )
@@ -797,7 +798,6 @@ async function startHoldRepromptGather(
     holdIntakeFollowUpAttempts: askFollowUp ? followUpAttempts + 1 : followUpAttempts,
     holdAwaitingIntakeFollowUpAnswer: askFollowUp,
     holdIntakeSummary: reusedIntakeSummary || state.holdIntakeSummary,
-    holdRecentCallback: recentCallback || state.holdRecentCallback,
   }
 
   console.log(
@@ -828,6 +828,131 @@ async function startHoldRepromptGather(
     // One short reminder only — never Telnyx’s default 3× replay.
     maximumTries: 1,
     voice: speakVoice || "Telnyx.NaturalHD.astra",
+  })
+  if (!gatherRes.ok) {
+    await startHoldMusicGather(callControlId, nextState)
+  }
+}
+
+/**
+ * Ask directly about the specific vehicle on file (state.holdVehicleOnFile) — the very first
+ * thing offered on the first reprompt cycle when we have one, ahead of the generic industry
+ * intake question. Marked "offered" immediately so it's never asked twice, whichever way the
+ * caller answers.
+ */
+async function startVehicleConfirmGather(
+  callControlId: string,
+  state: TelnyxCallControlClientState
+): Promise<void> {
+  const speakVoice = await resolveHoldSpeakVoice(state)
+  const promptCount = (state.holdPromptCount ?? 0) + 1
+  const nextState: TelnyxCallControlClientState = {
+    ...state,
+    phase: "await_busy_hold_loop",
+    holdSegment: "reprompt",
+    holdPromptCount: promptCount,
+    holdSpeakVoice: speakVoice,
+    holdVehicleConfirmOffered: true,
+    holdAwaitingVehicleConfirm: true,
+  }
+  console.log(lyncrLog("telnyx-cc-hold-vehicle-confirm-start", { callControlId }))
+  const gatherRes = await telnyxCallControlGatherUsingSpeak(callControlId, {
+    text: holdVehicleConfirmPrompt(state.holdVehicleOnFile!),
+    clientState: encodeTelnyxCallControlState(nextState),
+    maximumDigits: 1,
+    validDigits: "12",
+    timeoutMillis: 9_000,
+    maximumTries: 1,
+    voice: speakVoice,
+  })
+  if (!gatherRes.ok) {
+    await startHoldMusicGather(callControlId, nextState)
+  }
+}
+
+/**
+ * gather.ended answering the vehicle-confirm question. Press 1 (yes, that's the vehicle) asks
+ * whether anything's changed; press 2, a timeout, or anything else means it wasn't about that
+ * vehicle — fall through to the normal reprompt/intake logic for this cycle exactly as if
+ * there'd been no vehicle on file at all (holdVehicleConfirmOffered is already true on state
+ * so this never re-asks).
+ */
+async function handleVehicleConfirmAnswer(
+  callControlId: string,
+  state: TelnyxCallControlClientState,
+  digits: string
+): Promise<void> {
+  const baseState: TelnyxCallControlClientState = { ...state, holdAwaitingVehicleConfirm: false }
+  if (digits === "1") {
+    await startVehicleChangedGather(callControlId, baseState)
+    return
+  }
+  await startHoldRepromptGather(callControlId, baseState)
+}
+
+/** Confirmed same vehicle — find out if there's anything new before deciding what to offer. */
+async function startVehicleChangedGather(
+  callControlId: string,
+  state: TelnyxCallControlClientState
+): Promise<void> {
+  const speakVoice = await resolveHoldSpeakVoice(state)
+  const nextState: TelnyxCallControlClientState = {
+    ...state,
+    phase: "await_busy_hold_loop",
+    holdSegment: "reprompt",
+    holdSpeakVoice: speakVoice,
+    holdAwaitingVehicleChangedAnswer: true,
+  }
+  const gatherRes = await telnyxCallControlGatherUsingSpeak(callControlId, {
+    text: HOLD_VEHICLE_CHANGED_PROMPT,
+    clientState: encodeTelnyxCallControlState(nextState),
+    maximumDigits: 1,
+    validDigits: "12",
+    timeoutMillis: 9_000,
+    maximumTries: 1,
+    voice: speakVoice,
+  })
+  if (!gatherRes.ok) {
+    await startHoldMusicGather(callControlId, nextState)
+  }
+}
+
+/**
+ * gather.ended answering "has anything changed". Press 1 (yes) hands off to the normal
+ * press-1-for-text SMS flow — there's something new to relay. Press 2, a timeout, or anything
+ * else means nothing's changed — they almost certainly just want a status check, so this skips
+ * straight to "still tied up, wait or callback" with no re-ask of anything, marking intake as
+ * fully answered so no later cycle asks the generic industry question either.
+ */
+async function handleVehicleChangedAnswer(
+  callControlId: string,
+  state: TelnyxCallControlClientState,
+  digits: string
+): Promise<void> {
+  const baseState: TelnyxCallControlClientState = { ...state, holdAwaitingVehicleChangedAnswer: false }
+  if (digits === "1") {
+    await leaveHoldQueueWithSms(callControlId, baseState, "cc_busy_hold_vehicle_changed")
+    return
+  }
+
+  const speakVoice = baseState.holdSpeakVoice || (await resolveHoldSpeakVoice(baseState))
+  const nextState: TelnyxCallControlClientState = {
+    ...baseState,
+    phase: "await_busy_hold_loop",
+    holdSegment: "reprompt",
+    holdSpeakVoice: speakVoice,
+    holdIntakeAnswered: true,
+    holdIntakeFollowUpAnswered: true,
+  }
+  console.log(lyncrLog("telnyx-cc-hold-vehicle-no-change", { callControlId }))
+  const gatherRes = await telnyxCallControlGatherUsingSpeak(callControlId, {
+    text: HOLD_VEHICLE_NO_CHANGE_REPROMPT,
+    clientState: encodeTelnyxCallControlState(nextState),
+    maximumDigits: 1,
+    validDigits: "12",
+    timeoutMillis: 6_000,
+    maximumTries: 1,
+    voice: speakVoice,
   })
   if (!gatherRes.ok) {
     await startHoldMusicGather(callControlId, nextState)
@@ -1385,6 +1510,18 @@ export async function handleHoldLoopGatherEnded(params: {
     gatherStatus === "call_hangup_bye"
   ) {
     await abandonHoldQueue(callControlId)
+    return
+  }
+
+  // These two vehicle-confirm sub-steps come first — same reasoning as every other
+  // "check state before the plain press-1/press-2 reprompt digits" branch below.
+  if (state.holdAwaitingVehicleConfirm) {
+    await handleVehicleConfirmAnswer(callControlId, state, digits)
+    return
+  }
+
+  if (state.holdAwaitingVehicleChangedAnswer) {
+    await handleVehicleChangedAnswer(callControlId, state, digits)
     return
   }
 
