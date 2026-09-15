@@ -741,8 +741,10 @@ async function startHoldRepromptGather(
     clientState: encodeTelnyxCallControlState(nextState),
     maximumDigits: intakePrompt ? 1 : askFollowUp ? state.holdIntakeFollowUp!.maxDigits : 1,
     // Follow-up wants any digit 0-9 (gather_using_speak's own default) — everything
-    // else keeps its original, narrower valid set unchanged.
-    validDigits: intakePrompt ? holdQueueIntakeValidDigits(intakePrompt) : askFollowUp ? undefined : "1",
+    // else keeps its original, narrower valid set unchanged. "12" (not "1") once intake
+    // is answered — the reprompt copy at this point offers press-2-for-callback too, and
+    // a caller pressing 2 here was getting rejected as invalid DTMF and stuck on repeat.
+    validDigits: intakePrompt ? holdQueueIntakeValidDigits(intakePrompt) : askFollowUp ? undefined : "12",
     // Follow-up (multi-digit) needs real time to dial digits. Phase-1's multiple-choice
     // question gets more than the plain single "press 1" reminder too — the caller just
     // heard 2-3 options and needs a beat to decide, not just react; 6s was clipping real

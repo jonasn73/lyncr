@@ -46,6 +46,7 @@ vi.mock("@/lib/account-presence", () => ({
 
 vi.mock("@/lib/hold-queue", () => ({
   HOLD_REPROMPT_DEFAULT: "Still here — thanks for waiting.",
+  HOLD_REPROMPT_ALREADY_ANSWERED: "Thanks for those details. Press 1 to book by text, press 2 for a callback.",
   holdLongWaitAlertMs: (...args: unknown[]) => holdLongWaitAlertMs(...args),
   holdMaxConcurrent: vi.fn(() => 5),
   holdMaxWaitSecs: vi.fn((override?: number) => override ?? 40),
@@ -415,5 +416,30 @@ describe("hold-queue callback request (press 2)", () => {
       intent_slug: "auto_repair_diagnostic",
       collected: expect.objectContaining({ vehicle_year: "2018", callback_requested: true }),
     })
+  })
+
+  it("regression: the post-intake reprompt gather itself accepts digit 2, not just \"1\"", async () => {
+    // A real call got stuck in a loop: the reprompt copy said "press 2 for a callback"
+    // but the gather that played it was still configured to accept only "1" as valid
+    // DTMF, so every press of 2 came back gatherStatus=invalid and just replayed the
+    // same reprompt. This asserts the actual gather config, not just the digit-2 handler.
+    getUser.mockResolvedValue({ industry: "locksmith" })
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-reprompt-validdigits",
+      state: {
+        ...timedOutState(),
+        holdStartedAtMs: Date.now(),
+        holdSegment: "music",
+        holdIntakeAnswered: true,
+        holdIntakeFollowUpAnswered: true,
+      },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    expect(telnyxCallControlGatherUsingSpeak).toHaveBeenCalledTimes(1)
+    const [, opts] = telnyxCallControlGatherUsingSpeak.mock.calls[0]
+    expect(opts.validDigits).toBe("12")
   })
 })
