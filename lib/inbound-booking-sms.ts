@@ -4,6 +4,7 @@ import { buildBookQueryUrl, createBookingInvite } from "@/lib/booking-invite"
 import {
   buildTelnyxMenuBookingSms,
   type BookingLinkSmsTone,
+  type HoldIntakeSmsContext,
 } from "@/lib/telnyx-menu"
 import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
@@ -58,6 +59,8 @@ async function sendInboundBookingSms(opts: {
    * Skip the 45-min cooldown (operator manual send). Auto paths keep dedupe on.
    */
   bypassCooldown?: boolean
+  /** What was captured on hold, if anything — appended as a make/model ask when relevant. */
+  intake?: HoldIntakeSmsContext | null
 }): Promise<{ ok: boolean; error?: string; skipped?: boolean }> {
   if (!opts.fromE164) return { ok: false, error: "missing from" }
 
@@ -93,7 +96,8 @@ async function sendInboundBookingSms(opts: {
     bookUrl,
     opts.businessLineE164,
     tone,
-    opts.businessLabel
+    opts.businessLabel,
+    opts.intake
   )
   try {
     // Prefer workspace log so Messages inbox + cooldown lookback see press-1 texts.
@@ -145,15 +149,20 @@ export type InboundBookingSmsOutcome = "sent" | "skipped" | "failed" | "not_atte
  * timed out / capacity-reached soft-busy prompt (same shape, different framing).
  * Reuses the same known-name greeting as the initial Busy greeting (carried in
  * call-control state, not re-queried here) — repeat-caller status is never spoken.
+ * When intakeSummary is given (whatever was captured on hold), it's read back before
+ * the outcome line — reported directly: callers who'd already answered two quick
+ * questions had no way to know the system had actually captured anything.
  */
 export function bookingSmsConfirmSpeech(
   outcome: InboundBookingSmsOutcome,
   variant: "press1" | "max_wait",
-  opts?: { callerDisplayName?: string | null }
+  opts?: { callerDisplayName?: string | null; intakeSummary?: string | null }
 ): string {
   const prefix = callerGreetingPrefix({ callerDisplayName: opts?.callerDisplayName })
+  const summary = opts?.intakeSummary?.trim()
+  const readback = summary ? `Got it — ${summary}. ` : ""
   const body = bookingSmsConfirmBody(outcome, variant)
-  return prefix ? `${prefix}${body}` : body
+  return `${prefix}${readback}${body}`
 }
 
 function bookingSmsConfirmBody(
@@ -194,6 +203,8 @@ export async function sendInboundBookingSmsAndTag(opts: {
   callType?: CallType
   businessLabel?: string | null
   tone?: BookingLinkSmsTone
+  /** What was captured on hold, if anything — appended as a make/model ask when relevant. */
+  intake?: HoldIntakeSmsContext | null
 }): Promise<{ outcome: InboundBookingSmsOutcome; error?: string }> {
   // First hangup wins. Second overlapping event does not send another book link.
   if (opts.callSid) {
@@ -207,6 +218,7 @@ export async function sendInboundBookingSmsAndTag(opts: {
     source: opts.source,
     businessLabel: opts.businessLabel,
     tone: opts.tone,
+    intake: opts.intake,
   })
   const outcome: InboundBookingSmsOutcome = !result.ok
     ? "failed"

@@ -43,6 +43,7 @@ import {
   CAPTURE_STATUS_HOLD_QUEUE,
 } from "@/lib/inbound-time-capture"
 import { bookingSmsConfirmSpeech, sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
+import type { HoldIntakeSmsContext } from "@/lib/telnyx-menu"
 import { resolveSpeakVoiceForPersona } from "@/lib/ivr-automation-settings"
 import { lyncrLog } from "@/lib/lyncr-env"
 import { resolveAiVoiceAssistantEntitlement } from "@/lib/ai-voice-entitlement"
@@ -130,6 +131,20 @@ function isHoldIntakeFullyAnswered(state: TelnyxCallControlClientState): boolean
     Boolean(state.holdIntakeAnswered) &&
     (!state.holdIntakeFollowUp || Boolean(state.holdIntakeFollowUpAnswered))
   )
+}
+
+/**
+ * What was captured on hold, shaped for the booking SMS + spoken confirmation. A queued
+ * follow-up (holdIntakeFollowUp) means this intent is vehicle-related at all — make/model
+ * was never askable over touch-tone, so the SMS asks for it (plus year too, if that
+ * follow-up was never answered) instead of leaving the caller with just a generic link.
+ */
+function holdIntakeSmsContext(state: TelnyxCallControlClientState): HoldIntakeSmsContext {
+  return {
+    summary: state.holdIntakeSummary ?? null,
+    vehicleRelated: Boolean(state.holdIntakeFollowUp),
+    hasVehicleYear: Boolean(state.holdIntakeFollowUpAnswered),
+  }
 }
 
 /** Saved persona voice, or the account's IVR voice, or the shared NaturalHD default. */
@@ -253,6 +268,7 @@ export async function enterBusyHoldQueue(params: {
       routedToName: CAPTURE_STATUS_HOLD_PRESS1,
       source: "cc_busy_hold_cap",
       tone: "hold_timeout",
+      intake: holdIntakeSmsContext(state),
     })
     const confirmState = encodeTelnyxCallControlState({
       ...state,
@@ -263,6 +279,7 @@ export async function enterBusyHoldQueue(params: {
       callControlId,
       bookingSmsConfirmSpeech(outcome, "max_wait", {
         callerDisplayName: state.callerDisplayName,
+        intakeSummary: state.holdIntakeSummary,
       }),
       confirmState
     )
@@ -756,6 +773,7 @@ async function leaveHoldQueueWithSms(
     routedToName: CAPTURE_STATUS_HOLD_PRESS1,
     source,
     tone: "booking_link",
+    intake: holdIntakeSmsContext(state),
   })
 
   const confirmState = encodeTelnyxCallControlState({
@@ -767,6 +785,7 @@ async function leaveHoldQueueWithSms(
     callControlId,
     bookingSmsConfirmSpeech(outcome, "press1", {
       callerDisplayName: state.callerDisplayName,
+      intakeSummary: state.holdIntakeSummary,
     }),
     confirmState
   )
@@ -843,6 +862,7 @@ async function finishHoldWithSms(
     routedToName: CAPTURE_STATUS_HOLD_PRESS1,
     source: "cc_busy_hold_max_wait",
     tone: "hold_timeout",
+    intake: holdIntakeSmsContext(state),
   })
 
   const confirmState = encodeTelnyxCallControlState({
@@ -854,6 +874,7 @@ async function finishHoldWithSms(
     callControlId,
     bookingSmsConfirmSpeech(outcome, "max_wait", {
       callerDisplayName: state.callerDisplayName,
+      intakeSummary: state.holdIntakeSummary,
     }),
     confirmState
   )

@@ -36,7 +36,31 @@ vi.mock("@/lib/booking-sms-guards", () => ({
   hasOutboundSmsToCustomerRecently: vi.fn().mockResolvedValue(false),
 }))
 
-import { sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
+import { bookingSmsConfirmSpeech, sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
+
+describe("bookingSmsConfirmSpeech", () => {
+  it("reads back what was captured on hold before the outcome line", () => {
+    const speech = bookingSmsConfirmSpeech("sent", "press1", {
+      intakeSummary: "Lost key / needs new key made — Year 2009",
+    })
+    expect(speech).toContain("Got it — Lost key / needs new key made — Year 2009.")
+    expect(speech).toContain("We just texted you a booking link.")
+  })
+
+  it("has no readback line when nothing was captured", () => {
+    const speech = bookingSmsConfirmSpeech("sent", "press1", {})
+    expect(speech).not.toContain("Got it —")
+    expect(speech).toBe("We just texted you a booking link. You can hang up whenever you're ready.")
+  })
+
+  it("readback works for the max_wait variant too", () => {
+    const speech = bookingSmsConfirmSpeech("sent", "max_wait", {
+      intakeSummary: "Active leak",
+    })
+    expect(speech).toContain("Got it — Active leak.")
+    expect(speech).toContain("We are still tied up.")
+  })
+})
 
 describe("sendInboundBookingSmsAndTag — multi-shop owners", () => {
   afterEach(() => {

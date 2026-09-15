@@ -119,6 +119,62 @@ describe("telnyx menu IVR helpers", () => {
     expect(sms).toBe("Key Squad — when you need us: https://lyncr.app/b/XYZ23456")
   })
 
+  it("asks for year, make, and model when hold intake was vehicle-related but year wasn't captured", () => {
+    const sms = buildTelnyxMenuBookingSms(
+      "+15025550100",
+      "https://lyncr.app/b/XYZ23456",
+      null,
+      "booking_link",
+      "Key Squad",
+      { summary: "Won't start / stranded", vehicleRelated: true, hasVehicleYear: false }
+    )
+    expect(sms).toContain("We've got: Won't start / stranded.")
+    expect(sms).toContain("Reply with the year, make, and model")
+  })
+
+  it("asks only for make and model when the year was already captured", () => {
+    const sms = buildTelnyxMenuBookingSms(
+      "+15025550100",
+      "https://lyncr.app/b/XYZ23456",
+      null,
+      "booking_link",
+      "Key Squad",
+      {
+        summary: "Lost key / needs new key made — Year 2009",
+        vehicleRelated: true,
+        hasVehicleYear: true,
+      }
+    )
+    expect(sms).toContain("We've got: Lost key / needs new key made — Year 2009.")
+    expect(sms).toContain("Reply with the make and model too")
+    expect(sms).not.toContain("year, make, and model")
+  })
+
+  it("mentions the captured summary but skips the vehicle ask for a non-vehicle intent", () => {
+    const sms = buildTelnyxMenuBookingSms(
+      "+15025550100",
+      "https://lyncr.app/b/XYZ23456",
+      null,
+      "booking_link",
+      "Key Squad",
+      { summary: "Active leak", vehicleRelated: false }
+    )
+    expect(sms).toContain("We've got: Active leak.")
+    expect(sms).not.toContain("make and model")
+    expect(sms).not.toContain("year, make, and model")
+  })
+
+  it("adds no intake suffix at all when intake is omitted", () => {
+    const sms = buildTelnyxMenuBookingSms(
+      "+15025550100",
+      "https://lyncr.app/b/XYZ23456",
+      null,
+      "booking_link",
+      "Key Squad"
+    )
+    expect(sms).toBe("Key Squad — when you need us: https://lyncr.app/b/XYZ23456")
+  })
+
   it("builds Digits=1 / Digits=2 Say+Hangup TeXML with neural Polly voice", () => {
     const xml1 = buildTelnyxMenuSayHangupXml(TELNYX_MENU_DIGIT1_SAY)
     expect(xml1).toContain('voice="Polly.Joanna-Neural"')

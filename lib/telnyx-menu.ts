@@ -98,23 +98,51 @@ function normalizeBookingSmsShopLabel(raw?: string | null): string {
   return t.replace(/\b5[oO]2\b/g, "502")
 }
 
+/**
+ * What was captured on hold (service type, optionally model year) — reused for both the
+ * SMS follow-up ask and the spoken confirmation, so a caller who already answered two
+ * quick DTMF questions doesn't have to repeat them, and we ask for what's still missing
+ * (make/model was never askable over touch-tone) instead of a generic "we'll be in touch."
+ */
+export type HoldIntakeSmsContext = {
+  /** Human-readable label, e.g. "Lost key / needs new key made — Year 2009". */
+  summary?: string | null
+  /** True when this intent is vehicle-related at all (a plain lockout, roofing, etc. isn't). */
+  vehicleRelated?: boolean
+  /** True when the model-year follow-up was actually answered. */
+  hasVehicleYear?: boolean
+}
+
+function bookingSmsIntakeSuffix(intake?: HoldIntakeSmsContext | null): string {
+  if (!intake) return ""
+  const summary = intake.summary?.trim()
+  const summaryPart = summary ? ` We've got: ${summary}.` : ""
+  if (!intake.vehicleRelated) return summaryPart
+  const ask = intake.hasVehicleYear
+    ? " Reply with the make and model too, so we're ready when we call."
+    : " Reply with the year, make, and model, so we're ready when we call."
+  return `${summaryPart}${ask}`
+}
+
 /** Build the SMS body once we know the final booking URL. */
 function formatBookingLinkSmsBody(
   link: string,
   tone: BookingLinkSmsTone,
-  businessLabel?: string | null
+  businessLabel?: string | null,
+  intake?: HoldIntakeSmsContext | null
 ): string {
   // True miss (rang team / no answer) — distinct from press-1.
   if (tone === "missed_call") {
     return `Sorry we missed your call — when you need us: ${link}`
   }
+  const intakeSuffix = bookingSmsIntakeSuffix(intake)
   if (tone === "hold_timeout") {
     const shop = normalizeBookingSmsShopLabel(businessLabel)
-    return `${shop} — still need help? Tell us when you need us: ${link}`
+    return `${shop} — still need help? Tell us when you need us: ${link}${intakeSuffix}`
   }
   // Press-1 / hold / IVR — they send availability (ASAP or a window), not our slots.
   const shop = normalizeBookingSmsShopLabel(businessLabel)
-  return `${shop} — when you need us: ${link}`
+  return `${shop} — when you need us: ${link}${intakeSuffix}`
 }
 
 /** Absolute tracking links: /book/<id> or short /b/<code>. */
@@ -132,12 +160,14 @@ export function buildTelnyxMenuBookingSms(
   businessLineE164?: string | null,
   tone: BookingLinkSmsTone = "booking_link",
   /** Shop name for SMS (“Key Squad — when you need us…”). */
-  businessLabel?: string | null
+  businessLabel?: string | null,
+  /** What was captured on hold, if anything — see HoldIntakeSmsContext. */
+  intake?: HoldIntakeSmsContext | null
 ): string {
   const trimmed = bookUrlOrBase.trim()
   // Already a full tracking link (/book/uuid or /b/short).
   if (isOpaqueBookingUrl(trimmed)) {
-    return formatBookingLinkSmsBody(trimmed, tone, businessLabel)
+    return formatBookingLinkSmsBody(trimmed, tone, businessLabel, intake)
   }
 
   const phone = encodeURIComponent(fromE164.trim())
@@ -146,7 +176,7 @@ export function buildTelnyxMenuBookingSms(
       ? `&line=${encodeURIComponent(businessLineE164.trim())}`
       : ""
   const link = `${trimmed.replace(/\/+$/, "")}?phone=${phone}${lineQs}`
-  return formatBookingLinkSmsBody(link, tone, businessLabel)
+  return formatBookingLinkSmsBody(link, tone, businessLabel, intake)
 }
 
 /** Raw TeXML: polite hangup after SMS / reservation success. */
