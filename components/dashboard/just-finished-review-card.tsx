@@ -24,6 +24,7 @@ import {
   XCircle,
 } from "lucide-react"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Sheet,
   SheetContent,
@@ -153,6 +154,14 @@ function filterThreadForPhone(messages: SmsMessage[], phone: string): SmsMessage
   return matched.sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   )
+}
+
+/** Matches header-settings-sheet.tsx's initialsFromName — same avatar convention app-wide. */
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
@@ -657,30 +666,27 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                       }}
                       className="flex min-w-0 flex-1 items-center gap-2 text-left"
                     >
-                      {item.event === "replied" ? (
-                        <span
+                      <Avatar
+                        className={cn(
+                          "h-8 w-8 shrink-0",
+                          item.event === "replied" && unread && "ring-2 ring-info/50"
+                        )}
+                      >
+                        <AvatarFallback
                           className={cn(
-                            "mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full",
-                            unread ? "bg-info shadow-[0_0_0_3px_rgba(56,189,248,0.25)]" : "bg-info/35"
+                            "text-2xs font-semibold",
+                            item.event === "replied"
+                              ? unread
+                                ? "bg-info/20 text-info"
+                                : "bg-info/10 text-info/60"
+                              : isPaid
+                                ? "bg-success/15 text-success"
+                                : "bg-warning/15 text-warning"
                           )}
-                          aria-hidden
-                        />
-                      ) : isPaid ? (
-                        <span
-                          className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-success"
-                          aria-hidden
-                        />
-                      ) : isBook ? (
-                        <span
-                          className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-warning"
-                          aria-hidden
-                        />
-                      ) : (
-                        <span
-                          className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-warning"
-                          aria-hidden
-                        />
-                      )}
+                        >
+                          {initialsFromName(item.customerName || "?")}
+                        </AvatarFallback>
+                      </Avatar>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline justify-between gap-2">
                           <p className="truncate text-sm font-semibold text-foreground">
