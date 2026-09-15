@@ -6,8 +6,10 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { usePathname } from "next/navigation"
+import { AnimatePresence, motion } from "framer-motion"
 import { Wallet } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MOTION_SPRING_LAYOUT } from "@/lib/motion"
 import type { ReceptionistLedgerRow, ReceptionistPortalDashboard } from "@/lib/types"
 import Link from "next/link"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
@@ -225,11 +227,20 @@ function RecentCallerList({
 
   return (
     <ul className="divide-y divide-border/40">
+      <AnimatePresence initial={false}>
       {recent.map((row) => {
         const dialable = row.from_number.replace(/[^\d+]/g, "")
         const open = openId === row.id
         return (
-          <li key={row.id} className="px-4 py-3">
+          <motion.li
+            key={row.id}
+            layout
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={MOTION_SPRING_LAYOUT}
+            className="px-4 py-3"
+          >
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-foreground">
@@ -276,9 +287,10 @@ function RecentCallerList({
                 />
               </div>
             ) : null}
-          </li>
+          </motion.li>
         )
       })}
+      </AnimatePresence>
     </ul>
   )
 }
