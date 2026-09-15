@@ -1377,8 +1377,14 @@ async function handleCallAnswered(
   }
 
   const greetingEnabled = isInboundCallerGreetingEnabled(routing)
+  // Hold queue already re-introduces the business in its own greeting ("all of our team
+  // members...") once a direct ring to the owner's cell is missed — hearing "Thanks for
+  // calling X, connecting you now" first is a redundant double-greeting for this specific
+  // combo. Skip only when both are true: ringing the owner directly (day_dial) AND Hold is
+  // the configured miss fallback. Every other mode/fallback combination is unaffected.
+  const skipGreetingForHoldDirectRing = wantsHold && dialPlan.reason === "day_dial"
   // Skip branded greeting when Busy menu answers first — avoids double greetings.
-  if (greetingEnabled && dialPlan.reason !== "busy_automation") {
+  if (greetingEnabled && dialPlan.reason !== "busy_automation" && !skipGreetingForHoldDirectRing) {
     const workspaceName = resolveWorkspaceDisplayName(routing)
     const greetingText = buildInboundCallerGreetingText(workspaceName)
     let greetVoice = "Telnyx.NaturalHD.astra"
