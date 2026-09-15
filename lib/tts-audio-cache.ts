@@ -26,9 +26,28 @@ function isBlobConfigured(): boolean {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim() || process.env.BLOB_STORE_ID?.trim())
 }
 
+// Joining with a null character (built at runtime, not typed as a source escape sequence —
+// that form has repeatedly turned into a real embedded control byte via this editing
+// pipeline) keeps the cache key collision-proof without any character text could plausibly contain.
+const CACHE_KEY_SEPARATOR = String.fromCharCode(0)
+
 /** Cache key: exact spoken text + voice + language — any change (e.g. a renamed shop) is a new key. */
 export function computeTtsCacheKey(text: string, voice: string, language: string): string {
-  return createHash("sha256").update(`${text}\u0000${voice}\u0000${language}`).digest("hex")
+  return createHash("sha256")
+    .update([text, voice, language].join(CACHE_KEY_SEPARATOR))
+    .digest("hex")
+}
+
+/**
+ * Rough speech duration for a cached clip, for sizing a `gather` that runs *alongside* a
+ * separate `playback_start` (unlike `gather_using_speak`, where the timeout only starts
+ * after the speech finishes, a decoupled `playback_start` + `gather` starts its timer
+ * immediately — too short a timeout here cuts the clip off mid-sentence into hold music).
+ * Deliberately conservative (slow speaking rate) so we wait too long rather than too little.
+ */
+export function estimateSpeechMillis(text: string): number {
+  const CONSERVATIVE_CHARS_PER_SECOND = 12
+  return Math.round((text.length / CONSERVATIVE_CHARS_PER_SECOND) * 1000)
 }
 
 /** Lookup only. Returns null on a miss OR any failure — never throws. */

@@ -19,7 +19,7 @@ import {
   type TelnyxCallControlActionResult,
 } from "@/lib/telnyx-call-control-api"
 import { getCallControlSpeakVoiceAttributes } from "@/lib/texml-say-voice"
-import { cacheTtsAudioInBackground, getCachedTtsAudioUrl } from "@/lib/tts-audio-cache"
+import { cacheTtsAudioInBackground, estimateSpeechMillis, getCachedTtsAudioUrl } from "@/lib/tts-audio-cache"
 import {
   abandonHoldQueue,
   bridgeAgentToHoldQueue,
@@ -473,10 +473,14 @@ async function startBusyAutomationFlow(
       stop: "current",
     })
     if (playRes.ok) {
+      // Unlike gather_using_speak (timeout starts only after speech ends), this gather's
+      // timer starts immediately, in parallel with playback_start's clip — a flat 8s here
+      // cut real greetings off mid-sentence into hold music. Size it to the clip's own
+      // estimated length (+ same 8s post-speech listening window as the live-TTS path).
       gatherRes = await telnyxCallControlGather(callControlId, {
         clientState: nextState,
         maximumDigits: maxDigits,
-        timeoutMillis: 8000,
+        timeoutMillis: estimateSpeechMillis(say) + 8000,
       })
     } else {
       console.warn(

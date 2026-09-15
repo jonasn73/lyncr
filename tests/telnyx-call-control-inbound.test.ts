@@ -1748,6 +1748,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     vi.doMock("@/lib/tts-audio-cache", () => ({
       getCachedTtsAudioUrl: vi.fn(() => Promise.resolve("https://blob.example/tts-cache/busy-abc.mp3")),
       cacheTtsAudioInBackground,
+      estimateSpeechMillis: (text: string) => Math.round((text.length / 12) * 1000),
     }))
 
     const answeredState = encodeTelnyxCallControlState({
@@ -1789,6 +1790,11 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     const plainGatherCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/gather"))
     expect(plainGatherCall).toBeTruthy()
     expect(String(plainGatherCall![0])).not.toContain("gather_using")
+    // Regression: a flat 8s here (copied from gather_using_speak, where the timer only starts
+    // after speech ends) cut real greetings off mid-sentence — this gather's timer runs in
+    // parallel with playback_start's clip, so it must scale with the greeting's own length.
+    const gatherBody = JSON.parse(String(plainGatherCall![1]?.body || "{}")) as { timeout_millis?: number }
+    expect(gatherBody.timeout_millis).toBeGreaterThan(8000)
 
     expect(cacheTtsAudioInBackground).not.toHaveBeenCalled()
   })
