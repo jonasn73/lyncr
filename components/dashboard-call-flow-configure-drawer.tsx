@@ -2,8 +2,19 @@
 
 // Unified Call Flow configure drawer — tabbed Routing / Greetings / Security + one Save.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ChevronDown, Loader2 } from "lucide-react"
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  ArrowRight,
+  Bot,
+  ChevronDown,
+  Clock,
+  Forward,
+  Loader2,
+  Phone,
+  Radio,
+  Users,
+} from "lucide-react"
+import type { ComponentType } from "react"
 import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -26,11 +37,25 @@ import {
 import { TELNYX_MENU_BUSY_PROMPT } from "@/lib/telnyx-menu"
 import { formatPhoneDisplay, snapDashboardRingTimeoutSec } from "@/lib/dashboard-routing-utils"
 import type { FallbackOption } from "@/lib/dashboard-routing-utils"
+import { fallbackOptions } from "@/components/dashboard-routing-fallback-options"
 import { HoldMusicPresetPicker } from "@/components/dashboard/hold-music-preset-picker"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { WeeklyHoursDay } from "@/lib/account-weekly-hours"
 import { useAccountPresence } from "@/components/dashboard/account-presence-context"
+
+/** Icon + tone per "who answers first" mode — matches the tone-tinted tile convention used
+ * elsewhere (fallbackOptions, settings-menu-row) so routing and fallback read as one system. */
+const ROUTING_MODE_VISUALS: Record<
+  ActiveRoutingMode,
+  { icon: ComponentType<{ className?: string }>; color: string; bgColor: string }
+> = {
+  your_phone: { icon: Phone, color: "text-primary", bgColor: "bg-primary/10" },
+  team_receptionist: { icon: Users, color: "text-chart-4", bgColor: "bg-chart-4/10" },
+  smart_ivr: { icon: Bot, color: "text-operator", bgColor: "bg-operator/10" },
+  lyncr_pool: { icon: Radio, color: "text-chart-2", bgColor: "bg-chart-2/10" },
+  custom_routing: { icon: Forward, color: "text-muted-foreground", bgColor: "bg-muted/40" },
+}
 
 const fieldClass =
   "w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
@@ -133,6 +158,77 @@ function phoneDigits10(raw: string | null | undefined): string {
     .replace(/^\+1/, "")
     .replace(/\D/g, "")
     .slice(-10)
+}
+
+type CallFlowStep = {
+  icon: ComponentType<{ className?: string }>
+  label: string
+  color: string
+  bgColor: string
+}
+
+/** `text-primary` → `border-primary/25` — reuses the same tone tokens as the fill/icon color
+ * instead of a separate borderColor field, matching the icon-tile convention used elsewhere
+ * (e.g. who-rings-console's `border-primary/25 bg-primary/10`). */
+function toneBorderClass(colorClass: string): string {
+  return `${colorClass.replace("text-", "border-")}/25`
+}
+
+/**
+ * Plain-English call chain for the current draft — this is the single most direct answer to
+ * "what will my phones actually do", computed live from the same fields that get saved, so it
+ * can never drift from reality the way a hand-written status label can.
+ */
+function buildCallFlowSteps(params: {
+  mode: ActiveRoutingMode
+  ringTimeout: number
+  fallbackType: FallbackOption
+  ownerPhoneDisplay: string
+  lineLabel: string | null
+  teamMemberName: string | null
+  customPhoneDigits: string
+}): CallFlowStep[] {
+  const steps: CallFlowStep[] = [
+    {
+      icon: Phone,
+      label: params.lineLabel ? `Call to ${params.lineLabel}` : "Customer calls",
+      color: "text-muted-foreground",
+      bgColor: "bg-muted/40",
+    },
+  ]
+
+  const modeVisual = ROUTING_MODE_VISUALS[params.mode]
+  const modeLabel =
+    params.mode === "your_phone"
+      ? `Rings ${params.ownerPhoneDisplay || "your phone"}`
+      : params.mode === "team_receptionist"
+        ? `Rings ${params.teamMemberName || "your team"}`
+        : params.mode === "smart_ivr"
+          ? "Plays keypad menu"
+          : params.mode === "lyncr_pool"
+            ? "Rings Lyncr Pool"
+            : params.customPhoneDigits
+              ? `Forwards to ${formatPhoneDisplay(params.customPhoneDigits)}`
+              : "Forwards to a number"
+  steps.push({ icon: modeVisual.icon, label: modeLabel, color: modeVisual.color, bgColor: modeVisual.bgColor })
+
+  // Smart IVR / Lyncr Pool / Custom Routing are self-contained — their own description already
+  // says what happens on a miss. Ring timeout + Advanced Rules fallback only apply when a
+  // specific cell phone (yours or a teammate's) is what's actually ringing.
+  if (params.mode === "your_phone" || params.mode === "team_receptionist") {
+    steps.push({
+      icon: Clock,
+      label: `No answer in ${params.ringTimeout}s`,
+      color: "text-muted-foreground",
+      bgColor: "bg-muted/40",
+    })
+    const fb = fallbackOptions.find((o) => o.id === params.fallbackType)
+    if (fb) {
+      steps.push({ icon: fb.icon, label: fb.label, color: fb.color, bgColor: fb.bgColor })
+    }
+  }
+
+  return steps
 }
 
 export type DashboardCallFlowConfigureDrawerProps = {
@@ -335,6 +431,37 @@ export function DashboardCallFlowConfigureDrawer({
 
   const dirty = useMemo(() => draftSnapshot(draft) !== baselineRef.current, [draft])
 
+  const lineLabel = routingBusinessNumber
+    ? `Line ${formatPhoneDisplay(routingBusinessNumber)}`
+    : null
+
+  const teamMemberName =
+    draft.mode === "team_receptionist"
+      ? teamMembers.find((m) => m.id === draft.selectedReceptionistId)?.name || null
+      : null
+
+  const flowSteps = useMemo(
+    () =>
+      buildCallFlowSteps({
+        mode: draft.mode,
+        ringTimeout: draft.ringTimeout,
+        fallbackType: draft.fallbackType,
+        ownerPhoneDisplay,
+        lineLabel,
+        teamMemberName,
+        customPhoneDigits: draft.customPhone,
+      }),
+    [
+      draft.mode,
+      draft.ringTimeout,
+      draft.fallbackType,
+      draft.customPhone,
+      ownerPhoneDisplay,
+      lineLabel,
+      teamMemberName,
+    ]
+  )
+
   const sheetTitle =
     currentTab === "greetings"
       ? "Greetings"
@@ -342,7 +469,7 @@ export function DashboardCallFlowConfigureDrawer({
         ? "Hours"
         : currentTab === "security"
           ? "Advanced Rules"
-          : "Who answers"
+          : "Call Routing"
 
   const sheetSubtitle =
     currentTab === "greetings"
@@ -350,8 +477,8 @@ export function DashboardCallFlowConfigureDrawer({
       : currentTab === "hours"
         ? "Set your weekly hours so Presence flips Available / Closed on its own."
         : currentTab === "security"
-          ? `Bypass digit and emergency fallback for ${ownerPhoneDisplay || "this line"}.`
-          : `Who rings first for ${ownerPhoneDisplay || "this line"}.`
+          ? "Technician bypass digit — the missed-call fallback moved to Call Routing."
+          : `Who rings first, and where a miss goes next, for ${ownerPhoneDisplay || "this line"}.`
 
   const primaryRoutingModes = ACTIVE_ROUTING_MODE_OPTIONS.filter(
     (o) => o.value === "your_phone" || o.value === "team_receptionist" || o.value === "smart_ivr"
@@ -450,10 +577,6 @@ export function DashboardCallFlowConfigureDrawer({
     }
   }
 
-  const lineLabel = routingBusinessNumber
-    ? `Line ${formatPhoneDisplay(routingBusinessNumber)}`
-    : null
-
   return (
     <form
       className="flex min-h-0 flex-1 flex-col"
@@ -498,6 +621,37 @@ export function DashboardCallFlowConfigureDrawer({
         </div>
       </div>
 
+      {!loading && !routingLineDetailLoading ? (
+        <div className="shrink-0 border-b border-border/60 bg-muted/10 px-4 py-3 sm:px-6">
+          <p className="mb-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+            What happens on a call
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {flowSteps.map((step, i) => (
+              <Fragment key={i}>
+                {i > 0 ? (
+                  <ArrowRight
+                    className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40"
+                    aria-hidden
+                  />
+                ) : null}
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-2 text-2xs font-semibold",
+                    step.bgColor,
+                    step.color,
+                    toneBorderClass(step.color)
+                  )}
+                >
+                  <step.icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {step.label}
+                </span>
+              </Fragment>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <DrawerScrollBody>
         {loading || routingLineDetailLoading ? (
           <div className="flex items-center gap-2 py-8 text-xs text-muted-foreground">
@@ -515,6 +669,7 @@ export function DashboardCallFlowConfigureDrawer({
                   <div role="radiogroup" aria-label="Active routing mode" className="space-y-2">
                     {primaryRoutingModes.map((opt) => {
                       const active = draft.mode === opt.value
+                      const visual = ROUTING_MODE_VISUALS[opt.value]
                       return (
                         <div key={opt.value} className="space-y-2">
                           <button
@@ -523,12 +678,30 @@ export function DashboardCallFlowConfigureDrawer({
                             aria-checked={active}
                             onClick={() => setDraft((d) => ({ ...d, mode: opt.value }))}
                             className={cn(
-                              "flex w-full cursor-pointer gap-3 rounded-xl border px-3 py-3 text-left transition-colors touch-manipulation",
+                              "flex w-full cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 text-left transition-colors touch-manipulation",
                               active
                                 ? "border-success/40 bg-success/10"
                                 : "border-border bg-background/40 hover:border-border"
                             )}
                           >
+                            <span
+                              aria-hidden
+                              className={cn(
+                                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
+                                toneBorderClass(visual.color),
+                                visual.bgColor
+                              )}
+                            >
+                              <visual.icon className={cn("h-4 w-4", visual.color)} />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-semibold text-foreground">
+                                {opt.label}
+                              </span>
+                              <span className="mt-0.5 block text-2xs leading-snug text-muted-foreground">
+                                {opt.description}
+                              </span>
+                            </span>
                             <span
                               aria-hidden
                               className={cn(
@@ -541,14 +714,6 @@ export function DashboardCallFlowConfigureDrawer({
                               {active ? (
                                 <span className="h-2 w-2 rounded-full bg-success" />
                               ) : null}
-                            </span>
-                            <span className="min-w-0">
-                              <span className="block text-sm font-semibold text-foreground">
-                                {opt.label}
-                              </span>
-                              <span className="mt-0.5 block text-2xs leading-snug text-muted-foreground">
-                                {opt.description}
-                              </span>
                             </span>
                           </button>
 
@@ -669,6 +834,7 @@ export function DashboardCallFlowConfigureDrawer({
                         <div className="space-y-2 border-t border-border px-2 pb-3 pt-2">
                           {advancedRoutingModes.map((opt) => {
                             const active = draft.mode === opt.value
+                            const visual = ROUTING_MODE_VISUALS[opt.value]
                             return (
                               <div key={opt.value} className="space-y-2">
                                 <button
@@ -677,12 +843,30 @@ export function DashboardCallFlowConfigureDrawer({
                                   aria-checked={active}
                                   onClick={() => setDraft((d) => ({ ...d, mode: opt.value }))}
                                   className={cn(
-                                    "flex w-full cursor-pointer gap-3 rounded-xl border px-3 py-3 text-left transition-colors touch-manipulation",
+                                    "flex w-full cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 text-left transition-colors touch-manipulation",
                                     active
                                       ? "border-success/40 bg-success/10"
                                       : "border-border bg-background/40 hover:border-border"
                                   )}
                                 >
+                                  <span
+                                    aria-hidden
+                                    className={cn(
+                                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
+                                      toneBorderClass(visual.color),
+                                      visual.bgColor
+                                    )}
+                                  >
+                                    <visual.icon className={cn("h-4 w-4", visual.color)} />
+                                  </span>
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block text-sm font-semibold text-foreground">
+                                      {opt.label}
+                                    </span>
+                                    <span className="mt-0.5 block text-2xs leading-snug text-muted-foreground">
+                                      {opt.description}
+                                    </span>
+                                  </span>
                                   <span
                                     aria-hidden
                                     className={cn(
@@ -695,14 +879,6 @@ export function DashboardCallFlowConfigureDrawer({
                                     {active ? (
                                       <span className="h-2 w-2 rounded-full bg-success" />
                                     ) : null}
-                                  </span>
-                                  <span className="min-w-0">
-                                    <span className="block text-sm font-semibold text-foreground">
-                                      {opt.label}
-                                    </span>
-                                    <span className="mt-0.5 block text-2xs leading-snug text-muted-foreground">
-                                      {opt.description}
-                                    </span>
                                   </span>
                                 </button>
 
@@ -747,6 +923,78 @@ export function DashboardCallFlowConfigureDrawer({
                     </div>
                   </div>
                 </fieldset>
+
+                {draft.mode === "your_phone" || draft.mode === "team_receptionist" ? (
+                  <fieldset className="space-y-2">
+                    <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      If nobody answers
+                    </legend>
+                    <p className="text-2xs text-muted-foreground">
+                      When the ring above times out, where should the caller go next?
+                    </p>
+                    <div role="radiogroup" aria-label="Missed-call fallback" className="space-y-2">
+                      {fallbackOptions.map((opt) => {
+                        const active = draft.fallbackType === opt.id
+                        const Icon = opt.icon
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            role="radio"
+                            aria-checked={active}
+                            onClick={() => setDraft((d) => ({ ...d, fallbackType: opt.id }))}
+                            className={cn(
+                              "flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition-colors touch-manipulation",
+                              active
+                                ? "border-primary/50 bg-primary/10"
+                                : "border-border bg-background/40 hover:border-border"
+                            )}
+                          >
+                            <span
+                              aria-hidden
+                              className={cn(
+                                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
+                                toneBorderClass(opt.color),
+                                opt.bgColor
+                              )}
+                            >
+                              <Icon className={cn("h-4 w-4", opt.color)} />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-semibold text-foreground">
+                                {opt.label}
+                              </span>
+                              <span className="mt-0.5 block text-2xs text-muted-foreground">
+                                {opt.description}
+                              </span>
+                            </span>
+                            <span
+                              aria-hidden
+                              className={cn(
+                                "mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
+                                active
+                                  ? "border-primary bg-primary/20"
+                                  : "border-border bg-transparent"
+                              )}
+                            >
+                              {active ? (
+                                <span className="h-2 w-2 rounded-full bg-primary" />
+                              ) : null}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {draft.fallbackType === "hold" ? (
+                      <p className="rounded-xl border border-border bg-card/40 px-3 py-3 text-2xs leading-relaxed text-muted-foreground">
+                        We hang up if your cell&apos;s carrier voicemail answers, then start hold
+                        music so you can Answer from Lines. Prefer a 20s ring delay above (25s max
+                        with Hold — longer often hits personal voicemail first). Music and max-wait
+                        time live under Greetings.
+                      </p>
+                    ) : null}
+                  </fieldset>
+                ) : null}
               </div>
             ) : null}
 
@@ -1112,97 +1360,11 @@ export function DashboardCallFlowConfigureDrawer({
                   </p>
                 </section>
 
-                <section className="space-y-3 rounded-xl border border-border bg-card/40 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Emergency / missed-call handling
-                  </p>
-                  <p className="text-2xs text-muted-foreground">
-                    When the primary path does not connect, where should the caller go next?
-                  </p>
-                  <div role="radiogroup" aria-label="Emergency fallback" className="space-y-2">
-                    {(
-                      [
-                        {
-                          id: "owner" as const,
-                          label: "Owner cell",
-                          description: "Ring your phone as the emergency backup.",
-                        },
-                        {
-                          id: "ai" as const,
-                          label: "Voice AI receptionist",
-                          description: "Hand off to AI to capture the lead.",
-                        },
-                        {
-                          id: "voicemail" as const,
-                          label: "Company voicemail",
-                          description: "Play greeting and record a message.",
-                        },
-                        {
-                          id: "hold" as const,
-                          label: "Hold queue",
-                          description:
-                            "If your phone doesn’t answer, put them on hold music so you can Answer from Lines.",
-                        },
-                      ] as const
-                    ).map((opt) => {
-                      const active = draft.fallbackType === opt.id
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          role="radio"
-                          aria-checked={active}
-                          onClick={() => setDraft((d) => ({ ...d, fallbackType: opt.id }))}
-                          className={cn(
-                            "flex w-full gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
-                            active
-                              ? "border-primary/50 bg-primary/10"
-                              : "border-border bg-background/40 hover:border-border"
-                          )}
-                        >
-                          <span
-                            aria-hidden
-                            className={cn(
-                              "mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
-                              active
-                                ? "border-primary bg-primary/20"
-                                : "border-border bg-transparent"
-                            )}
-                          >
-                            {active ? (
-                              <span className="h-2 w-2 rounded-full bg-primary" />
-                            ) : null}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block text-sm font-semibold text-foreground">
-                              {opt.label}
-                            </span>
-                            <span className="mt-0.5 block text-2xs text-muted-foreground">
-                              {opt.description}
-                            </span>
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </section>
-
-                <section className="space-y-2 rounded-xl border border-border bg-card/40 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Hold queue tips
-                  </p>
-                  <p className="hidden text-2xs leading-relaxed text-muted-foreground md:block">
-                    Pick Hold queue above when you want a missed Available ring to wait with music.
-                    We hang up if your cell carrier voicemail answers, then start hold music so you
-                    can Answer from Lines. Prefer a 20s ring delay (25s max with Hold — longer often
-                    hits personal VM first). Position hints play on re-prompts. Concurrent wait cap is platform-wide
-                    (default 3). Music and max wait live under Greetings.
-                  </p>
-                  <p className="text-2xs text-muted-foreground md:hidden">
-                    Prefer 20s ring delay with Hold queue (capped ~25s). Concurrent wait cap is platform-wide
-                    (default 3). Music + max wait live under Greetings.
-                  </p>
-                </section>
+                <p className="text-2xs leading-relaxed text-muted-foreground">
+                  Looking for missed-call handling (what happens if nobody answers)? That moved to
+                  the <span className="font-semibold text-foreground">Call Routing</span> tab, right
+                  under who rings first — so the whole flow lives in one place.
+                </p>
               </div>
             ) : null}
           </>

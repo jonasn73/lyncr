@@ -69,6 +69,7 @@ import {
 } from "@/lib/telnyx-call-control-call-log"
 import {
   buildHoldFallbackAmdDetectionConfig,
+  fallbackNeedsCarrierVmGuard,
   readInboundDialPreferredCodecs,
   readInboundDialRingbackAudioUrl,
   resolveAmdMinMachineAgeForRingSec,
@@ -855,10 +856,17 @@ async function dialTechnicianLeg(
   // 2026-09-06 dropped AMD from every primary dial to match the owner's instant-connect
   // behavior — but on a personal-cell dial (tech / on-call tech / receptionist), that let a
   // carrier/personal voicemail pickup get bridged in and logged as "answered" even though the
-  // person never picked up (#call-answered-gap). Restore AMD for those dial reasons only —
-  // the owner's own line keeps instant bridge_on_answer.
+  // person never picked up (#call-answered-gap). Restore AMD for those dial reasons unconditionally.
+  //
+  // The owner's own line (`day_dial`) kept instant bridge_on_answer regardless of fallback_type —
+  // but when fallback_type is hold/ai/voicemail (i.e. the owner explicitly wants misses routed
+  // somewhere other than his own cell), the exact same carrier-VM-bridges-as-"answered" gap applies
+  // to him too: his personal voicemail intercepts before ring_timeout_seconds, Telnyx reports
+  // "answered", and the caller never reaches Hold. Guard by fallback type here so only an owner who
+  // actually wants his own cell voicemail (fallback_type "owner") keeps the zero-delay bridge.
   const useAmdGuard = Boolean(
-    state.dialReason && AMD_GUARDED_DIAL_REASONS.has(state.dialReason)
+    (state.dialReason && AMD_GUARDED_DIAL_REASONS.has(state.dialReason)) ||
+      fallbackNeedsCarrierVmGuard(fallbackRaw)
   )
   const dialStartedAtMs = Date.now()
 

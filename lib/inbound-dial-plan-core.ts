@@ -436,6 +436,13 @@ export function deriveRingsNowStrip(params: {
   teamReceptionistActive?: boolean
   /** True when Lines sees an answered live call on the owner's phone. */
   ownerOnLiveCall?: boolean
+  /**
+   * Human label for the Advanced Rules missed-call fallback (owner/ai/voicemail/hold),
+   * e.g. "Hold queue" / "Voicemail" / "AI receptionist". Shown as the terminal "if no
+   * answer" step once the owner (or an available teammate) has already been tried and
+   * missed — replaces a generic guess with what the account is actually configured to do.
+   */
+  fallbackLabel?: string | null
 }): {
   ringsNow: string
   ifNoAnswer: string
@@ -451,6 +458,9 @@ export function deriveRingsNowStrip(params: {
   const backup = params.busyBackupName?.trim() || ""
   const teamName = params.teamReceptionistName?.trim() || ""
   const owner = params.ownerLabel?.trim() || "Owner"
+  // What the Advanced Rules missed-call fallback actually does once the last available
+  // human (owner, or a teammate) has been tried and missed — not a generic guess.
+  const fallbackLabel = params.fallbackLabel?.trim() || "Voicemail"
 
   if (mode === "team_receptionist") {
     if (params.teamReceptionistActive && teamName) {
@@ -462,7 +472,7 @@ export function deriveRingsNowStrip(params: {
       }
     }
     if (!busy && !onCall) {
-      return { ringsNow: owner, ifNoAnswer: "Booking menu", statusLabel: "Available" }
+      return { ringsNow: owner, ifNoAnswer: fallbackLabel, statusLabel: "Available" }
     }
     if (onCall && backup) {
       return { ringsNow: backup, ifNoAnswer: "Hold queue", statusLabel: "Available" }
@@ -496,5 +506,5 @@ export function deriveRingsNowStrip(params: {
     return { ringsNow: "Hold queue", ifNoAnswer: "Booking text", statusLabel: "Available" }
   }
 
-  return { ringsNow: owner, ifNoAnswer: "Booking menu", statusLabel: "Available" }
+  return { ringsNow: owner, ifNoAnswer: fallbackLabel, statusLabel: "Available" }
 }

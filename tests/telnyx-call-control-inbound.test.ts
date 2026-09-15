@@ -317,9 +317,10 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(dialBody.connection_id).toBe("cc-app-99")
     expect(dialBody.to).toBe("+15552602716")
     expect(dialBody.link_to).toBe("cc-inbound-1")
-    // Always bridges the instant the cell answers now — matches the owner's number, no AMD wait.
-    expect(dialBody.bridge_on_answer).toBe(true)
-    expect(dialBody.answering_machine_detection).toBeUndefined()
+    // fallback_type "voicemail" is not the owner's own personal-cell voicemail — carrier VM
+    // pickup must not be bridged in as "answered", so this dial waits for AMD.
+    expect(dialBody.bridge_on_answer).toBe(false)
+    expect(dialBody.answering_machine_detection).toBe("detect")
     // A-leg must get US ringback while the cell rings (Call Control Dial has no ringTone).
     const ringbackCall = fetchMock.mock.calls.find((c) =>
       String(c[0]).includes("/actions/playback_start")
@@ -332,7 +333,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     ).toBe(true)
   })
 
-  it("Hold fallback dial still bridges instantly on answer (no AMD wait) with full ring timeout", async () => {
+  it("Hold fallback dial waits for AMD before bridging (no personal-voicemail leak) with full ring timeout", async () => {
     vi.doMock("@/lib/db", () => ({
       getIncomingRoutingForVoiceWebhook: vi.fn(() =>
         Promise.resolve({
@@ -393,8 +394,10 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     )
     expect(dialCall).toBeTruthy()
     const dialBody = JSON.parse(String(dialCall![1].body))
-    expect(dialBody.bridge_on_answer).toBe(true)
-    expect(dialBody.answering_machine_detection).toBeUndefined()
+    // fallback_type "hold" means the owner wants misses in the Hold queue, not his own cell
+    // voicemail — a carrier VM pickup must not be bridged in as "answered", so AMD gates this dial.
+    expect(dialBody.bridge_on_answer).toBe(false)
+    expect(dialBody.answering_machine_detection).toBe("detect")
     expect(dialBody.timeout_secs).toBe(25)
     expect(dialBody.link_to).toBe("cc-in-hold-amd")
   })

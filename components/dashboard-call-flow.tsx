@@ -116,7 +116,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   teamRosterReady = false,
   ownerPhoneDisplay,
   ringTimeoutSec: _ringTimeoutSec,
-  activeFallbackLabel: _activeFallbackLabel,
+  activeFallbackLabel,
   autopilotMode,
   routingStrategy,
   allowLyncrNetworkFallback,
@@ -224,6 +224,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
           Boolean(selectedReceptionist?.name?.trim() || selectedReceptionist?.phone?.trim())
         : false,
     ownerOnLiveCall,
+    fallbackLabel: activeFallbackLabel,
   })
 
   const openWhoAnswers = useCallback(() => setWhoAnswersOpen(true), [setWhoAnswersOpen])

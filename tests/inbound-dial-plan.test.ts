@@ -214,7 +214,7 @@ describe("on-call tech (166)", () => {
 })
 
 describe("deriveRingsNowStrip", () => {
-  it("Available shows your phone", () => {
+  it("Available shows your phone, and defaults the terminal step to Voicemail with no fallbackLabel", () => {
     const strip = deriveRingsNowStrip({
       presenceBypass: false,
       presenceReady: true,
@@ -223,7 +223,21 @@ describe("deriveRingsNowStrip", () => {
       ownerLabel: "Your phone",
     })
     expect(strip.ringsNow).toBe("Your phone")
-    expect(strip.ifNoAnswer).toBe("Booking menu")
+    expect(strip.ifNoAnswer).toBe("Voicemail")
+    expect(strip.statusLabel).toBe("Available")
+  })
+
+  it("Available shows the account's real Advanced Rules fallback, not a generic guess", () => {
+    const strip = deriveRingsNowStrip({
+      presenceBypass: false,
+      presenceReady: true,
+      teamRosterReady: true,
+      busyBackupName: null,
+      ownerLabel: "Your phone",
+      fallbackLabel: "Hold queue",
+    })
+    expect(strip.ringsNow).toBe("Your phone")
+    expect(strip.ifNoAnswer).toBe("Hold queue")
     expect(strip.statusLabel).toBe("Available")
   })
 
