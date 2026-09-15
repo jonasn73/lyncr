@@ -115,6 +115,18 @@ import { handleCallConnected, handleCallRinging } from "@/app/actions/call-event
 const FAILSAFE_PRIMARY_CELL_E164 = CAPTURE_DEFAULT_RING_E164 // +15022602716
 
 /**
+ * How long the Busy greeting's gather listens for a digit AFTER the greeting audio itself
+ * finishes, before giving up and entering hold — pure silence on the line for this whole
+ * window (Telnyx doesn't send call.gather.ended, so hold music can't start, until it's up).
+ * Was a flat 8s; reported directly as "music takes forever to start" — real production
+ * logs confirmed our own server-side handoff (webhook received -> playback_start fired) is
+ * consistently under a second, so the perceived delay was entirely this silent wait, not
+ * processing latency. 4s still gives a real beat to react to "press 1", cuts the dead air
+ * roughly in half.
+ */
+const BUSY_GREETING_POST_SPEECH_WINDOW_MS = 4000
+
+/**
  * Same-instance guard: speak.failed + speak.ended can both try to Dial after a flaky
  * greet. Prevents double PSTN legs on one inbound.
  */
@@ -495,16 +507,16 @@ async function startBusyAutomationFlow(
     })
     if (playRes.ok) {
       // Unlike gather_using_speak (timeout starts only after speech ends), this gather's
-      // timer starts immediately, in parallel with playback_start's clip — a flat 8s here
+      // timer starts immediately, in parallel with playback_start's clip — a flat window here
       // cut real greetings off mid-sentence into hold music. Use the clip's real measured
       // duration (falls back to a conservative text-length estimate only for a pre-migration-174
-      // row with no stored duration) + the same 8s post-speech listening window as live TTS —
+      // row with no stored duration) + the same post-speech listening window as live TTS —
       // a text-length *estimate* alone previously overshot the real clip by 7+ seconds,
       // leaving dead air between the greeting ending and hold music starting.
       gatherRes = await telnyxCallControlGather(callControlId, {
         clientState: nextState,
         maximumDigits: maxDigits,
-        timeoutMillis: (cached.durationMs ?? estimateSpeechMillis(say)) + 8000,
+        timeoutMillis: (cached.durationMs ?? estimateSpeechMillis(say)) + BUSY_GREETING_POST_SPEECH_WINDOW_MS,
       })
     } else {
       console.warn(
@@ -518,7 +530,7 @@ async function startBusyAutomationFlow(
       text: say,
       clientState: nextState,
       maximumDigits: maxDigits,
-      timeoutMillis: 8000,
+      timeoutMillis: BUSY_GREETING_POST_SPEECH_WINDOW_MS,
       // Telnyx defaults to 3 tries — that replayed the full Busy greeting before music.
       maximumTries: 1,
       voice: voiceForGather,
