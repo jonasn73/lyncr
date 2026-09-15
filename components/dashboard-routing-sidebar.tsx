@@ -1,7 +1,7 @@
 "use client"
 
 import { memo } from "react"
-import { ChevronDown, ChevronRight, Hash, Plus } from "lucide-react"
+import { ChevronRight, Hash, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
 import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
@@ -41,7 +41,7 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
 
   const panelBody = (
     <>
-      <div className="hidden items-center gap-2 lg:flex">
+      <div className="flex items-center gap-2">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
           <Hash className="h-4 w-4 text-primary" aria-hidden />
         </div>
@@ -112,36 +112,23 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
     </>
   )
 
+  // Hidden below lg (the sticky header's own "Lines" button covers phone-line switching on
+  // mobile) — a real column at lg+. Previously wrapped in a native <details lg:contents> so
+  // this could double as a mobile accordion, but the accordion summary was itself hidden
+  // below lg by the same "hidden" class its <details> parent carried, making it permanently
+  // unreachable — dead scaffolding. Worse, <details>'s native closed-content handling fought
+  // the lg:contents override and made this column render overlapping the main content
+  // instead of beside it. Plain hidden/lg:block sidesteps both problems.
   return (
-    <details className="group hidden w-full shrink-0 lg:contents">
-      <summary
-        className={cn(
-          "flex cursor-pointer list-none items-center gap-2 rounded-2xl border border-white/8 bg-background/50 px-4 py-3 shadow-resting ring-1 ring-white/5 backdrop-blur-md lg:hidden",
-          MOBILE_TAP_TARGET,
-          "[&::-webkit-details-marker]:hidden"
-        )}
-      >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
-          <Hash className="h-4 w-4 text-primary" aria-hidden />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-foreground">Phone lines</p>
-          <p className="truncate text-2xs text-muted-foreground">{subtitle}</p>
-        </div>
-        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
-      </summary>
-
-      <aside
-        className={cn(
-          "w-full shrink-0 lg:w-56 xl:w-60",
-          "rounded-2xl border border-white/8 bg-background/50 p-4 shadow-resting ring-1 ring-white/5 backdrop-blur-md",
-          "mt-2 lg:mt-0",
-          className
-        )}
-        aria-label="Phone lines"
-      >
-        {panelBody}
-      </aside>
-    </details>
+    <aside
+      className={cn(
+        "hidden shrink-0 lg:block lg:w-56 xl:w-60",
+        "rounded-2xl border border-white/8 bg-background/50 p-4 shadow-resting ring-1 ring-white/5 backdrop-blur-md",
+        className
+      )}
+      aria-label="Phone lines"
+    >
+      {panelBody}
+    </aside>
   )
 })
