@@ -6,6 +6,15 @@ import type { ReactNode } from "react"
 import { ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+type SettingsRowTone = "primary" | "success" | "operator" | "warning"
+
+const TONE_TILE: Record<SettingsRowTone, string> = {
+  primary: "border-primary/30 bg-primary/10",
+  success: "border-success/30 bg-success/10",
+  operator: "border-operator/30 bg-operator/10",
+  warning: "border-warning/30 bg-warning/10",
+}
+
 type Props = {
   icon: ReactNode
   title: string
@@ -15,6 +24,8 @@ type Props = {
   destructive?: boolean
   /** Inset row for SettingsGroupedList — no own card border/padding shell. */
   grouped?: boolean
+  /** Tints the grouped icon tile to match the icon's own color (default: neutral). */
+  tone?: SettingsRowTone
 }
 
 export function SettingsMenuRow({
@@ -25,6 +36,7 @@ export function SettingsMenuRow({
   badge,
   destructive,
   grouped = false,
+  tone,
 }: Props) {
   return (
     <button
@@ -39,12 +51,12 @@ export function SettingsMenuRow({
             : "gap-4 rounded-2xl border border-border bg-card/40 px-4 py-4 hover:border-border hover:bg-card/70 sm:px-6"
       )}
     >
-      {/* Grouped: bare icon. Standalone: framed icon tile. */}
+      {/* Grouped: small tinted tile matching the icon's own color. Standalone: larger framed tile. */}
       <span
         className={cn(
           "flex shrink-0 items-center justify-center",
           grouped
-            ? "h-9 w-9 text-foreground"
+            ? cn("h-9 w-9 rounded-lg border", tone ? TONE_TILE[tone] : "border-border/60 bg-card/60")
             : cn(
                 "h-11 w-11 rounded-xl border border-border/60 bg-card/80",
                 destructive && "border-destructive/30 text-destructive"

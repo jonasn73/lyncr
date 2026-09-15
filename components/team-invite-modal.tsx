@@ -254,7 +254,7 @@ export function TeamInviteModal({
 
         {phoneDone ? (
           <div className="mt-2 space-y-4">
-            <p className="rounded-lg border border-success/30 bg-success/30 px-3 py-3 text-sm text-success">
+            <p className="rounded-lg border border-success/30 bg-success/10 px-3 py-3 text-sm text-success">
               Saved. Next: open <span className="font-semibold">Who answers</span> on Routing and pick them so calls
               forward to their phone.
             </p>

@@ -123,6 +123,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
         <SettingsGroupedList>
           <SettingsMenuRow
             grouped
+            tone="primary"
             icon={<Building2 className="h-5 w-5 text-primary" aria-hidden />}
             title="Business profile"
             subtitle="Name, SMS alerts, operator notifications"
@@ -130,6 +131,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
+            tone="primary"
             icon={<CreditCard className="h-5 w-5 text-primary" aria-hidden />}
             title="Billing"
             subtitle={
@@ -141,6 +143,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
+            tone="success"
             icon={<Banknote className="h-5 w-5 text-success" aria-hidden />}
             title="Bank account"
             subtitle="Set up or change the bank that receives card money"
@@ -148,6 +151,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
+            tone="success"
             icon={<Percent className="h-5 w-5 text-success" aria-hidden />}
             title="Sales tax default"
             subtitle="Charge opens with tax on (unless you turn this off)"
@@ -163,6 +167,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
         <SettingsGroupedList>
           <SettingsMenuRow
             grouped
+            tone="operator"
             icon={<Users className="h-5 w-5 text-operator" aria-hidden />}
             title="Team"
             subtitle="Add people who answer — phone or invite link"
@@ -173,6 +178,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
+            tone="operator"
             icon={<Network className="h-5 w-5 text-operator" aria-hidden />}
             title="Call routing"
             subtitle="Who answers — team, pool, or hybrid"
@@ -180,6 +186,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
+            tone="operator"
             icon={<Zap className="h-5 w-5 text-operator" aria-hidden />}
             title="SMS templates"
             subtitle="Job texts + your reusable quick SMS shortcuts"
@@ -187,6 +194,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
+            tone="operator"
             icon={<ShieldCheck className="h-5 w-5 text-operator" aria-hidden />}
             title="Carrier registration"
             subtitle="10DLC for US lead-alert SMS"
@@ -209,6 +217,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           {isLocksmithAccount ? (
             <SettingsMenuRow
               grouped
+              tone="success"
               icon={<Package className="h-5 w-5 text-success" aria-hidden />}
               title="Key inventory"
               subtitle="Stock hub and barcode scanner"
@@ -220,6 +229,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           ) : null}
           <SettingsMenuRow
             grouped
+            tone="operator"
             icon={<LifeBuoy className="h-5 w-5 text-operator" aria-hidden />}
             title="Help"
             subtitle="Chat with Lyncr or report a problem"
@@ -230,7 +240,8 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
-            icon={<Shield className="h-5 w-5" aria-hidden />}
+            tone="operator"
+            icon={<Shield className="h-5 w-5 text-operator" aria-hidden />}
             title="Privacy"
             onClick={() => {
               closeHeaderSettings()
@@ -409,7 +420,9 @@ function ToggleRow({
   return (
     <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3 last:border-0">
       <span className="flex min-w-0 items-center gap-3">
-        <Volume2 className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-operator/30 bg-operator/10">
+          <Volume2 className="h-5 w-5 text-operator" aria-hidden />
+        </span>
         <span className="min-w-0">
           <span className="block text-sm font-medium text-foreground">{label}</span>
           {subtitle ? (

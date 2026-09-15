@@ -183,7 +183,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
       </div>
 
       {summary.rejection_reason ? (
-        <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/40 px-4 py-3">
+        <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3">
           <p className="text-2xs font-semibold uppercase tracking-wide text-destructive">Carrier rejection reason</p>
           <p className="mt-2 text-sm leading-relaxed text-destructive/90">{summary.rejection_reason}</p>
           {isRejected ? (
