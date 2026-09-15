@@ -85,6 +85,14 @@ function defaultMobileAssignHour(): number {
   return Math.max(SCHEDULER_GRID_START_HOUR, Math.min(hour, SCHEDULER_GRID_END_HOUR - 1))
 }
 
+/** Matches header-settings-sheet.tsx's initialsFromName — same avatar convention app-wide. */
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
 function MobileTechnicianAssignOverlay({
   open,
   assignableTechs,
@@ -174,7 +182,7 @@ function MobileTechnicianAssignOverlay({
                     )}
                     aria-hidden
                   >
-                    {tech.name.trim().charAt(0).toUpperCase() || "?"}
+                    {initialsFromName(tech.name)}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-foreground">{tech.name}</span>
