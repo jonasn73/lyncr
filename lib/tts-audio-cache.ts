@@ -9,6 +9,7 @@ import { neon } from "@neondatabase/serverless"
 import { put } from "@vercel/blob"
 import { after } from "next/server"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
+import { cleanTextForTTS } from "@/lib/texml-say-voice"
 import { telnyxSynthesizeSpeechPreview } from "@/lib/telnyx-voice-ai-api"
 
 function sqlClient() {
@@ -57,7 +58,10 @@ export async function getCachedTtsAudioUrl(
   language: string
 ): Promise<string | null> {
   try {
-    const cacheKey = computeTtsCacheKey(text, voice, language)
+    // Same phonetic cleanup the live-speak path applies (e.g. "502" -> "five oh two") — the
+    // cache key must be computed from what actually gets spoken, matching populateTtsAudioCache
+    // below, or a lookup here can never hit what that function stored.
+    const cacheKey = computeTtsCacheKey(cleanTextForTTS(text), voice, language)
     const sql = sqlClient()
     const rows = await sql`SELECT blob_url FROM tts_audio_cache WHERE cache_key = ${cacheKey} LIMIT 1`
     const url = (rows[0] as { blob_url?: unknown } | undefined)?.blob_url
@@ -70,14 +74,18 @@ export async function getCachedTtsAudioUrl(
 
 /** Synthesize + store one clip. Awaitable for callers that want completion, but never throws. */
 export async function populateTtsAudioCache(text: string, voice: string, language: string): Promise<void> {
-  const cacheKey = computeTtsCacheKey(text, voice, language)
+  // Phonetic cleanup (e.g. "502" -> "five oh two") — the live-speak path applies this itself
+  // right before calling Telnyx; calling Telnyx's TTS API directly here must do the same, or
+  // the cached clip is rendered from raw digits/text Telnyx's engine reads out literally.
+  const spoken = cleanTextForTTS(text)
+  const cacheKey = computeTtsCacheKey(spoken, voice, language)
   if (!isBlobConfigured()) {
     console.warn("[tts-audio-cache] skipped: no BLOB_READ_WRITE_TOKEN or BLOB_STORE_ID at runtime", { cacheKey })
     return
   }
-  console.log("[tts-audio-cache] rendering", { cacheKey, voice, language, textLen: text.length })
+  console.log("[tts-audio-cache] rendering", { cacheKey, voice, language, textLen: spoken.length })
   try {
-    const { buffer, contentType } = await telnyxSynthesizeSpeechPreview(text, voice)
+    const { buffer, contentType } = await telnyxSynthesizeSpeechPreview(spoken, voice)
     const ext = contentType.includes("wav") ? "wav" : "mp3"
     const blob = await put(`tts-cache/${cacheKey}.${ext}`, Buffer.from(buffer), {
       access: "public",
@@ -88,7 +96,7 @@ export async function populateTtsAudioCache(text: string, voice: string, languag
     const sql = sqlClient()
     await sql`
       INSERT INTO tts_audio_cache (cache_key, blob_url, voice, spoken_text)
-      VALUES (${cacheKey}, ${blob.url}, ${voice}, ${text})
+      VALUES (${cacheKey}, ${blob.url}, ${voice}, ${spoken})
       ON CONFLICT (cache_key) DO UPDATE SET blob_url = EXCLUDED.blob_url
     `
     console.log("[tts-audio-cache] cached", { cacheKey, blobUrl: blob.url })

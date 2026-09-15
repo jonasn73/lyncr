@@ -58,6 +58,12 @@ export const JobAddressAutocomplete = forwardRef<
   const [loading, setLoading] = useState(false)
   const [resolving, setResolving] = useState(false)
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([])
+  // True while `query` holds an untouched seedQuery (e.g. a previously-saved shop address
+  // rendered as a plain string, no structured lat/lng to seed `value` with) — an already-
+  // saved address otherwise looked incomplete on every reopen (no street/city/zip parsed
+  // out of it) and re-ran the live suggestion search unprompted, popping a dropdown open
+  // over an address the user had already picked. Cleared the moment they actually edit it.
+  const [seeded, setSeeded] = useState(false)
   const [menuRect, setMenuRect] = useState<{
     top: number
     left: number
@@ -119,11 +125,13 @@ export const JobAddressAutocomplete = forwardRef<
     if (value?.formatted) {
       setQuery(value.formatted)
       setValidated(isCompleteStructuredAddress(value))
+      setSeeded(false)
       return
     }
     const seed = seedQuery.trim()
     if (seed && !validated) {
       setQuery(seed)
+      setSeeded(true)
     }
   }, [value, seedQuery, validated])
 
@@ -154,8 +162,9 @@ export const JobAddressAutocomplete = forwardRef<
     if (debounceRef.current) clearTimeout(debounceRef.current)
     const trimmed = query.trim()
     const minLen = /^\d/.test(trimmed) ? 2 : 3
-    if (validated || trimmed.length < minLen) {
-      // Drop any stale suggest request when the query is too short or already validated.
+    if (seeded || validated || trimmed.length < minLen) {
+      // Drop any stale suggest request when the query is too short, already validated, or
+      // still just an untouched seed — don't auto-search an address the user hasn't edited.
       geocodeAbortControllerRef.current?.abort()
       geocodeAbortControllerRef.current = null
       if (!validated) setSuggestions([])
@@ -207,7 +216,7 @@ export const JobAddressAutocomplete = forwardRef<
       // Unmount / query change — abort so a late response cannot update state.
       geocodeAbortControllerRef.current?.abort()
     }
-  }, [query, validated])
+  }, [query, validated, seeded])
 
   async function pickSuggestion(s: AddressSuggestion) {
     const placeId = s.place_id?.trim()
@@ -335,6 +344,7 @@ export const JobAddressAutocomplete = forwardRef<
           value={query}
           disabled={disabled || resolving}
           onChange={(e) => {
+            setSeeded(false)
             setQuery(e.target.value)
             setValidated(false)
             onChange(null)
@@ -342,9 +352,10 @@ export const JobAddressAutocomplete = forwardRef<
           onFocus={() => {
             resolvePortalTarget()
             syncMenuRect()
-            if (!validated && query.trim().length >= minLen) setOpen(true)
+            if (!seeded && !validated && query.trim().length >= minLen) setOpen(true)
           }}
           onBlur={() => {
+            if (seeded) return
             window.setTimeout(() => void tryResolveOnBlur(), 180)
           }}
           autoComplete="off"
@@ -356,10 +367,10 @@ export const JobAddressAutocomplete = forwardRef<
       {typeof document !== "undefined" && dropdown
         ? createPortal(dropdown, resolvePortalTarget())
         : null}
-      {!validated && query.trim().length >= minLen && !loading && !resolving && suggestions.length === 0 ? (
+      {!seeded && !validated && query.trim().length >= minLen && !loading && !resolving && suggestions.length === 0 ? (
         <p className="text-xs text-warning">Keep typing — pick a suggested address with street number, city, and ZIP.</p>
       ) : null}
-      {validationError && query.trim() ? <p className="text-xs text-destructive">{validationError}</p> : null}
+      {!seeded && validationError && query.trim() ? <p className="text-xs text-destructive">{validationError}</p> : null}
       {validated && value ? (
         <p className="text-2xs text-muted-foreground">
           {value.street_number} {value.route}, {value.locality} {value.postal_code}

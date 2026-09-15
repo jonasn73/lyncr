@@ -200,17 +200,21 @@ export function BusinessProfileModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-h-[min(92vh,900px)] overflow-hidden border-border/80 bg-card/95 sm:max-w-lg"
+        className="flex max-h-[min(92vh,900px)] flex-col overflow-hidden border-border/80 bg-card/95 sm:max-w-lg"
         // Don't autofocus the first field — on mobile that selects all business-name text.
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <DialogHeader>
+        <DialogHeader className="shrink-0">
           <DialogTitle>Business profile</DialogTitle>
           <DialogDescription>
             {initialName ? `${initialName} · ${initialEmail}` : "Your account and SMS alert delivery settings."}
           </DialogDescription>
         </DialogHeader>
-        <div className="max-h-[calc(92vh-8rem)] space-y-6 overflow-y-auto pr-1">
+        {/* flex-1/min-h-0 (not a hardcoded max-h calc) so the scrollable body always gets
+            exactly the space left after the header, however tall that header actually
+            renders — a fixed calc(92vh-8rem) guess clipped the Save button off-screen
+            with no way to reach it whenever the header wrapped taller than assumed. */}
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-1">
           {/* One form so Enter in any field runs the same Save profile action. */}
           <form
             className="space-y-6"
