@@ -35,11 +35,7 @@ import {
   prefetchUsRingbackPlaybackContent,
 } from "@/lib/us-ringback-inline-audio"
 import { upsertCallQueueBusyMenu, updateCallQueueStatus } from "@/lib/call-queue-db"
-import {
-  HOLD_AWARE_BUSY_PROMPT,
-  callerGreetingPrefix,
-  sanitizeCallerNameForSpeech,
-} from "@/lib/hold-queue"
+import { HOLD_AWARE_BUSY_PROMPT, sanitizeCallerNameForSpeech } from "@/lib/hold-queue"
 import { resolveRepeatCallerUrgency } from "@/lib/repeat-caller-urgency"
 import { envFlagOn, lyncrLog } from "@/lib/lyncr-env"
 import { parseTelnyxVoiceWebhookEvent } from "@/lib/telnyx-call-control-parse"
@@ -393,14 +389,10 @@ async function startBusyAutomationFlow(
   } catch (e) {
     console.warn("[telnyx-cc] busy greeting lookup skipped:", e)
   }
-  // Additive courtesy prefix — never replaces a custom greeting. Repeat-caller
-  // acknowledgment only; the initial greeting no longer says the caller's name
-  // (felt off for some callers to be named before they've said anything) —
-  // callerDisplayName is still carried in state for the later SMS-confirm speech.
-  const greetingPrefix = callerGreetingPrefix({ isRepeatCaller })
-  if (greetingPrefix) {
-    say = `${greetingPrefix}${say.trim()}`
-  }
+  // The initial greeting deliberately never mentions the caller's name or repeat-caller
+  // status out loud (felt off for some callers, and requested directly to drop the "thanks
+  // for trying us again" framing) — isRepeatCaller/callerDisplayName are still carried in
+  // state for internal signals and the later SMS-confirm speech's name-only greeting.
   // Last-resort audible voice if persona lookup failed entirely.
   const voiceForGather = speakVoice || "Telnyx.NaturalHD.astra"
   const nextState = encodeTelnyxCallControlState({

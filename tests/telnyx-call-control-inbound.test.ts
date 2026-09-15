@@ -2274,7 +2274,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(inboundHangup).toBeFalsy()
   })
 
-  it("Busy greeting acknowledges a caller who already tried and got missed today", async () => {
+  it("tracks repeat-caller status internally without saying so in the Busy greeting", async () => {
     resolveInboundCapturePlanMock.mockResolvedValue({ kind: "day_dial" })
 
     vi.doMock("@/lib/db", () => ({
@@ -2387,8 +2387,14 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       String(c[0]).includes("/actions/gather_using_speak")
     )
     expect(gatherCall).toBeTruthy()
-    const gatherBody = JSON.parse(String(gatherCall![1]?.body || "{}")) as { payload?: string }
-    expect(gatherBody.payload).toContain("Thanks for trying us again")
+    const gatherBody = JSON.parse(String(gatherCall![1]?.body || "{}")) as {
+      payload?: string
+      client_state?: string
+    }
+    // Requested directly: the system should still know this is a repeat caller (tracked in
+    // client_state for internal signals) but never say so out loud in the greeting.
+    expect(gatherBody.payload).not.toContain("Thanks for trying us again")
+    expect(decodeTelnyxCallControlState(gatherBody.client_state || "")?.isRepeatCaller).toBe(true)
   })
 
   it("Busy greeting never names a known customer, even when their name is on file (087)", async () => {
@@ -2613,8 +2619,12 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       String(c[0]).includes("/actions/gather_using_speak")
     )
     expect(gatherCall).toBeTruthy()
-    const gatherBody = JSON.parse(String(gatherCall![1]?.body || "{}")) as { payload?: string }
-    expect(gatherBody.payload).toContain("Thanks for trying us again")
+    const gatherBody = JSON.parse(String(gatherCall![1]?.body || "{}")) as {
+      payload?: string
+      client_state?: string
+    }
+    expect(gatherBody.payload).not.toContain("Thanks for trying us again")
+    expect(decodeTelnyxCallControlState(gatherBody.client_state || "")?.isRepeatCaller).toBe(true)
   })
 
   it("call.conversation.ended after the AI hold bridge sends the booking SMS and hangs up (087)", async () => {

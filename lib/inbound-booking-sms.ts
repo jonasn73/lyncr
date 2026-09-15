@@ -143,18 +143,15 @@ export type InboundBookingSmsOutcome = "sent" | "skipped" | "failed" | "not_atte
  * What to tell the caller on the confirmation Speak — never claims a text went out
  * unless it actually did. "press1" = explicit press-1 confirm; "max_wait" = hold
  * timed out / capacity-reached soft-busy prompt (same shape, different framing).
- * Reuses the same known-name / repeat-caller signal as the initial Busy greeting
- * (carried in call-control state, not re-queried here).
+ * Reuses the same known-name greeting as the initial Busy greeting (carried in
+ * call-control state, not re-queried here) — repeat-caller status is never spoken.
  */
 export function bookingSmsConfirmSpeech(
   outcome: InboundBookingSmsOutcome,
   variant: "press1" | "max_wait",
-  opts?: { callerDisplayName?: string | null; isRepeatCaller?: boolean }
+  opts?: { callerDisplayName?: string | null }
 ): string {
-  const prefix = callerGreetingPrefix({
-    callerDisplayName: opts?.callerDisplayName,
-    isRepeatCaller: opts?.isRepeatCaller,
-  })
+  const prefix = callerGreetingPrefix({ callerDisplayName: opts?.callerDisplayName })
   const body = bookingSmsConfirmBody(outcome, variant)
   return prefix ? `${prefix}${body}` : body
 }

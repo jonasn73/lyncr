@@ -200,18 +200,13 @@ export function sanitizeCallerNameForSpeech(raw: string | null | undefined): str
 }
 
 /**
- * Shared "who is this / have we heard from them today" prefix — used by the initial Busy
- * greeting and the booking-SMS confirmation (single-shot moments). Deliberately NOT used on
- * every hold reprompt cycle — repeating a name every ~20s during a long hold reads as
- * over-personalized rather than warm.
+ * Shared "who is this" prefix — used by the initial Busy greeting and the booking-SMS
+ * confirmation (single-shot moments). Deliberately NOT used on every hold reprompt cycle —
+ * repeating a name every ~20s during a long hold reads as over-personalized rather than warm.
+ * Repeat-caller status is tracked for internal signals (urgency, receptionist context) but
+ * deliberately never spoken to the caller — requested directly, it read as unnecessary.
  */
-export function callerGreetingPrefix(opts: {
-  callerDisplayName?: string | null
-  isRepeatCaller?: boolean
-}): string {
+export function callerGreetingPrefix(opts: { callerDisplayName?: string | null }): string {
   const name = sanitizeCallerNameForSpeech(opts.callerDisplayName)
-  if (name && opts.isRepeatCaller) return `Hey ${name}, thanks for trying us again — `
-  if (name) return `Hey ${name} — `
-  if (opts.isRepeatCaller) return "Thanks for trying us again — "
-  return ""
+  return name ? `Hey ${name} — ` : ""
 }

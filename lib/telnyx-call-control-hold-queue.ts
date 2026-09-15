@@ -157,11 +157,11 @@ async function buildHoldRepromptText(
   } catch {
     /* position is polish only */
   }
-  // Flag set once at Busy entry (lib/telnyx-call-control-inbound.ts) — no re-query here,
-  // this fires on every reprompt cycle during a single hold session.
-  const prefix = state.isRepeatCaller ? "Still with us — " : ""
+  // isRepeatCaller (set once at Busy entry, lib/telnyx-call-control-inbound.ts) still drives
+  // internal signals (urgency, receptionist context) but is deliberately never spoken to the
+  // caller — requested directly, "Still with us" / repeat-caller framing read as unnecessary.
   const base = isHoldIntakeFullyAnswered(state) ? HOLD_REPROMPT_ALREADY_ANSWERED : HOLD_REPROMPT_DEFAULT
-  return `${prefix}${base}${hint}`
+  return `${base}${hint}`
 }
 
 /**
@@ -263,7 +263,6 @@ export async function enterBusyHoldQueue(params: {
       callControlId,
       bookingSmsConfirmSpeech(outcome, "max_wait", {
         callerDisplayName: state.callerDisplayName,
-        isRepeatCaller: state.isRepeatCaller,
       }),
       confirmState
     )
@@ -768,7 +767,6 @@ async function leaveHoldQueueWithSms(
     callControlId,
     bookingSmsConfirmSpeech(outcome, "press1", {
       callerDisplayName: state.callerDisplayName,
-      isRepeatCaller: state.isRepeatCaller,
     }),
     confirmState
   )
@@ -856,7 +854,6 @@ async function finishHoldWithSms(
     callControlId,
     bookingSmsConfirmSpeech(outcome, "max_wait", {
       callerDisplayName: state.callerDisplayName,
-      isRepeatCaller: state.isRepeatCaller,
     }),
     confirmState
   )
