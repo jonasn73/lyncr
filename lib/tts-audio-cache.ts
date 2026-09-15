@@ -15,8 +15,15 @@ function sqlClient() {
   return neon(resolveNeonDatabaseUrl())
 }
 
+/**
+ * True when @vercel/blob has *some* way to authenticate: a static BLOB_READ_WRITE_TOKEN,
+ * or the newer OIDC-based auth (BLOB_STORE_ID + an auto-provided VERCEL_OIDC_TOKEN — this
+ * project's store was connected without ever issuing a static token, so BLOB_STORE_ID is
+ * the only one present). Don't pass an explicit `token` to `put()` below — omitting it lets
+ * the SDK's own auth resolution try OIDC first, then BLOB_READ_WRITE_TOKEN.
+ */
 function isBlobConfigured(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim())
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim() || process.env.BLOB_STORE_ID?.trim())
 }
 
 /** Cache key: exact spoken text + voice + language — any change (e.g. a renamed shop) is a new key. */
@@ -46,7 +53,7 @@ export async function getCachedTtsAudioUrl(
 export async function populateTtsAudioCache(text: string, voice: string, language: string): Promise<void> {
   const cacheKey = computeTtsCacheKey(text, voice, language)
   if (!isBlobConfigured()) {
-    console.warn("[tts-audio-cache] skipped: BLOB_READ_WRITE_TOKEN not set at runtime", { cacheKey })
+    console.warn("[tts-audio-cache] skipped: no BLOB_READ_WRITE_TOKEN or BLOB_STORE_ID at runtime", { cacheKey })
     return
   }
   console.log("[tts-audio-cache] rendering", { cacheKey, voice, language, textLen: text.length })
@@ -56,7 +63,6 @@ export async function populateTtsAudioCache(text: string, voice: string, languag
     const blob = await put(`tts-cache/${cacheKey}.${ext}`, Buffer.from(buffer), {
       access: "public",
       contentType,
-      token: process.env.BLOB_READ_WRITE_TOKEN,
       addRandomSuffix: false,
       allowOverwrite: true,
     })
