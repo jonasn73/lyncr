@@ -7,8 +7,10 @@
 // received (which restocks key_inventory and logs it to the usage ledger).
 
 import { useEffect, useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { Check, ExternalLink, Loader2, PackageCheck, PackageOpen, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MOTION_SPRING_LAYOUT } from "@/lib/motion"
 import type { KeyReorderRequest, KeyReorderRequestStatus } from "@/lib/key-reorder-requests"
 
 const RECEIVE_LOCATIONS: { value: "van1" | "van2" | "shop"; label: string }[] = [
@@ -97,8 +99,17 @@ export function KeyReorderRequestsPanel() {
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Pending approval ({pending.length})
           </p>
+          <AnimatePresence initial={false}>
           {pending.map((r) => (
-            <div key={r.id} className="rounded-xl border border-border bg-card/60 p-3">
+            <motion.div
+              key={r.id}
+              layout
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={MOTION_SPRING_LAYOUT}
+              className="rounded-xl border border-border bg-card/60 p-3"
+            >
               <RequestSummary request={r} />
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
@@ -119,8 +130,9 @@ export function KeyReorderRequestsPanel() {
                   Approve
                 </button>
               </div>
-            </div>
+            </motion.div>
           ))}
+          </AnimatePresence>
         </div>
       ) : null}
 
@@ -129,8 +141,17 @@ export function KeyReorderRequestsPanel() {
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             In progress ({inProgress.length})
           </p>
+          <AnimatePresence initial={false}>
           {inProgress.map((r) => (
-            <div key={r.id} className="rounded-xl border border-border bg-card/60 p-3">
+            <motion.div
+              key={r.id}
+              layout
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={MOTION_SPRING_LAYOUT}
+              className="rounded-xl border border-border bg-card/60 p-3"
+            >
               <RequestSummary request={r} />
               <div className="mt-3 space-y-2">
                 {r.productUrl ? (
@@ -176,8 +197,9 @@ export function KeyReorderRequestsPanel() {
                   <p className="text-center text-2xs text-muted-foreground">Received into — tap the location it landed in</p>
                 ) : null}
               </div>
-            </div>
+            </motion.div>
           ))}
+          </AnimatePresence>
         </div>
       ) : null}
     </div>
