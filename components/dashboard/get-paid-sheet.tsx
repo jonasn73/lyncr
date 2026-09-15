@@ -9,10 +9,12 @@ import {
   ConnectComponentsProvider,
 } from "@stripe/react-connect-js"
 import { loadConnectAndInitialize } from "@stripe/connect-js"
+import { AnimatePresence, motion } from "framer-motion"
 import { Banknote, CheckCircle2, Loader2, RefreshCw, X } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
+import { MOTION_SPRING_LAYOUT } from "@/lib/motion"
 
 type PayoutRow = {
   id: string
@@ -595,9 +597,15 @@ export function GetPaidSheet({
                         </p>
                       ) : (
                         <ul className="space-y-2">
+                          <AnimatePresence initial={false}>
                           {payouts.map((p) => (
-                            <li
+                            <motion.li
                               key={p.id}
+                              layout
+                              initial={{ opacity: 0, y: -8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0 }}
+                              transition={MOTION_SPRING_LAYOUT}
                               className="rounded-xl border border-border bg-card/50 px-3 py-3"
                             >
                               <div className="flex items-start justify-between gap-2">
@@ -626,8 +634,9 @@ export function GetPaidSheet({
                                   {p.status.replace(/_/g, " ")}
                                 </span>
                               </div>
-                            </li>
+                            </motion.li>
                           ))}
+                          </AnimatePresence>
                         </ul>
                       )}
                     </section>

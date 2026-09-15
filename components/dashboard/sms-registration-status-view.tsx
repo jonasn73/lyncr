@@ -1,5 +1,6 @@
 "use client"
 
+import { AnimatePresence, motion } from "framer-motion"
 import { Check, Clock, Loader2, RefreshCw, XCircle } from "lucide-react"
 import { formatPhoneDisplay } from "@/lib/line-display"
 import {
@@ -7,6 +8,7 @@ import {
   type SmsRegistrationSubmissionSummary,
 } from "@/lib/sms-registration-submission-summary-types"
 import { cn } from "@/lib/utils"
+import { MOTION_SPRING_LAYOUT } from "@/lib/motion"
 
 type Props = {
   summary: SmsRegistrationSubmissionSummary
@@ -123,7 +125,9 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
             return (
               <div key={step.key} className="flex min-w-0 flex-1 items-start gap-2 sm:flex-col sm:items-center sm:text-center">
                 <div className="flex items-center gap-2 sm:flex-col">
-                  <span
+                  <motion.span
+                    layout
+                    transition={MOTION_SPRING_LAYOUT}
                     className={cn(
                       "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs font-bold",
                       state === "done" && "border-success/50 bg-success/15 text-success",
@@ -132,8 +136,19 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
                       state === "upcoming" && "border-border bg-card text-muted-foreground"
                     )}
                   >
-                    {state === "done" ? <Check className="h-4 w-4" aria-hidden /> : state === "failed" ? "!" : index + 1}
-                  </span>
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.span
+                        key={state === "done" ? "done" : state === "failed" ? "failed" : "pending"}
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.5 }}
+                        transition={MOTION_SPRING_LAYOUT}
+                        className="flex items-center justify-center"
+                      >
+                        {state === "done" ? <Check className="h-4 w-4" aria-hidden /> : state === "failed" ? "!" : index + 1}
+                      </motion.span>
+                    </AnimatePresence>
+                  </motion.span>
                   {!isLast ? (
                     <span
                       className={cn(
