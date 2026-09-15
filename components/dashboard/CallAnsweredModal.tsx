@@ -4520,7 +4520,7 @@ export function CallAnsweredModal({ enabled, ownerUserId, receptionistId }: Call
                           ) : null}
 
                           {currentStep === "ADDRESS_CONTACT" ? (
-                            <fieldset className={cn(WS_SECTION, "grid gap-3")}>
+                            <fieldset className={cn(WS_SECTION, "grid gap-4")}>
                               <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                                 Location
                               </legend>
@@ -4539,13 +4539,13 @@ export function CallAnsweredModal({ enabled, ownerUserId, receptionistId }: Call
                                       value={form.keyStyle}
                                       onChange={(e) => patchForm({ keyStyle: e.target.value })}
                                       placeholder="Key type / style"
-                                      className="h-9"
+                                      className="h-11 rounded-lg"
                                     />
                                     <Input
                                       value={form.keyFccId}
                                       onChange={(e) => patchForm({ keyFccId: e.target.value })}
                                       placeholder="FCC / part # (optional)"
-                                      className="h-9 font-mono"
+                                      className="h-11 rounded-lg font-mono"
                                     />
                                   </div>
                                 </details>
@@ -4563,13 +4563,13 @@ export function CallAnsweredModal({ enabled, ownerUserId, receptionistId }: Call
                                     value={resolvedPhoneNumber}
                                     onChange={(e) => patchForm({ phoneNumber: e.target.value })}
                                     placeholder="(502) 555-1234"
-                                    className="h-11 flex-1 font-mono text-base"
+                                    className="h-12 flex-1 rounded-xl font-mono text-base"
                                   />
                                   <button
                                     type="button"
                                     onClick={() => void requestLiveGps()}
                                     disabled={gpsRequestState === "sending"}
-                                    className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-success/50 bg-success/15 px-3 text-2xs font-bold text-success transition-colors hover:bg-success/25 disabled:opacity-50"
+                                    className="inline-flex shrink-0 items-center justify-center gap-1 rounded-xl border border-success/50 bg-success/15 px-3 text-2xs font-bold text-success transition-colors hover:bg-success/25 disabled:opacity-50"
                                     title="Text customer a live GPS share link"
                                   >
                                     {gpsRequestState === "sending" ? (
@@ -4597,6 +4597,7 @@ export function CallAnsweredModal({ enabled, ownerUserId, receptionistId }: Call
                                   onQueryCommit={handleAddressQueryCommit}
                                   seedQuery={addressSeedQuery}
                                   placeholder="Start typing street address…"
+                                  className="h-12 rounded-xl py-0 text-base"
                                 />
                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                                   <button
@@ -4664,7 +4665,8 @@ export function CallAnsweredModal({ enabled, ownerUserId, receptionistId }: Call
                           ) : null}
 
                           {currentStep === "CUSTOMER_NAME" ? (
-                            <fieldset className={cn(WS_SECTION, "grid gap-3")}>
+                            <>
+                            <fieldset className={cn(WS_SECTION, "grid gap-4")}>
                               <legend className="px-1 text-sm font-semibold tracking-tight text-foreground">
                                 Customer &amp; quote
                               </legend>
@@ -4677,7 +4679,7 @@ export function CallAnsweredModal({ enabled, ownerUserId, receptionistId }: Call
                                   value={form.displayName}
                                   onChange={(e) => patchForm({ displayName: e.target.value })}
                                   placeholder="Customer full name"
-                                  className="h-12 text-base"
+                                  className="h-14 rounded-xl text-lg"
                                   autoFocus
                                 />
                               </div>
@@ -4695,7 +4697,7 @@ export function CallAnsweredModal({ enabled, ownerUserId, receptionistId }: Call
                                       ? String(Math.round(liveQuote.totalCents / 100))
                                       : "0"
                                   }
-                                  className="h-12 font-mono text-base tabular-nums"
+                                  className="h-14 rounded-xl font-mono text-lg tabular-nums"
                                 />
                               </div>
                               <p className="text-xs text-muted-foreground">
@@ -4712,6 +4714,63 @@ export function CallAnsweredModal({ enabled, ownerUserId, receptionistId }: Call
                                 )}
                               </p>
                             </fieldset>
+
+                            {/* Outcome actions live in the scroll flow (not the sticky footer) — the
+                                name field above must render at full height on short/keyboard-shrunk
+                                viewports instead of losing space to a 6-button footer. */}
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="lg"
+                                className="h-11 border border-warning/40 bg-warning/10 font-semibold text-warning hover:bg-warning/20"
+                                disabled={lostLeadState === "saving"}
+                                onClick={() => void markPriceShopping()}
+                              >
+                                {lostLeadState === "saving" ? "Saving…" : "Price shopping"}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="lg"
+                                className="h-11 border border-info/40 bg-info/10 font-semibold text-info hover:bg-info/20"
+                                disabled={serviceCallLinkBusy}
+                                onClick={() => void sendServiceCallFeeLink()}
+                              >
+                                {serviceCallLinkBusy ? (
+                                  <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden />
+                                ) : null}
+                                Send $49 service call
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="lg"
+                                className="h-11 font-semibold"
+                                onClick={openIntakeBookingLink}
+                              >
+                                Text booking link
+                              </Button>
+                            </div>
+                            {lostLeadError ? (
+                              <p className="text-center text-2xs text-destructive">{lostLeadError}</p>
+                            ) : null}
+
+                            <button
+                              type="button"
+                              disabled={jobState === "creating" || !canSavePendingLead}
+                              onClick={() => void savePendingLead()}
+                              className="w-full rounded-lg border border-border bg-muted py-3 text-sm font-medium text-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {jobState === "creating" ? "Saving…" : "Save as Pending Lead / Callback"}
+                            </button>
+                            {!canDispatch && jobState !== "creating" && dispatchBlockers.length > 0 ? (
+                              <p className="text-center text-2xs text-warning/90">
+                                Still needed: {dispatchBlockers.join(" · ")}
+                              </p>
+                            ) : null}
+                            {jobError ? <p className="text-2xs text-destructive">{jobError}</p> : null}
+                            </>
                           ) : null}
 
                           {currentStep === "BOOKING_COMPLETE" ? (
@@ -5177,60 +5236,6 @@ export function CallAnsweredModal({ enabled, ownerUserId, receptionistId }: Call
                             Booked — secure appointment →
                           </Button>
                         </div>
-
-                        {/* Live-call outcomes after the quote — big taps, few choices */}
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="lg"
-                            className="h-11 border border-warning/40 bg-warning/10 font-semibold text-warning hover:bg-warning/20"
-                            disabled={lostLeadState === "saving"}
-                            onClick={() => void markPriceShopping()}
-                          >
-                            {lostLeadState === "saving" ? "Saving…" : "Price shopping"}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="lg"
-                            className="h-11 border border-info/40 bg-info/10 font-semibold text-info hover:bg-info/20"
-                            disabled={serviceCallLinkBusy}
-                            onClick={() => void sendServiceCallFeeLink()}
-                          >
-                            {serviceCallLinkBusy ? (
-                              <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden />
-                            ) : null}
-                            Send $49 service call
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="lg"
-                            className="h-11 font-semibold"
-                            onClick={openIntakeBookingLink}
-                          >
-                            Text booking link
-                          </Button>
-                        </div>
-                        {lostLeadError ? (
-                          <p className="text-center text-2xs text-destructive">{lostLeadError}</p>
-                        ) : null}
-
-                        <button
-                          type="button"
-                          disabled={jobState === "creating" || !canSavePendingLead}
-                          onClick={() => void savePendingLead()}
-                          className="w-full rounded-lg border border-border bg-muted py-3 text-sm font-medium text-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {jobState === "creating" ? "Saving…" : "Save as Pending Lead / Callback"}
-                        </button>
-                        {!canDispatch && jobState !== "creating" && dispatchBlockers.length > 0 ? (
-                          <p className="text-center text-2xs text-warning/90">
-                            Still needed: {dispatchBlockers.join(" · ")}
-                          </p>
-                        ) : null}
-                        {jobError ? <p className="text-2xs text-destructive">{jobError}</p> : null}
                       </>
                     ) : null}
                     {currentStep === "SCHEDULE_TIME" ? (
