@@ -18,7 +18,10 @@ import {
   telnyxListActiveCalls,
   type TelnyxCallControlActionResult,
 } from "@/lib/telnyx-call-control-api"
-import { getCallControlSpeakVoiceAttributes } from "@/lib/texml-say-voice"
+import {
+  CALL_CONTROL_POLLY_NEURAL_FALLBACK,
+  getCallControlSpeakVoiceAttributes,
+} from "@/lib/texml-say-voice"
 import { cacheTtsAudioInBackground, estimateSpeechMillis, getCachedTtsAudioUrl } from "@/lib/tts-audio-cache"
 import {
   abandonHoldQueue,
@@ -570,8 +573,10 @@ async function startBusyAutomationFlow(
 }
 
 /**
- * Available connect greet: if Speak fails after Answer, Dial the cell immediately —
- * otherwise callers hear silence and the phone never rings (Busy gather already retries).
+ * Available connect greet: if Speak fails after Answer, retry once on Polly Neural before
+ * giving up — a transient NaturalHD hiccup should still greet the caller, just in a
+ * slightly different voice, rather than skip straight to dead air + dial (Busy gather
+ * already has its own retry via telnyxCallControlGatherUsingSpeak's internal fallback).
  */
 async function handleSpeakFailed(
   event: NonNullable<ReturnType<typeof parseTelnyxVoiceWebhookEvent>>
@@ -587,11 +592,48 @@ async function handleSpeakFailed(
     })
   )
 
-  // Branded Available greeting died — skip TTS retry and ring the promised cell.
   if (
     state &&
     (state.phase === "await_greeting_end" || state.phase === "await_caller_answered")
   ) {
+    // Only retry once, and only when the failed voice wasn't already the Polly fallback
+    // (telnyxCallControlSpeak's own synchronous retry already tried Polly if this was a
+    // sync failure — a webhook-reported async failure on Polly itself means TTS is down
+    // entirely, so a second attempt would just fail the same way).
+    const alreadyOnFallbackVoice = /^AWS\.Polly\./i.test(priorVoice)
+    if (!alreadyOnFallbackVoice) {
+      const routing = await resolveCallControlRouting(state.businessLineE164)
+      if (routing) {
+        const greetingText = buildInboundCallerGreetingText(resolveWorkspaceDisplayName(routing))
+        const retryState = encodeTelnyxCallControlState({
+          ...state,
+          holdSpeakVoice: CALL_CONTROL_POLLY_NEURAL_FALLBACK,
+          brandedGreetingPlayed: true,
+        })
+        const retryRes = await telnyxCallControlSpeak(
+          event.callControlId,
+          greetingText,
+          retryState,
+          { voice: CALL_CONTROL_POLLY_NEURAL_FALLBACK }
+        )
+        if (retryRes.ok) {
+          console.warn(
+            lyncrLog("telnyx-cc-greeting-speak-failed-polly-retry", {
+              callControlId: event.callControlId,
+              priorVoice: priorVoice || null,
+            })
+          )
+          return
+        }
+        console.error(
+          lyncrLog("telnyx-cc-greeting-speak-polly-retry-failed", {
+            callControlId: event.callControlId,
+            error: retryRes.error,
+          })
+        )
+      }
+    }
+
     console.warn(
       lyncrLog("telnyx-cc-greeting-speak-failed-recover-dial", {
         callControlId: event.callControlId,
@@ -601,8 +643,8 @@ async function handleSpeakFailed(
           .slice(-4) || null,
       })
     )
-    // The Speak was accepted and optimistically marked brandedGreetingPlayed:true, but this
-    // webhook says it never actually rendered/played — correct that before continuing, so
+    // Both the original voice and (if attempted) the Polly retry failed — the caller never
+    // actually heard a greeting, so correct the optimistic flag before continuing, so
     // Busy/Hold automation still says the business name once instead of assuming it was heard.
     await continueAfterInboundGreeting(event, { ...state, brandedGreetingPlayed: false })
   }
