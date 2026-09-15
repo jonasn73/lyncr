@@ -1,14 +1,17 @@
 "use client"
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { Check, Copy, HardHat, Loader2, Network, Plus, Save, Send, Trash2, Users, UsersRound } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
+import { MOTION_SPRING_LAYOUT } from "@/lib/motion"
 import type { FieldTechnician, Receptionist, ReceptionistPayoutMetrics } from "@/lib/types"
 import {
   WorkspacePage,
   WorkspacePageHeader,
   WorkspacePanel,
+  WorkspaceStatCard,
 } from "@/components/dashboard-workspace-ui"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
@@ -652,6 +655,17 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
         </div>
       </div>
 
+      {/* At-a-glance counts — the page had zero summary of who's actually on the team. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <WorkspaceStatCard label="Receptionists" value={String(sortedMembers.length)} accent="primary" />
+        <WorkspaceStatCard label="Technicians" value={String(activeTechs.length)} accent="primary" />
+        <WorkspaceStatCard
+          label="Waiting to accept"
+          value={String(totalWaiting)}
+          accent={totalWaiting > 0 ? "warning" : undefined}
+        />
+      </div>
+
       {techInviteAlert ? (
         <TechInviteSmsAlert
           name={techInviteAlert.name}
@@ -697,12 +711,20 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           <div className="space-y-4">
             {totalTeam > 0 ? (
               <ul className="divide-y divide-border rounded-xl border border-border">
+                <AnimatePresence initial={false}>
                 {sortedMembers.map((member, i) => {
                   const color = AVATAR_COLORS[i % AVATAR_COLORS.length]
                   const online = isMemberOnline(member)
                   const payout = payoutsById[member.id]
                   return (
-                    <li key={`r-${member.id}`}>
+                    <motion.li
+                      key={`r-${member.id}`}
+                      layout
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={MOTION_SPRING_LAYOUT}
+                    >
                       <button
                         type="button"
                         onClick={() => setSettingsTarget({ id: member.id, color, role: "receptionist" })}
@@ -743,11 +765,18 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                           </p>
                         ) : null}
                       </button>
-                    </li>
+                    </motion.li>
                   )
                 })}
                 {activeTechs.map((tech, i) => (
-                  <li key={`t-${tech.id}`}>
+                  <motion.li
+                    key={`t-${tech.id}`}
+                    layout
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={MOTION_SPRING_LAYOUT}
+                  >
                     <button
                       type="button"
                       onClick={() =>
@@ -793,8 +822,9 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                         <p className="truncate text-xs text-muted-foreground">{formatPhoneDisplay(tech.phone)}</p>
                       </div>
                     </button>
-                  </li>
+                  </motion.li>
                 ))}
+                </AnimatePresence>
               </ul>
             ) : null}
 
@@ -804,12 +834,21 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                   Waiting to accept ({totalWaiting})
                 </p>
                 <ul className="divide-y divide-border rounded-xl border border-warning/20 bg-warning/5">
+                  <AnimatePresence initial={false}>
                   {pendingInvites.map((inv) => {
                     const inviteLabel = inv.first_name || inv.email || inv.phone || "Invite"
                     const hasEmail = Boolean(inv.email?.includes("@"))
                     const busy = inviteBusyId === inv.id
                     return (
-                      <li key={`inv-${inv.id}`} className="space-y-2 px-3.5 py-3">
+                      <motion.li
+                        key={`inv-${inv.id}`}
+                        layout
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={MOTION_SPRING_LAYOUT}
+                        className="space-y-2 px-3.5 py-3"
+                      >
                         <div className="flex items-center gap-1.5">
                           <p className="min-w-0 truncate text-sm font-medium text-foreground">{inviteLabel}</p>
                           <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-micro font-medium uppercase tracking-wide text-muted-foreground">
@@ -865,11 +904,18 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                             {inviteActionError.message}
                           </p>
                         ) : null}
-                      </li>
+                      </motion.li>
                     )
                   })}
                   {pendingTechs.map((tech) => (
-                    <li key={`pt-${tech.id}`}>
+                    <motion.li
+                      key={`pt-${tech.id}`}
+                      layout
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={MOTION_SPRING_LAYOUT}
+                    >
                       <button
                         type="button"
                         onClick={() => setSettingsTarget({ id: tech.id, color: AVATAR_COLORS[0], role: "field_tech" })}
@@ -886,8 +932,9 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                         </div>
                         <HardHat className="h-4 w-4 shrink-0 text-warning" aria-hidden />
                       </button>
-                    </li>
+                    </motion.li>
                   ))}
+                  </AnimatePresence>
                 </ul>
               </div>
             ) : null}
