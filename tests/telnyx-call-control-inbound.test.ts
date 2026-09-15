@@ -1801,6 +1801,90 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(cacheTtsAudioInBackground).not.toHaveBeenCalled()
   })
 
+  it("a cached greeting with no stored duration (pre-174 row) still plays, and kicks a background re-render", async () => {
+    resolveInboundCapturePlanMock.mockResolvedValue({ kind: "presence_on_job" })
+    getFirstAvailableOwnerReceptionistMock.mockResolvedValue(null)
+
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "voicemail",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: false,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => {
+        const d = p.replace(/\D/g, "")
+        if (d.length === 10) return `+1${d}`
+        return p.startsWith("+") ? p : `+${d}`
+      },
+    }))
+    vi.doMock("@/lib/inbound-booking-sms", () => ({
+      sendInboundBookingSmsAndTag: vi.fn(() => Promise.resolve({ outcome: "sent" })),
+      bookingSmsConfirmSpeech: vi.fn(() => "mock booking sms confirm speech"),
+    }))
+    const cacheTtsAudioInBackground = vi.fn()
+    vi.doMock("@/lib/tts-audio-cache", () => ({
+      // durationMs: null — a row cached before migration 174, or any write that skipped it.
+      getCachedTtsAudioUrl: vi.fn(() =>
+        Promise.resolve({ url: "https://blob.example/tts-cache/busy-stale.mp3", durationMs: null })
+      ),
+      cacheTtsAudioInBackground,
+      estimateSpeechMillis: (text: string) => Math.round((text.length / 12) * 1000),
+    }))
+
+    const answeredState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_caller_answered",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialTargetE164: "+15022602716",
+      ringTimeoutSec: 30,
+      fallbackType: "voicemail",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.answered",
+        id: "evt-busy-gather-stale-cache",
+        payload: {
+          call_control_id: "cc-busy-gather-stale-cache",
+          from: "+15025369252",
+          to: "+15025571219",
+          direction: "incoming",
+          client_state: answeredState,
+        },
+      },
+    })
+
+    // Still plays the cached clip for THIS call — never blocks on the re-render.
+    const playCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/playback_start"))
+    expect(playCall).toBeTruthy()
+    const playBody = JSON.parse(String(playCall![1]?.body || "{}")) as { audio_url?: string }
+    expect(playBody.audio_url).toBe("https://blob.example/tts-cache/busy-stale.mp3")
+
+    // A cache HIT never otherwise calls cacheTtsAudioInBackground — a null duration is the
+    // one exception, so the next call on this exact greeting gets a real measured value
+    // instead of living with the character-count estimate's dead air forever.
+    expect(cacheTtsAudioInBackground).toHaveBeenCalledTimes(1)
+  })
+
   it("call.gather.ended press 1 sends booking SMS then confirms", async () => {
     const sendSms = vi.fn(() => Promise.resolve({ outcome: "sent" }))
     vi.doMock("@/lib/db", () => ({

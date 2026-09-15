@@ -498,6 +498,15 @@ async function startBusyAutomationFlow(
   // "audio plays while gather listens" split already proven safe by the hold-music path.
   const ttsLanguage = getCallControlSpeakVoiceAttributes({}).language
   const cached = await getCachedTtsAudioUrl(say, voiceForGather, ttsLanguage)
+  if (cached && cached.durationMs == null) {
+    // A row from before migration 174 (or any other write that skipped it) — its duration
+    // was never measured, so every call using it falls back to the character-count estimate
+    // below, which overshoots by several real seconds (the exact dead-air bug already fixed
+    // for freshly-cached clips). A cache HIT never calls populateTtsAudioCache on its own
+    // (only a MISS does), so a stale row like this would otherwise sit here forever — kick
+    // a background re-render so the NEXT call on this exact greeting gets a real duration.
+    cacheTtsAudioInBackground(say, voiceForGather, ttsLanguage)
+  }
   let gatherRes: TelnyxCallControlActionResult | undefined
   if (cached) {
     const playRes = await telnyxCallControlPlaybackStart(callControlId, {
