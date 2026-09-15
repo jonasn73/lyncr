@@ -111,6 +111,14 @@ export type TelnyxCallControlClientState = {
    * on a recent call.
    */
   isKnownCustomer?: boolean
+  /**
+   * True when the reused intake answers (see holdIntakeSummary) came from a call within
+   * the last ~30 minutes — almost certainly the same request (a dropped call, redialing),
+   * not a new one. Set once, on the first reprompt cycle, and carried for the rest of the
+   * call so the reprompt copy asks "has anything changed" instead of the plain
+   * already-answered framing.
+   */
+  holdRecentCallback?: boolean
   /** Unix ms when ai_assistant_start was issued — used to bill AI-conversation minutes accurately (`087`). */
   aiAssistantStartedAtMs?: number
   /**

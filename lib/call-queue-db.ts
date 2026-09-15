@@ -495,18 +495,23 @@ export async function getCallQueueCollectedByCallControlId(
  * Most recent PRIOR hold-queue answers from this same caller (any earlier call, this
  * shop), within the window — lets a caller who already answered on a call an hour ago
  * skip being asked the exact same questions again on a callback. Excludes the current
- * call explicitly so a still-open row for THIS call never matches itself.
+ * call explicitly so a still-open row for THIS call never matches itself. Returns how
+ * long ago that prior call was too — a callback minutes later is almost certainly about
+ * the SAME request (a dropped call, retrying); one from yesterday might not be, so the
+ * caller picks different acknowledgment copy based on this rather than treating every
+ * match identically.
  */
 export async function getRecentHoldIntakeForCaller(
   userId: string,
   callerE164: string,
   excludeCallControlId: string,
   withinHours = 24
-): Promise<Record<string, unknown> | null> {
+): Promise<{ collected: Record<string, unknown>; minutesAgo: number } | null> {
   try {
     const sql = getSql()
     const rows = await sql`
-      SELECT collected FROM call_queue
+      SELECT collected, extract(epoch from (now() - enqueued_at)) / 60 AS minutes_ago
+      FROM call_queue
       WHERE user_id = ${userId}
         AND caller_e164 = ${callerE164}
         AND call_control_id <> ${excludeCallControlId}
@@ -516,10 +521,11 @@ export async function getRecentHoldIntakeForCaller(
       ORDER BY enqueued_at DESC
       LIMIT 1
     `
-    const collected = (rows[0] as { collected?: unknown } | undefined)?.collected
-    return collected && typeof collected === "object" && Object.keys(collected).length > 0
-      ? (collected as Record<string, unknown>)
-      : null
+    const row = rows[0] as { collected?: unknown; minutes_ago?: unknown } | undefined
+    const collected = row?.collected
+    if (!collected || typeof collected !== "object" || Object.keys(collected).length === 0) return null
+    const minutesAgo = Number(row?.minutes_ago)
+    return { collected: collected as Record<string, unknown>, minutesAgo: Number.isFinite(minutesAgo) ? minutesAgo : withinHours * 60 }
   } catch (e) {
     if (isMissingCallQueueTable(e) || isMissingCollectedColumn(e)) return null
     console.warn(lyncrLog("call-queue-recent-intake-lookup-failed", { error: String(e) }))

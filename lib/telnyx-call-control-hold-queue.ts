@@ -29,6 +29,7 @@ import {
   HOLD_REPROMPT_ALREADY_ANSWERED,
   HOLD_REPROMPT_DEFAULT,
   HOLD_REPROMPT_KNOWN_CUSTOMER,
+  HOLD_REPROMPT_RECENT_CALLBACK,
   holdLongWaitAlertMs,
   holdMaxConcurrent,
   holdMaxWaitSecs,
@@ -179,14 +180,19 @@ async function buildHoldRepromptText(
   // isRepeatCaller (set once at Busy entry, lib/telnyx-call-control-inbound.ts) still drives
   // internal signals (urgency, receptionist context) but is deliberately never spoken to the
   // caller — requested directly, "Still with us" / repeat-caller framing read as unnecessary.
-  // holdIntakeSummary present = we have real answers from THIS caller to reference ("Thanks
-  // for those details"); answered but no summary = skipped purely because they're a known
-  // customer on file, so it'd be wrong to thank them for details they didn't just give us.
+  // Three tiers once intake is answered: holdRecentCallback (their last call was minutes
+  // ago — almost certainly the same request, ask if anything changed) beats holdIntakeSummary
+  // present (real answers from THIS caller to reference, "Thanks for those details") beats
+  // answered-with-no-summary (skipped purely because they're a known customer on file — never
+  // thank them for details they didn't just give us, and never invite them to "book" when
+  // they may already have something on the books).
   const base = !isHoldIntakeFullyAnswered(state)
     ? HOLD_REPROMPT_DEFAULT
-    : state.holdIntakeSummary
-      ? HOLD_REPROMPT_ALREADY_ANSWERED
-      : HOLD_REPROMPT_KNOWN_CUSTOMER
+    : state.holdRecentCallback
+      ? HOLD_REPROMPT_RECENT_CALLBACK
+      : state.holdIntakeSummary
+        ? HOLD_REPROMPT_ALREADY_ANSWERED
+        : HOLD_REPROMPT_KNOWN_CUSTOMER
   return `${base}${hint}`
 }
 
@@ -694,6 +700,7 @@ async function startHoldRepromptGather(
   let industryHasNoPrompt = false
   let followUpAnswered = Boolean(state.holdIntakeFollowUpAnswered)
   let reusedIntakeSummary: string | null = null
+  let recentCallback = false
 
   // A caller who already answered these on a recent, different call (calling back an
   // hour later, not asking fresh) shouldn't get asked again — reuse what's already known.
@@ -705,14 +712,25 @@ async function startHoldRepromptGather(
     const recent = await getRecentHoldIntakeForCaller(state.userId, state.callerE164, callControlId).catch(
       () => null
     )
-    const recentIntentLabel = typeof recent?.intent_label === "string" ? recent.intent_label.trim() : ""
-    const recentYearLabel = typeof recent?.vehicle_year_label === "string" ? recent.vehicle_year_label.trim() : ""
-    if (recentIntentLabel) {
+    const recentIntentLabel =
+      typeof recent?.collected.intent_label === "string" ? recent.collected.intent_label.trim() : ""
+    const recentYearLabel =
+      typeof recent?.collected.vehicle_year_label === "string" ? recent.collected.vehicle_year_label.trim() : ""
+    if (recentIntentLabel && recent) {
       intakeAnswered = true
       followUpAnswered = followUpAnswered || Boolean(recentYearLabel)
       reusedIntakeSummary = recentYearLabel ? `${recentIntentLabel} — ${recentYearLabel}` : recentIntentLabel
+      // Within the last ~30 minutes is almost certainly the same request (a dropped call,
+      // redialing) — asked directly to acknowledge that rather than treat it identically
+      // to a same-day-but-unrelated callback.
+      recentCallback = recent.minutesAgo < 30
       console.log(
-        lyncrLog("telnyx-cc-hold-intake-reused", { callControlId, summary: reusedIntakeSummary })
+        lyncrLog("telnyx-cc-hold-intake-reused", {
+          callControlId,
+          summary: reusedIntakeSummary,
+          minutesAgo: Math.round(recent.minutesAgo),
+          recentCallback,
+        })
       )
     } else if (state.isKnownCustomer) {
       // No specific recent DTMF answers to reuse, but we already have a real customers
@@ -758,6 +776,7 @@ async function startHoldRepromptGather(
             holdIntakeAnswered: intakeAnswered,
             holdIntakeFollowUpAnswered: followUpAnswered,
             holdIntakeSummary: reusedIntakeSummary || state.holdIntakeSummary,
+            holdRecentCallback: recentCallback || state.holdRecentCallback,
           },
           callControlId
         )
@@ -778,6 +797,7 @@ async function startHoldRepromptGather(
     holdIntakeFollowUpAttempts: askFollowUp ? followUpAttempts + 1 : followUpAttempts,
     holdAwaitingIntakeFollowUpAnswer: askFollowUp,
     holdIntakeSummary: reusedIntakeSummary || state.holdIntakeSummary,
+    holdRecentCallback: recentCallback || state.holdRecentCallback,
   }
 
   console.log(

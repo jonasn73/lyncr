@@ -49,7 +49,9 @@ vi.mock("@/lib/account-presence", () => ({
 vi.mock("@/lib/hold-queue", () => ({
   HOLD_REPROMPT_DEFAULT: "Still here — thanks for waiting.",
   HOLD_REPROMPT_ALREADY_ANSWERED: "Thanks for those details. Press 1 to book by text, press 2 for a callback.",
-  HOLD_REPROMPT_KNOWN_CUSTOMER: "Our team members are still tied up. Press 1 to book by text, press 2 for a callback.",
+  HOLD_REPROMPT_KNOWN_CUSTOMER: "Our team members are still tied up. Press 1 for a text, press 2 for a callback.",
+  HOLD_REPROMPT_RECENT_CALLBACK:
+    "Welcome back — same thing from a few minutes ago. Press 1 if anything's changed, press 2 for a callback.",
   holdLongWaitAlertMs: (...args: unknown[]) => holdLongWaitAlertMs(...args),
   holdMaxConcurrent: vi.fn(() => 5),
   holdMaxWaitSecs: vi.fn((override?: number) => override ?? 40),
@@ -451,8 +453,8 @@ describe("hold-queue callback request (press 2)", () => {
 describe("hold-queue reuses a recent caller's prior answers instead of re-asking", () => {
   it("skips the intake question on a callback and speaks the already-answered reprompt", async () => {
     getRecentHoldIntakeForCaller.mockResolvedValue({
-      intent_label: "Lost key / needs new key made",
-      vehicle_year_label: "Year 2016",
+      collected: { intent_label: "Lost key / needs new key made", vehicle_year_label: "Year 2016" },
+      minutesAgo: 120,
     })
 
     await handleHoldLoopGatherEnded({
@@ -478,8 +480,8 @@ describe("hold-queue reuses a recent caller's prior answers instead of re-asking
 
   it("carries the reused summary onto state for the SMS/callback lead", async () => {
     getRecentHoldIntakeForCaller.mockResolvedValue({
-      intent_label: "Won't start / stranded",
-      vehicle_year_label: "Year 2018",
+      collected: { intent_label: "Won't start / stranded", vehicle_year_label: "Year 2018" },
+      minutesAgo: 120,
     })
 
     await handleHoldLoopGatherEnded({
@@ -560,7 +562,8 @@ describe("hold-queue skips intake for any known customer, not just recent DTMF a
 
   it("prefers a specific recent-answers match over the generic known-customer copy", async () => {
     getRecentHoldIntakeForCaller.mockResolvedValue({
-      intent_label: "Active leak",
+      collected: { intent_label: "Active leak" },
+      minutesAgo: 120,
     })
 
     await handleHoldLoopGatherEnded({
@@ -592,5 +595,61 @@ describe("hold-queue skips intake for any known customer, not just recent DTMF a
 
     const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
     expect(opts.text).toContain("leak or flooding")
+  })
+})
+
+describe("hold-queue distinguishes a just-now callback from a known-but-unrelated one", () => {
+  it("asks whether anything changed when the prior call was minutes ago", async () => {
+    getRecentHoldIntakeForCaller.mockResolvedValue({
+      collected: { intent_label: "Lost key / needs new key made" },
+      minutesAgo: 8,
+    })
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-just-called",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdSegment: "music" },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    expect(opts.text).toContain("Welcome back")
+    expect(opts.text).toContain("anything's changed")
+    expect(opts.text).not.toContain("Thanks for those details")
+    const decoded = JSON.parse(Buffer.from(opts.clientState, "base64").toString("utf8"))
+    expect(decoded.holdRecentCallback).toBe(true)
+  })
+
+  it("does not use the just-now framing once it's been a couple hours", async () => {
+    getRecentHoldIntakeForCaller.mockResolvedValue({
+      collected: { intent_label: "Lost key / needs new key made" },
+      minutesAgo: 150,
+    })
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-hours-later",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdSegment: "music" },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    expect(opts.text).not.toContain("Welcome back")
+    expect(opts.text).toContain("Thanks for those details")
+  })
+
+  it("never invites an already-known customer to 'book' by text", async () => {
+    getRecentHoldIntakeForCaller.mockResolvedValue(null)
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-no-book-language",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdSegment: "music", isKnownCustomer: true },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    expect(opts.text).not.toContain("book by text")
+    expect(opts.text).toContain("Press 1 for a text")
   })
 })

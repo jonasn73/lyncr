@@ -181,11 +181,24 @@ export const HOLD_REPROMPT_ALREADY_ANSWERED =
  * booking/customer record — a returning customer calling back, not necessarily someone
  * who just answered on hold this session) — skips the intake questions outright rather
  * than re-collecting what's already known, without falsely thanking them for "details"
- * they didn't just give us on THIS call.
+ * they didn't just give us on THIS call. Deliberately says "a text" rather than "book by
+ * text" here — requested directly: someone who's already booked shouldn't be told to
+ * book, which read as the system not knowing who they are.
  */
 export const HOLD_REPROMPT_KNOWN_CUSTOMER =
-  "Our team members are still tied up right now. Press 1 to book by text, " +
+  "Our team members are still tied up right now. Press 1 for a text, " +
   "press 2 if you'd rather we call you back, or stay on the line."
+
+/**
+ * For a caller whose most recent hold-queue call was only minutes ago (see
+ * getRecentHoldIntakeForCaller's minutesAgo) — almost certainly a retry of the exact same
+ * request (dropped call, hung up and redialed), not a new one. Asks directly whether
+ * anything changed instead of silently reusing stale answers or re-asking from scratch.
+ */
+export const HOLD_REPROMPT_RECENT_CALLBACK =
+  "Welcome back — looks like this is about the same thing from just a few minutes ago. " +
+  "If anything's changed, press 1 to send us a quick text. Otherwise press 2 for a callback, " +
+  "or stay on the line and we'll be right with you."
 
 /** Spoken when max wait is reached — offer SMS once, then hang up. */
 export const HOLD_MAX_WAIT_SMS_PROMPT =
