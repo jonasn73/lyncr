@@ -38,7 +38,13 @@ describe("ivr automation settings", () => {
 
   it("maps a legacy stored ElevenLabs persona/voice to NaturalHD (retired provider)", () => {
     expect(resolveIvrCallControlVoice("en-US-ElevenLabs-Rachel")).toBe("Telnyx.NaturalHD.astra")
-    expect(resolveIvrCallControlVoice("en-US-ElevenLabs-Adam")).toBe("Telnyx.NaturalHD.astra")
+    // Regression: the ElevenLabs match used to require a strict "ElevenLabs." prefix, so a
+    // persona-id-shaped legacy value like this one silently missed it and fell through to the
+    // generic catch-all default (astra) instead of naturalHdFallbackVoice's "adam" → male-voice
+    // rule — a male ElevenLabs voice got quietly replaced with a female one. Matching
+    // "ElevenLabs" anywhere in the string fixes that for this shape too, not just the
+    // provider-prefixed one already covered below.
+    expect(resolveIvrCallControlVoice("en-US-ElevenLabs-Adam")).toBe("Telnyx.NaturalHD.albion")
     expect(resolveIvrCallControlVoice("ElevenLabs.eleven_multilingual_v2.adam")).toBe(
       "Telnyx.NaturalHD.albion"
     )

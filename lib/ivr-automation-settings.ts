@@ -133,7 +133,11 @@ export function resolveIvrCallControlVoice(engineModel: string | null | undefine
     const def = IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === defaultIvrVoiceEngineModel())
     return def?.callControlVoice || "Telnyx.NaturalHD.astra"
   }
-  if (/^ElevenLabs\./i.test(raw)) return naturalHdFallbackVoice(raw)
+  // Legacy stored ids came in two shapes — "ElevenLabs.Xyz" (provider-prefixed) and
+  // "en-US-ElevenLabs-Rachel" (persona-id-shaped) — match ElevenLabs anywhere, not just
+  // as a strict prefix, so both actually hit this remap instead of silently falling through
+  // to the generic catch-all default at the bottom of this function.
+  if (/ElevenLabs/i.test(raw)) return naturalHdFallbackVoice(raw)
   // Already a Call Control provider voice — keep as-is (with legacy NaturalHD renames).
   if (
     /^(AWS\.|Azure\.|Telnyx\.|Google\.|Minimax\.|Rime\.|Resemble\.|Inworld\.|FishAudio\.|xAI\.)/i.test(raw)
