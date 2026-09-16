@@ -49,6 +49,8 @@ export async function PUT(req: NextRequest) {
   if (typeof body.sms_route_enabled === "boolean") updates.sms_route_enabled = body.sms_route_enabled
   if (typeof body.sms_review_enabled === "boolean") updates.sms_review_enabled = body.sms_review_enabled
   if (body.sms_booking_template !== undefined) updates.sms_booking_template = clampTemplate(body.sms_booking_template)
+  if (body.sms_booking_asap_template !== undefined)
+    updates.sms_booking_asap_template = clampTemplate(body.sms_booking_asap_template)
   if (body.sms_route_template !== undefined) updates.sms_route_template = clampTemplate(body.sms_route_template)
   if (body.sms_review_template !== undefined) updates.sms_review_template = clampTemplate(body.sms_review_template)
   if (body.google_review_url !== undefined) {

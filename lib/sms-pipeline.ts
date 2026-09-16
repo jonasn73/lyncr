@@ -149,8 +149,15 @@ export async function runSmsPipeline(params: {
     location: ctx.location,
   })
 
+  // ASAP bookings get their own copy when the owner saved one — urgency without
+  // the word ASAP ("you're booked — getting someone to you as quickly as possible")
+  // instead of the timed confirmation whose time phrase would just drop.
+  const asapOverride =
+    params.phase === "booking" && ctx.is_asap ? settings.sms_booking_asap_template?.trim() : ""
   const template =
-    (settings[TEMPLATE_BY_PHASE[params.phase]] as string | null)?.trim() || defaultTemplate(params.phase)
+    asapOverride ||
+    (settings[TEMPLATE_BY_PHASE[params.phase]] as string | null)?.trim() ||
+    defaultTemplate(params.phase)
   const body = renderTemplate(template, vars)
   if (!body) return { ok: false, skipped: true, reason: "empty-body" }
 

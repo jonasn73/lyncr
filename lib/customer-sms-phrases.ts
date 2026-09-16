@@ -53,6 +53,8 @@ export function buildGotItHoldingCustomerSms(params: {
   addressSnippet?: string | null
   /** Owner Follow-up template from SMS templates. Empty uses stock copy. */
   template?: string | null
+  /** ASAP-job variant (urgency without the word ASAP) — used when urgency is asap. */
+  asapTemplate?: string | null
 }): string {
   const who = params.customerFirstName || "there"
   const biz = String(params.businessName || "").trim() || "us"
@@ -60,11 +62,16 @@ export function buildGotItHoldingCustomerSms(params: {
     vehicle: params.vehicle,
     jobLabel: params.jobLabel,
   })
-  const template = stockOrSaved(
-    params.template,
-    DEFAULT_SMS_PHASE_TEMPLATES.booking,
-    LEGACY_SMS_PHASE_TEMPLATES.booking
-  )
+  const isAsap = String(params.urgency || "").toLowerCase() === "asap"
+  const asap = params.asapTemplate?.trim()
+  const template =
+    isAsap && asap
+      ? asap
+      : stockOrSaved(
+          params.template,
+          DEFAULT_SMS_PHASE_TEMPLATES.booking,
+          LEGACY_SMS_PHASE_TEMPLATES.booking
+        )
   const filled = withOptionalVehicleTemplate(template, need)
   return renderSmsTemplate(filled, {
     customer_name: who,

@@ -224,9 +224,19 @@ export async function sendInboundBookingSmsAndTag(opts: {
   tone?: BookingLinkSmsTone
   /** What was captured on hold, if anything — rides the invite as /book pre-fill and softens the SMS copy. */
   intake?: HoldIntakeSmsContext | null
+  /**
+   * Skip the call_logs ivr_action_completed claim. The abandoned-hold rescue MUST
+   * set this: the hangup handler already marks ivr_action_completed=true for every
+   * mid-hold hangup (to suppress the legacy status-callback rescue), so the claim
+   * here can never win for exactly the callers this rescue targets — it would always
+   * return not_attempted and no booking text would ever send. The rescue's own
+   * idempotency is the call_queue.no_response_followup_at marker (claimed atomically
+   * by the sweep before this call), and the SMS 45-min cooldown backstops any race.
+   */
+  bypassIvrClaim?: boolean
 }): Promise<{ outcome: InboundBookingSmsOutcome; error?: string }> {
   // First hangup wins. Second overlapping event does not send another book link.
-  if (opts.callSid) {
+  if (opts.callSid && !opts.bypassIvrClaim) {
     const won = await claimIvrAction(opts.callSid)
     if (!won) return { outcome: "not_attempted" }
   }

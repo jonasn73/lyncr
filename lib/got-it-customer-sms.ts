@@ -56,6 +56,7 @@ export async function sendGotItHoldingCustomerSms(params: {
     availabilityLabel: params.availabilityLabel,
     addressSnippet: params.addressSnippet,
     template: settings?.sms_booking_template,
+    asapTemplate: settings?.sms_booking_asap_template,
   })
 
   // Always From the business line, never a control DID.

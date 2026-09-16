@@ -27,6 +27,7 @@ type SmsSettings = {
   sms_route_enabled: boolean
   sms_review_enabled: boolean
   sms_booking_template: string
+  sms_booking_asap_template: string
   sms_route_template: string
   sms_review_template: string
   google_review_url: string
@@ -35,7 +36,11 @@ type SmsSettings = {
 }
 
 /** Which message box the tag chips insert into. */
-type TemplateFieldKey = "sms_booking_template" | "sms_route_template" | "sms_review_template"
+type TemplateFieldKey =
+  | "sms_booking_template"
+  | "sms_booking_asap_template"
+  | "sms_route_template"
+  | "sms_review_template"
 
 /** One screen at a time — avoids a long scroll through every template. */
 type SmsTabId = "booking" | "route" | "review" | "status" | "quick"
@@ -58,6 +63,7 @@ const EMPTY: SmsSettings = {
   sms_route_enabled: false,
   sms_review_enabled: false,
   sms_booking_template: DEFAULT_TEMPLATES.booking,
+  sms_booking_asap_template: "",
   sms_route_template: DEFAULT_TEMPLATES.route,
   sms_review_template: DEFAULT_TEMPLATES.review,
   google_review_url: "",
@@ -102,6 +108,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
     null
   )
   const bookingRef = useRef<HTMLTextAreaElement | null>(null)
+  const asapBookingRef = useRef<HTMLTextAreaElement | null>(null)
   const routeRef = useRef<HTMLTextAreaElement | null>(null)
   const reviewRef = useRef<HTMLTextAreaElement | null>(null)
   const statusRefs = useRef<Partial<Record<keyof OwnerSmsStatusTemplates, HTMLTextAreaElement | null>>>({})
@@ -124,6 +131,8 @@ export function SmsAutomationForm({ onSaved }: Props) {
             DEFAULT_TEMPLATES.booking,
             LEGACY_SMS_PHASE_TEMPLATES.booking
           ),
+          sms_booking_asap_template:
+            typeof s.sms_booking_asap_template === "string" ? s.sms_booking_asap_template : "",
           sms_route_template: withDefaultTemplate(
             s.sms_route_template,
             DEFAULT_TEMPLATES.route,
@@ -175,6 +184,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
 
   function refFor(key: TemplateFieldKey) {
     if (key === "sms_booking_template") return bookingRef
+    if (key === "sms_booking_asap_template") return asapBookingRef
     if (key === "sms_route_template") return routeRef
     return reviewRef
   }
@@ -323,7 +333,9 @@ export function SmsAutomationForm({ onSaved }: Props) {
     ? SMS_STATUS_TEMPLATE_META.find((m) => m.key === activeStatusKey)?.title || "Status update"
     : activeField === "sms_booking_template"
       ? "Follow-up"
-      : activeField === "sms_route_template"
+      : activeField === "sms_booking_asap_template"
+        ? "Urgent booking"
+        : activeField === "sms_route_template"
         ? "On the way"
         : "Thanks + review"
 
@@ -452,6 +464,27 @@ export function SmsAutomationForm({ onSaved }: Props) {
             onActivate={() => {
               setActiveStatusKey(null)
               setActiveField("sms_booking_template")
+            }}
+            onCaret={rememberCaret}
+          />
+        ) : null}
+
+        {tab === "booking" ? (
+          <PhaseBlock
+            title="Urgent booking (right-away jobs)"
+            description="Replaces the text above when the customer needs you right away — urgency without saying ASAP. Leave empty to always use the text above."
+            hideAuto
+            autoLabel=""
+            enabled={false}
+            onToggle={() => {}}
+            value={settings.sms_booking_asap_template}
+            onChange={(v) => patch("sms_booking_asap_template", v)}
+            disabled={saving}
+            active={activeStatusKey == null && activeField === "sms_booking_asap_template"}
+            textareaRef={asapBookingRef}
+            onActivate={() => {
+              setActiveStatusKey(null)
+              setActiveField("sms_booking_asap_template")
             }}
             onCaret={rememberCaret}
           />

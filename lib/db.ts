@@ -13384,6 +13384,10 @@ export async function getLeadDispatchContext(leadId: string): Promise<LeadDispat
       ]) || (row.caller_e164 != null ? String(row.caller_e164) : null),
     location: pick(["location", "service_address", "address", "job_address", "address_line1"]),
     time_slot: pick(["time_slot", "appointment_time", "slot", "appointment", "scheduled_time", "when"]),
+    is_asap:
+      collected.is_asap === true ||
+      String(collected.urgency ?? "").toLowerCase() === "asap" ||
+      /asap|emergency/i.test(pick(["time_slot", "appointment_time", "slot", "when"]) ?? ""),
     summary: row.summary != null ? String(row.summary) : null,
     assigned_tech_id: row.assigned_tech_id != null ? String(row.assigned_tech_id) : null,
     job_status: row.job_status != null ? String(row.job_status) : null,
@@ -13447,6 +13451,7 @@ function defaultOwnerSmsSettings(): OwnerSmsSettings {
     sms_booking_enabled: false,
     sms_route_enabled: false,
     sms_review_enabled: false,
+    sms_booking_asap_template: null,
     sms_booking_template: null,
     sms_route_template: null,
     sms_review_template: null,
@@ -13462,7 +13467,7 @@ export async function getOwnerSmsSettings(userId: string): Promise<OwnerSmsSetti
   try {
     const rows = await sql`
       SELECT sms_booking_enabled, sms_route_enabled, sms_review_enabled,
-             sms_booking_template, sms_route_template, sms_review_template, google_review_url,
+             sms_booking_template, sms_booking_asap_template, sms_route_template, sms_review_template, google_review_url,
              sms_custom_snippets, sms_status_templates
       FROM onboarding_profiles WHERE user_id = ${userId} LIMIT 1
     `
@@ -13477,6 +13482,11 @@ export async function getOwnerSmsSettings(userId: string): Promise<OwnerSmsSetti
         DEFAULT_SMS_PHASE_TEMPLATES.booking,
         LEGACY_SMS_PHASE_TEMPLATES.booking
       ),
+      // Empty means "no ASAP-specific copy" — callers fall back to the booking template.
+      sms_booking_asap_template:
+        row.sms_booking_asap_template != null && String(row.sms_booking_asap_template).trim()
+          ? String(row.sms_booking_asap_template).trim()
+          : null,
       sms_route_template: stockOrSaved(
         row.sms_route_template != null ? String(row.sms_route_template) : "",
         DEFAULT_SMS_PHASE_TEMPLATES.route,
@@ -13496,7 +13506,8 @@ export async function getOwnerSmsSettings(userId: string): Promise<OwnerSmsSetti
     if (
       pgErrorCode(e) === "42703" &&
       (pgErrorMessage(e).includes("sms_custom_snippets") ||
-        pgErrorMessage(e).includes("sms_status_templates"))
+        pgErrorMessage(e).includes("sms_status_templates") ||
+        pgErrorMessage(e).includes("sms_booking_asap_template"))
     ) {
       try {
         const rows = await sql`
@@ -13510,6 +13521,7 @@ export async function getOwnerSmsSettings(userId: string): Promise<OwnerSmsSetti
           sms_booking_enabled: row.sms_booking_enabled === true,
           sms_route_enabled: row.sms_route_enabled === true,
           sms_review_enabled: row.sms_review_enabled === true,
+          sms_booking_asap_template: null,
           sms_booking_template: stockOrSaved(
             row.sms_booking_template != null ? String(row.sms_booking_template) : "",
             DEFAULT_SMS_PHASE_TEMPLATES.booking,
@@ -13561,6 +13573,10 @@ export async function updateOwnerSmsSettings(
     sms_review_enabled: updates.sms_review_enabled ?? cur.sms_review_enabled,
     sms_booking_template:
       updates.sms_booking_template !== undefined ? updates.sms_booking_template : cur.sms_booking_template,
+    sms_booking_asap_template:
+      updates.sms_booking_asap_template !== undefined
+        ? updates.sms_booking_asap_template
+        : cur.sms_booking_asap_template,
     sms_route_template:
       updates.sms_route_template !== undefined ? updates.sms_route_template : cur.sms_route_template,
     sms_review_template:
@@ -13582,6 +13598,7 @@ export async function updateOwnerSmsSettings(
         sms_route_enabled = ${next.sms_route_enabled},
         sms_review_enabled = ${next.sms_review_enabled},
         sms_booking_template = ${next.sms_booking_template},
+        sms_booking_asap_template = ${next.sms_booking_asap_template},
         sms_route_template = ${next.sms_route_template},
         sms_review_template = ${next.sms_review_template},
         google_review_url = ${next.google_review_url},

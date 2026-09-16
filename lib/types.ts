@@ -422,6 +422,8 @@ export interface OwnerSmsSettings {
   sms_route_enabled: boolean
   sms_review_enabled: boolean
   sms_booking_template: string | null
+  /** ASAP-job booking confirm — urgency without the word ASAP; empty falls back to sms_booking_template (scripts/180). */
+  sms_booking_asap_template: string | null
   sms_route_template: string | null
   sms_review_template: string | null
   google_review_url: string | null
@@ -441,6 +443,8 @@ export interface LeadDispatchContext {
   customer_phone: string | null
   location: string | null
   time_slot: string | null
+  /** True when the job was requested ASAP/emergency — drives the ASAP booking copy. */
+  is_asap: boolean
   summary: string | null
   assigned_tech_id: string | null
   job_status: string | null

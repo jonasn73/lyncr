@@ -50,3 +50,45 @@ describe("template time_slot handling", () => {
     ).toBe("Hi Jade, your appointment with Key Squad 502 is booked. Reply here if anything changes.")
   })
 })
+
+// ASAP booking copy — urgency without the word ASAP (owner-picked "you're booked" framing).
+import { buildGotItHoldingCustomerSms } from "@/lib/customer-sms-phrases"
+
+describe("ASAP booking template selection", () => {
+  const asapTemplate =
+    "Hi {{customer_name}}, you're booked — {{business_name}} is getting someone to you as quickly as possible. Reply here if anything changes."
+
+  it("uses the ASAP variant for asap jobs when one is saved", () => {
+    const text = buildGotItHoldingCustomerSms({
+      customerFirstName: "Jade",
+      businessName: "Key Squad 502",
+      urgency: "asap",
+      template: "Hi {{customer_name}}, your appointment with {{business_name}} is booked for {{time_slot}}. Reply here if anything changes.",
+      asapTemplate,
+    })
+    expect(text).toBe(
+      "Hi Jade, you're booked — Key Squad 502 is getting someone to you as quickly as possible. Reply here if anything changes."
+    )
+    expect(text).not.toMatch(/asap/i)
+  })
+
+  it("keeps the regular template for window jobs and when no ASAP copy is saved", () => {
+    const windowText = buildGotItHoldingCustomerSms({
+      customerFirstName: "Jade",
+      businessName: "Key Squad 502",
+      urgency: "window",
+      template: "Hi {{customer_name}}, your appointment with {{business_name}} is booked. Reply here if anything changes.",
+      asapTemplate,
+    })
+    expect(windowText).toContain("your appointment with Key Squad 502 is booked")
+
+    const noAsapSaved = buildGotItHoldingCustomerSms({
+      customerFirstName: "Jade",
+      businessName: "Key Squad 502",
+      urgency: "asap",
+      template: "Hi {{customer_name}}, your appointment with {{business_name}} is booked. Reply here if anything changes.",
+      asapTemplate: null,
+    })
+    expect(noAsapSaved).toContain("your appointment with Key Squad 502 is booked")
+  })
+})

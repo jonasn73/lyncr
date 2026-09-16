@@ -135,6 +135,41 @@ export async function runAbandonedHoldRescueSweep(
       `.catch((e) => console.warn(lyncrLog("abandon-rescue-mark-failed", { error: String(e) })))
     }
 
+    // Atomically claim the follow-up before sending. This is now the sole cross-instance
+    // idempotency guard for the abandoned-hold text: the shared claimIvrAction key is
+    // pre-set by the mid-hold hangup handler, so the sender bypasses it (see
+    // sendInboundBookingSmsAndTag.bypassIvrClaim). Winning this UPDATE (RETURNING a row)
+    // means this pass owns the send; a concurrent pass gets 0 rows and stands down.
+    const claimForSend = async (): Promise<boolean> => {
+      try {
+        const rows = (await sql`
+          UPDATE call_queue
+          SET no_response_followup_at = now()
+          WHERE user_id = ${candidate.user_id}::uuid
+            AND status = 'left'
+            AND no_response_followup_at IS NULL
+            AND RIGHT(regexp_replace(COALESCE(caller_e164, ''), '[^0-9]', '', 'g'), 10) = ${callerDigits}
+          RETURNING id
+        `) as { id: string }[]
+        return rows.length > 0
+      } catch (e) {
+        console.warn(lyncrLog("abandon-rescue-claim-failed", { error: String(e) }))
+        return false
+      }
+    }
+
+    // Undo the claim so a transient send failure retries on a later pass (mirrors the
+    // pre-claim behavior where a failed send left no_response_followup_at NULL).
+    const releaseClaim = async () => {
+      await sql`
+        UPDATE call_queue
+        SET no_response_followup_at = NULL
+        WHERE user_id = ${candidate.user_id}::uuid
+          AND status = 'left'
+          AND RIGHT(regexp_replace(COALESCE(caller_e164, ''), '[^0-9]', '', 'g'), 10) = ${callerDigits}
+      `.catch((e) => console.warn(lyncrLog("abandon-rescue-release-failed", { error: String(e) })))
+    }
+
     try {
       let enabled = textbackEnabled.get(candidate.user_id)
       if (enabled === undefined) {
@@ -178,6 +213,13 @@ export async function runAbandonedHoldRescueSweep(
         continue
       }
 
+      // Claim before sending — the sender no longer self-guards via claimIvrAction
+      // for this path, so this is what prevents an overlapping pass double-texting.
+      if (!(await claimForSend())) {
+        result.skippedMovedOn += 1
+        continue
+      }
+
       const { shopLabel } = await resolveShopLabel({
         userId: candidate.user_id,
         businessLineE164: candidate.business_line_e164,
@@ -198,6 +240,9 @@ export async function runAbandonedHoldRescueSweep(
         callType: "missed",
         businessLabel: shopLabel,
         tone: "missed_call",
+        // The hangup handler already set ivr_action_completed for this call, so the
+        // shared claim would always lose here — our call_queue claim above is the guard.
+        bypassIvrClaim: true,
         intake: {
           summary,
           prefill: bookingIntakePrefillFromCollected(collected),
@@ -207,6 +252,7 @@ export async function runAbandonedHoldRescueSweep(
       if (outcome === "failed") {
         // Transient failures retry on the next pass until the window ages out;
         // permanent ones (e.g. undeliverable destination) just stop mattering then.
+        await releaseClaim()
         result.failed += 1
         console.warn(
           lyncrLog("abandon-rescue-send-failed", { userId: candidate.user_id, error: error || null })
@@ -214,7 +260,6 @@ export async function runAbandonedHoldRescueSweep(
         continue
       }
 
-      await markDecided()
       if (outcome === "sent") {
         result.sent += 1
         console.log(

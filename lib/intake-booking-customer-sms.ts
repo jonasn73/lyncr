@@ -80,6 +80,7 @@ export function buildIntakeBookingCustomerSmsText(params: {
   serviceAddress?: string | null
   jobType?: string | null
   template?: string | null
+  asapTemplate?: string | null
 }): string {
   const first = params.customerName.split(/\s+/)[0]?.trim() || "there"
   const business = params.businessName.trim() || SITE_NAME
@@ -87,7 +88,9 @@ export function buildIntakeBookingCustomerSmsText(params: {
   return buildGotItHoldingCustomerSms({
     customerFirstName: first,
     businessName: business,
+    urgency: params.isAsap ? "asap" : null,
     template: params.template,
+    asapTemplate: params.asapTemplate,
   })
 }
 
@@ -126,6 +129,7 @@ export async function sendIntakeBookingCustomerSms(params: {
     serviceAddress: params.serviceAddress,
     jobType: params.jobType,
     template: settings?.sms_booking_template,
+    asapTemplate: settings?.sms_booking_asap_template,
   })
 
   const orgId =
