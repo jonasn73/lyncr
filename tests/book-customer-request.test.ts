@@ -8,6 +8,7 @@ import {
   buildBookDayOptions,
   formatBookAvailabilityLabel,
   formatBookTimeLabel,
+  isGenericHoldIntentSlug,
   isValidBookTimeRange,
   jobTypeFromBookFormKind,
 } from "@/lib/book-customer-request"
@@ -127,5 +128,27 @@ describe("hold-intake booking prefill", () => {
     expect(
       bookFormSeedFromIntakePrefill({ intent_slug: "locksmith_other", vehicle_year: "2015" })
     ).toEqual({ jobKind: "", jobOther: "", vehicleYear: "2015", vehicleMake: "", vehicleModel: "" })
+  })
+
+  // Same "Something else" bug reproduced live for a plumbing caller — the check
+  // must cover every industry's "_other" bucket, not just locksmith's.
+  it("leaves the chip unpicked for any generic '_other' catch-all, not just locksmith", () => {
+    expect(
+      bookFormSeedFromIntakePrefill({ intent_slug: "plumbing_other", intent_label: "Something else" })
+    ).toBeNull()
+  })
+})
+
+describe("isGenericHoldIntentSlug", () => {
+  it("matches any industry's generic catch-all bucket", () => {
+    expect(isGenericHoldIntentSlug("locksmith_other")).toBe(true)
+    expect(isGenericHoldIntentSlug("plumbing_other")).toBe(true)
+  })
+
+  it("never matches a specific, real answer", () => {
+    expect(isGenericHoldIntentSlug("locksmith_key_generation")).toBe(false)
+    expect(isGenericHoldIntentSlug("roofing_emergency")).toBe(false)
+    expect(isGenericHoldIntentSlug(null)).toBe(false)
+    expect(isGenericHoldIntentSlug("")).toBe(false)
   })
 })

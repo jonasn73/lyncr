@@ -105,10 +105,23 @@ export function bookingIntakePrefillFromCollected(
 }
 
 /**
+ * Generic "nothing specific" catch-all picks (locksmith_other, plumbing_other, …)
+ * carry no more signal than not answering at all — by naming convention these
+ * intent slugs end in "_other". Never treat one as a real captured answer, whether
+ * for booking-form pre-fill or SMS "we saved your details" framing. Confirmed live:
+ * a caller who only picked "Something else" then hung up was told her details were
+ * saved when nothing specific had been given at all.
+ */
+export function isGenericHoldIntentSlug(slug: string | null | undefined): boolean {
+  return /_other$/i.test(String(slug || "").trim())
+}
+
+/**
  * Seed the /book form's Details step from an invite prefill. Locksmith hold-intake
- * slugs map onto the job chips directly; any other industry's answer lands on the
- * "Other" chip with its human label, so nothing captured on the call is re-asked.
- * "locksmith_other" ("Something else") carries no real signal — leave the chip unpicked.
+ * slugs map onto the job chips directly; any other industry's specific answer lands
+ * on the "Other" chip with its human label, so nothing captured on the call is
+ * re-asked. A generic "_other" catch-all (see isGenericHoldIntentSlug) carries no
+ * real signal — leave the chip unpicked.
  */
 export function bookFormSeedFromIntakePrefill(
   prefill: BookingIntakePrefill | null | undefined
@@ -132,7 +145,7 @@ export function bookFormSeedFromIntakePrefill(
     jobKind = "lockout"
   } else if (slug === "locksmith_key_generation") {
     jobKind = "akl"
-  } else if (slug && slug !== "locksmith_other" && label) {
+  } else if (slug && !isGenericHoldIntentSlug(slug) && label) {
     jobKind = "other"
     jobOther = label
   }

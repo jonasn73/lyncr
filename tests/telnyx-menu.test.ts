@@ -166,6 +166,35 @@ describe("telnyx menu IVR helpers", () => {
     expect(sms).toBe("Key Squad — when you need us:\nhttps://lyncr.app/b/XYZ23456")
   })
 
+  // Reproduced live: a caller who only picked "Something else" (locksmith_other)
+  // then hung up got told her details were saved, when nothing specific was ever
+  // captured. A vague catch-all pick must never trigger the "we saved your
+  // details" framing — same as if she'd given no intake at all.
+  it("never claims details were saved for a generic 'something else' pick", () => {
+    const sms = buildTelnyxMenuBookingSms(
+      "+15025550100",
+      "https://lyncr.app/b/XYZ23456",
+      null,
+      "missed_call",
+      "Key Squad",
+      { summary: "Something else", prefill: { intent_slug: "locksmith_other", intent_label: "Something else" } }
+    )
+    expect(sms).not.toContain("we saved your details")
+    expect(sms).toContain("Sorry we missed your call")
+  })
+
+  it("still claims saved details once the catch-all pick also carries a real vehicle year", () => {
+    const sms = buildTelnyxMenuBookingSms(
+      "+15025550100",
+      "https://lyncr.app/b/XYZ23456",
+      null,
+      "missed_call",
+      "Key Squad",
+      { summary: "Something else — Year 2015", prefill: { intent_slug: "locksmith_other", vehicle_year: "2015" } }
+    )
+    expect(sms).toContain("we saved your details")
+  })
+
   it("builds Digits=1 / Digits=2 Say+Hangup TeXML with neural Polly voice", () => {
     const xml1 = buildTelnyxMenuSayHangupXml(TELNYX_MENU_DIGIT1_SAY)
     expect(xml1).toContain('voice="Polly.Joanna-Neural"')

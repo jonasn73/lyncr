@@ -5,7 +5,7 @@
 import { defaultIntakeScheduleDate, suggestNextOpenTime, combineDateAndTime } from "@/lib/intake-schedule-helpers"
 import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
 import { cleanTextForTTS, getTexmlSayVoiceAttributes } from "@/lib/texml-say-voice"
-import type { BookingIntakePrefill } from "@/lib/book-customer-request"
+import { isGenericHoldIntentSlug, type BookingIntakePrefill } from "@/lib/book-customer-request"
 
 /** Default TeXML voice — neural Polly (not robotic `alice`). Evaluated per call so env overrides apply. */
 function defaultMenuSayVoice(): string {
@@ -113,12 +113,23 @@ export type HoldIntakeSmsContext = {
   prefill?: BookingIntakePrefill | null
 }
 
-/** True when the caller actually gave us something on the call. */
+/**
+ * True when the caller actually gave us something SPECIFIC on the call. A vague
+ * "something else" catch-all pick (locksmith_other / plumbing_other) is the same
+ * as no answer at all — confirmed live: a caller who only picked that option before
+ * hanging up was told "we saved your details" with nothing actually saved.
+ */
 function hasCapturedIntake(intake?: HoldIntakeSmsContext | null): boolean {
   if (!intake) return false
-  if (intake.summary?.trim()) return true
   const p = intake.prefill
-  return Boolean(p && (p.intent_slug || p.intent_label || p.vehicle_year))
+  const hasSpecificIntent = Boolean(p?.intent_slug && !isGenericHoldIntentSlug(p.intent_slug))
+  const hasVehicleDetail = Boolean(p?.vehicle_year || p?.vehicle_make || p?.vehicle_model)
+  if (hasSpecificIntent || hasVehicleDetail) return true
+  // Fallback for the rare case prefill wasn't available (e.g. a DB read failed) but
+  // a real summary was already built from in-call state — still never trust the
+  // generic bucket's own label as if it were a real summary.
+  const summary = intake.summary?.trim().toLowerCase()
+  return Boolean(summary && summary !== "something else")
 }
 
 /**
