@@ -740,7 +740,13 @@ function IntakeAutoSaveStatus({
           ? { scale: [1, 1.08, 1], color: "rgb(52 211 153 / 0.95)" }
           : { scale: 1, color: "rgb(161 161 170 / 0.9)" }
       }
-      transition={{ type: "spring", stiffness: 420, damping: 24 }}
+      // Springs reject 3-keyframe pulses in motion v12 — the throw lands inside the
+      // shared frame batch and stalls every other queued animation (step transitions).
+      transition={
+        draftPulse
+          ? { duration: 0.4, ease: "easeOut" }
+          : { type: "spring", stiffness: 420, damping: 24 }
+      }
     >
       {saveState === "saving" ? "Saving…" : null}
       {saveState === "saved" ? "Saved." : null}
@@ -755,7 +761,12 @@ function IntakeAutoSaveStatus({
                 ? { scale: [1, 1.5, 1], opacity: [0.45, 1, 0.65], boxShadow: "0 0 8px rgba(52,211,153,0.9)" }
                 : { scale: 1, opacity: 0.45, boxShadow: "0 0 0px rgba(52,211,153,0)" }
             }
-            transition={{ type: "spring", stiffness: 500, damping: 20 }}
+            // Same spring/keyframes clash as the label above — tween while pulsing.
+            transition={
+              draftPulse
+                ? { duration: 0.4, ease: "easeOut" }
+                : { type: "spring", stiffness: 500, damping: 20 }
+            }
             aria-hidden
           />
           Auto-save on.
@@ -4246,8 +4257,11 @@ export function CallAnsweredModal({ enabled, ownerUserId, receptionistId }: Call
                           ref={manualStepScrollRef}
                           className={cn(
                             // Vehicle: flex-fill shell — year grid owns scroll, not the whole page.
+                            // No bottom padding: the footer is a normal-flow flex sibling
+                            // (sticky inside overflow-hidden never overlays), so reserved
+                            // space here just squished the year grid on phone heights.
                             currentStep === "VEHICLE_INFO"
-                              ? "relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden pb-28"
+                              ? "relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden"
                               : cn(
                                   MANUAL_STEP_SCROLL,
                                   "relative z-10",

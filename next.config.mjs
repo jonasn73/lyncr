@@ -2,6 +2,10 @@ import { withSentryConfig } from "@sentry/nextjs"
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Dev-only: browser automation reaches the dev server as 127.0.0.1 (Chrome
+  // extension DNS breaks on `localhost`), and Next blocks cross-origin dev
+  // resources by default — without this the page serves but never hydrates.
+  allowedDevOrigins: ["127.0.0.1"],
   typescript: {
     // Type errors fail the build. tsc is clean and there is a guard now: an
     // error in a test file reached production while this was true, because the
