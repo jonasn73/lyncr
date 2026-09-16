@@ -155,27 +155,27 @@ function formatBookingLinkSmsBody(
       // what they started, not as an apology for a call that never happened.
       const shop = normalizeBookingSmsShopLabel(businessLabel)
       return withBookingLinkOnOwnLine(
-        `${shop} — thanks, we saved your details. We just need a little more to get you booked — finish up here:`,
+        `${shop} — thanks, we saved your details. Tap the link to finish booking:`,
         link
       )
     }
-    return withBookingLinkOnOwnLine("Sorry we missed your call — when you need us:", link)
+    return withBookingLinkOnOwnLine("Sorry we missed your call — tap the link below to book:", link)
   }
   const shop = normalizeBookingSmsShopLabel(businessLabel)
   const saved = hasCapturedIntake(intake)
   if (tone === "hold_timeout") {
     return withBookingLinkOnOwnLine(
       saved
-        ? `${shop} — sorry for the wait. We saved your details, so booking only takes a few seconds:`
-        : `${shop} — sorry for the wait. Tell us when you need us:`,
+        ? `${shop} — sorry for the wait. We saved your details — tap the link to finish booking:`
+        : `${shop} — sorry for the wait. Tap the link below to book:`,
       link
     )
   }
   // Press-1 / hold / IVR — they send availability (ASAP or a window), not our slots.
   return withBookingLinkOnOwnLine(
     saved
-      ? `${shop} — we saved your details, so booking only takes a few seconds:`
-      : `${shop} — when you need us:`,
+      ? `${shop} — we saved your details. Tap the link to finish booking:`
+      : `${shop} — tap the link below to book:`,
     link
   )
 }

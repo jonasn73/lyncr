@@ -53,7 +53,7 @@ describe("telnyx menu IVR helpers", () => {
   it("builds Digits=1 SMS with the From phone in the booking link", () => {
     const sms = buildTelnyxMenuBookingSms("+15025550100")
     expect(sms).toContain("https://lyncr.app/book?phone=%2B15025550100")
-    expect(sms).toContain("Key Squad — when you need us:")
+    expect(sms).toContain("Key Squad — tap the link below to book:")
     expect(sms).not.toContain("pick a time")
     expect(sms).not.toContain("missed your call")
   })
@@ -65,7 +65,7 @@ describe("telnyx menu IVR helpers", () => {
     )
     expect(sms).toContain("https://lyncr.app/book/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
     expect(sms).not.toContain("phone=")
-    expect(sms).toContain("Key Squad — when you need us:")
+    expect(sms).toContain("Key Squad — tap the link below to book:")
   })
 
   it("names the shop in booking SMS when a label is passed", () => {
@@ -76,7 +76,7 @@ describe("telnyx menu IVR helpers", () => {
       "booking_link",
       "Key Squad 5O2"
     )
-    expect(sms).toContain("Key Squad 502 — when you need us:")
+    expect(sms).toContain("Key Squad 502 — tap the link below to book:")
   })
 
   it("uses warm recovery copy for missed-call booking SMS", () => {
@@ -87,7 +87,7 @@ describe("telnyx menu IVR helpers", () => {
       "missed_call"
     )
     expect(sms).toContain("Sorry we missed your call")
-    expect(sms).toContain("when you need us:")
+    expect(sms).toContain("tap the link below to book:")
     expect(sms).toContain("https://lyncr.app/book/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
     expect(sms).not.toContain("pick a time")
     expect(sms).not.toContain("Here's your booking link:")
@@ -103,7 +103,7 @@ describe("telnyx menu IVR helpers", () => {
       "Key Squad"
     )
     expect(sms).toContain("sorry for the wait")
-    expect(sms).toContain("when you need us:")
+    expect(sms).toContain("Tap the link below to book:")
     expect(sms).toContain("https://lyncr.app/b/AB12CD34")
     expect(sms).not.toContain("Sorry we missed")
   })
@@ -116,7 +116,7 @@ describe("telnyx menu IVR helpers", () => {
       "booking_link",
       "Key Squad"
     )
-    expect(sms).toBe("Key Squad — when you need us:\nhttps://lyncr.app/b/XYZ23456")
+    expect(sms).toBe("Key Squad — tap the link below to book:\nhttps://lyncr.app/b/XYZ23456")
   })
 
   it("never dumps the captured intake into the SMS body — details ride the invite pre-fill", () => {
@@ -163,7 +163,7 @@ describe("telnyx menu IVR helpers", () => {
       "booking_link",
       "Key Squad"
     )
-    expect(sms).toBe("Key Squad — when you need us:\nhttps://lyncr.app/b/XYZ23456")
+    expect(sms).toBe("Key Squad — tap the link below to book:\nhttps://lyncr.app/b/XYZ23456")
   })
 
   // Reproduced live: a caller who only picked "Something else" (locksmith_other)

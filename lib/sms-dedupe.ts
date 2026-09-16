@@ -27,8 +27,9 @@ export function smsBodiesLookDuplicate(a: string, b: string): boolean {
   if (x.includes("is booked") && y.includes("is booked")) return true
   // Same leftover / we-got-it cover.
   if (x.includes("we got your request") && y.includes("we got your request")) return true
-  // Same missed-call / press-1 book link.
-  if (x.includes("when you need us") && y.includes("when you need us")) return true
+  // Same missed-call / press-1 / hold-timeout book link — every variant of that
+  // family says "tap the link" somewhere (see lib/telnyx-menu.ts).
+  if (x.includes("tap the link") && y.includes("tap the link")) return true
   // Same return-call “couldn't reach you” follow-up.
   if (x.includes("we tried calling") && y.includes("we tried calling")) return true
   // Different kinds of texts (book link vs booked note) are not duplicates.

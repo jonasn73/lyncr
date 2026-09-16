@@ -14,7 +14,7 @@ describe("smsBodiesLookDuplicate", () => {
   it("does not treat a book link and a booked note as the same", () => {
     expect(
       smsBodiesLookDuplicate(
-        "Key Squad — sorry for the wait. Tell us when you need us: https://lyncr.app/b/XV4Q573D",
+        "Key Squad — sorry for the wait. Tap the link below to book: https://lyncr.app/b/XV4Q573D",
         "Hi Jade, your appointment with Key Squad 502 is booked. Reply here if anything changes."
       )
     ).toBe(false)
@@ -32,8 +32,8 @@ describe("smsBodiesLookDuplicate", () => {
   it("treats two missed-call book links as the same", () => {
     expect(
       smsBodiesLookDuplicate(
-        "Sorry we missed your call — when you need us: https://lyncr.app/b/AAA",
-        "Sorry we missed your call — when you need us: https://lyncr.app/b/BBB"
+        "Sorry we missed your call — tap the link below to book: https://lyncr.app/b/AAA",
+        "Sorry we missed your call — tap the link below to book: https://lyncr.app/b/BBB"
       )
     ).toBe(true)
   })
