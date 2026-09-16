@@ -181,14 +181,12 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
   useEffect(() => {
     // Warm Activity call rows while the owner is still on Lines (or any tab).
     prefetchOperationsData()
-    // Warm every deferred chunk ASAP so the first tab click is not a blank wait.
-    void import("@/components/workspace-views/map-workspace-view")
-    void import("@/components/workspace-views/activity-workspace-view")
-    void import("@/components/workspace-views/crm-workspace-view")
-    void import("@/components/workspace-views/scheduler-workspace-view")
-    void import("@/components/workspace-views/messages-workspace-view")
-    void import("@/components/workspace-views/pay-workspace-view")
-    void import("@/components/workspace-views/settings-workspace-view")
+    // Warm every deferred chunk once idle so the first tab click is not a blank
+    // wait — was ALSO firing these same 7 imports unconditionally right here,
+    // every page load, competing with the current page's own critical-path JS
+    // for bandwidth (measured ~900KB/52 chunks landing all at once on Scheduler).
+    // The module cache dedupes the idle-scheduled call below, so that eager copy
+    // bought nothing — it just forced "idle" prefetch to actually run immediately.
     const warmChunks = () => {
       void import("@/components/workspace-views/crm-workspace-view")
       void import("@/components/workspace-views/messages-workspace-view")
