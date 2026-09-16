@@ -9,6 +9,7 @@ import {
 import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import { getActivePhoneNumberByE164, updateCallLog } from "@/lib/db"
+import { isTollFreeE164 } from "@/lib/phone-e164"
 import { callerGreetingPrefix } from "@/lib/hold-queue"
 import type { CallType } from "@/lib/types"
 import {
@@ -66,6 +67,13 @@ async function sendInboundBookingSms(opts: {
   intake?: HoldIntakeSmsContext | null
 }): Promise<{ ok: boolean; error?: string; skipped?: boolean }> {
   if (!opts.fromE164) return { ok: false, error: "missing from" }
+
+  // Toll-free callers (800/833/…) can never receive SMS — a send is a guaranteed
+  // carrier failure, and they're robocalls, not customers. Bail before spending
+  // an invite / SMS attempt on them.
+  if (isTollFreeE164(opts.fromE164)) {
+    return { ok: false, error: "toll-free caller — SMS undeliverable" }
+  }
 
   const tone = opts.tone ?? "booking_link"
 

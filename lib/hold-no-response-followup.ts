@@ -177,7 +177,7 @@ async function loadOwnerContext(userId: string): Promise<OwnerContext> {
 }
 
 /** True when the owner (or the customer themselves) already moved this along. */
-async function conversationMovedOn(params: {
+export async function conversationMovedOn(params: {
   userId: string
   callerDigits: string
   leftAtIso: string
@@ -223,7 +223,7 @@ async function conversationMovedOn(params: {
 }
 
 /** Org name for the line (multi-shop), else the owner's business name. */
-async function resolveShopLabel(params: {
+export async function resolveShopLabel(params: {
   userId: string
   businessLineE164: string | null
 }): Promise<{ shopLabel: string | null; organizationId: string | null }> {

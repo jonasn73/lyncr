@@ -4232,13 +4232,17 @@ export function CallAnsweredModal({ enabled, ownerUserId, receptionistId }: Call
             ) : null}
 
             {!showReturningCallerCard ? (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            // Scrollable (not hidden): on keyboard-shrunk / short viewports the step
+            // content was flex-crushed to zero while the shrink-0 footer kept its full
+            // height — the name field vanished. Scrolling lets the footer's sticky
+            // bottom-0 actually stick while the min-h floor below keeps fields visible.
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain">
               <div
                 className={cn(
                   "flex min-h-0 flex-1 flex-col",
                   stepIntake
                     ? cn(
-                        "overflow-hidden",
+                        "min-h-[16rem] overflow-hidden",
                         // Deep steps: less padding so content (year grid) claims the viewport.
                         compactIntakeChrome ? "px-3 py-2" : "px-4 py-2"
                       )

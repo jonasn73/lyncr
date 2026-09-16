@@ -369,10 +369,12 @@ function VehiclePickerSequential({
                   : "No years available."}
             </p>
           ) : (
-            // Dominant scroll region — large min-height so years are easy tap targets on mobile.
+            // Dominant scroll region — flex-fills the step; the floor only guards
+            // degenerate heights (a larger one overflowed its clipped parent on
+            // keyboard-shrunk viewports, cutting rows off unreachably).
             <div
               ref={optionsListRef}
-              className="flex min-h-[14rem] min-w-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto overscroll-y-contain pb-2 pr-0.5 [-webkit-overflow-scrolling:touch]"
+              className="flex min-h-[8rem] min-w-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto overscroll-y-contain pb-2 pr-0.5 [-webkit-overflow-scrolling:touch]"
             >
               <input
                 ref={filterInputRef}

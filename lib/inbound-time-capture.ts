@@ -136,6 +136,12 @@ export const CAPTURE_STATUS_HOLD_TIMEOUT_SMS = "Hold timed out · link texted"
 export const CAPTURE_STATUS_HOLD_CAP_SMS = "Hold at capacity · link texted"
 /** Busy greeting/gather itself failed (TTS chain down) — texted the link, hung up. */
 export const CAPTURE_STATUS_BUSY_MENU_FAIL_SMS = "Busy menu failed · link texted"
+/**
+ * Caller abandoned the hold (hung up before press-1 / timeout / answer) and the
+ * rescue sweep texted them the booking link a few minutes later. Ends in
+ * "· link texted" so every existing /link texted/i classifier matches for free.
+ */
+export const CAPTURE_STATUS_HOLD_ABANDON_RESCUE = "Left hold · link texted"
 /** Busy gather (press 1 / stay on line) before enqueue — not an owner ring. */
 export const CAPTURE_STATUS_BUSY_MENU = "Busy · hold menu"
 /** Owner/teammate Answered a waiting caller from Lines hold queue. */
@@ -494,6 +500,7 @@ export function isCaptureMissedLinkStatus(routedToName: string | null | undefine
     n === CAPTURE_STATUS_HOLD_TIMEOUT_SMS ||
     n === CAPTURE_STATUS_HOLD_CAP_SMS ||
     n === CAPTURE_STATUS_BUSY_MENU_FAIL_SMS ||
+    n === CAPTURE_STATUS_HOLD_ABANDON_RESCUE ||
     n === CAPTURE_STATUS_BUSY_MENU
   )
 }

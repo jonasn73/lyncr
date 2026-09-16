@@ -128,8 +128,12 @@ function formatBookingLinkSmsBody(
   businessLabel?: string | null,
   intake?: HoldIntakeSmsContext | null
 ): string {
-  // True miss (rang team / no answer) — distinct from press-1.
+  // True miss (rang team / no answer / abandoned hold) — distinct from press-1.
   if (tone === "missed_call") {
+    if (hasCapturedIntake(intake)) {
+      const shop = normalizeBookingSmsShopLabel(businessLabel)
+      return `${shop} — sorry we missed your call. We saved your details, so booking only takes a few seconds: ${link}`
+    }
     return `Sorry we missed your call — when you need us: ${link}`
   }
   const shop = normalizeBookingSmsShopLabel(businessLabel)

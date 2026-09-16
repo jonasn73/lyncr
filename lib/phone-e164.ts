@@ -79,3 +79,15 @@ export function formatAdminRoutingOverridePhoneForTelnyx(
 
   return formattedNumber
 }
+
+/**
+ * US/Canada toll-free caller (800/833/844/855/866/877/888) — these numbers can
+ * never receive SMS, so auto booking-link texts to them are guaranteed carrier
+ * failures (confirmed live: the only failed outbound in 30 days was a link sent
+ * to a +1-800 caller). They're also overwhelmingly robocalls, not customers.
+ */
+export function isTollFreeE164(raw: string | null | undefined): boolean {
+  const digits = String(raw || "").replace(/\D/g, "")
+  const ten = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits
+  return ten.length === 10 && /^8(00|33|44|55|66|77|88)/.test(ten)
+}
