@@ -1158,7 +1158,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                         {threadPreviewBody(
                           thread.customerPhone,
                           thread.lastMessage.id,
-                          thread.lastMessage.body
+                          thread.lastMessage.body ||
+                            (thread.lastMessage.media_urls?.length ? "📷 Photo" : "")
                         )}
                       </p>
                     </div>
@@ -1360,7 +1361,39 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                             : "rounded-bl-md bg-info text-info-foreground"
                         )}
                       >
-                        <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+                        {msg.media_urls?.length ? (
+                          // Customer MMS (photos of keys / VINs / doors) — tap opens the
+                          // full-size original; broken/expired media degrades to a link.
+                          <div className="mb-1 flex flex-col gap-1.5">
+                            {msg.media_urls.map((url) => (
+                              <a
+                                key={url}
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="block overflow-hidden rounded-lg"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={url}
+                                  alt="Photo from customer"
+                                  loading="lazy"
+                                  className="max-h-64 w-auto max-w-full rounded-lg object-contain"
+                                  onError={(e) => {
+                                    const el = e.currentTarget
+                                    el.style.display = "none"
+                                    const fallback = el.parentElement?.querySelector("span")
+                                    if (fallback) (fallback as HTMLElement).style.display = "inline"
+                                  }}
+                                />
+                                <span className="hidden underline">View attachment</span>
+                              </a>
+                            ))}
+                          </div>
+                        ) : null}
+                        {msg.body ? (
+                          <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+                        ) : null}
                         <p
                           className={cn(
                             "mt-1 text-2xs tabular-nums",

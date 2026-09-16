@@ -7659,6 +7659,9 @@ function parseSmsMessageRow(row: Record<string, unknown>): SmsMessage {
     delivered_at: iso(row.delivered_at),
     failed_at: iso(row.failed_at),
     delivery_error: row.delivery_error != null ? String(row.delivery_error) : null,
+    media_urls: Array.isArray(row.media_urls)
+      ? (row.media_urls as unknown[]).filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u))
+      : null,
   }
 }
 
@@ -7674,26 +7677,46 @@ export async function insertSmsMessage(params: {
   telnyx_message_id?: string | null
   status?: string
   call_log_id?: string | null
+  /** Inbound MMS media URLs (scripts/179). */
+  media_urls?: string[] | null
 }): Promise<SmsMessage | null> {
   const sql = getSql()
   const id = crypto.randomUUID()
+  const mediaJson = params.media_urls?.length ? JSON.stringify(params.media_urls) : null
   try {
     const rows = await sql`
       INSERT INTO sms_messages (
         id, organization_id, owner_user_id, phone_number_id, direction,
-        from_number, to_number, body, customer_phone, telnyx_message_id, status, call_log_id, created_at
+        from_number, to_number, body, customer_phone, telnyx_message_id, status, call_log_id, media_urls, created_at
       )
       VALUES (
         ${id}, ${params.organization_id}, ${params.owner_user_id}, ${params.phone_number_id ?? null},
         ${params.direction}, ${params.from_number}, ${params.to_number}, ${params.body},
         ${params.customer_phone}, ${params.telnyx_message_id ?? null}, ${params.status ?? "received"},
-        ${params.call_log_id ?? null}, now()
+        ${params.call_log_id ?? null}, ${mediaJson}::jsonb, now()
       )
       RETURNING *
     `
     return parseSmsMessageRow(rows[0] as Record<string, unknown>)
   } catch (e) {
     if (isMissingSmsMessagesTableError(e)) return null
+    // Pre-179 fallback: insert without media (the text still lands in the thread).
+    if (String(e instanceof Error ? e.message : e).includes("media_urls")) {
+      const rows = await sql`
+        INSERT INTO sms_messages (
+          id, organization_id, owner_user_id, phone_number_id, direction,
+          from_number, to_number, body, customer_phone, telnyx_message_id, status, call_log_id, created_at
+        )
+        VALUES (
+          ${id}, ${params.organization_id}, ${params.owner_user_id}, ${params.phone_number_id ?? null},
+          ${params.direction}, ${params.from_number}, ${params.to_number}, ${params.body},
+          ${params.customer_phone}, ${params.telnyx_message_id ?? null}, ${params.status ?? "received"},
+          ${params.call_log_id ?? null}, now()
+        )
+        RETURNING *
+      `
+      return parseSmsMessageRow(rows[0] as Record<string, unknown>)
+    }
     throw e
   }
 }

@@ -42,10 +42,43 @@ export function defaultTemplate(phase: SmsPhase): string {
 export function renderTemplate(template: string, vars: Record<string, string>): string {
   const lower: Record<string, string> = {}
   for (const [k, v] of Object.entries(vars)) lower[k.toLowerCase()] = v
-  return template
+  // No time to show → drop the whole "for {{time_slot}}" phrase, not just the tag,
+  // so "booked for ." never reaches a customer.
+  const cleaned = lower["time_slot"]?.trim()
+    ? template
+    : template.replace(/\s+(?:for|at|on)\s+\{\{\s*time_slot\s*\}\}/gi, "")
+  return cleaned
     .replace(/\{\{\s*([\w]+)\s*\}\}/g, (_m, key: string) => lower[key.toLowerCase()] ?? "")
     .replace(/[ \t]{2,}/g, " ")
+    .replace(/\s+\./g, ".")
     .trim()
+}
+
+
+/**
+ * Shared template vars. First name only — "Hi Tylon Hall" reads like a mail
+ * merge, "Hi Tylon" reads like the tech (confirmed live: a review text greeted
+ * a customer by full name). ASAP "times" are blanked so "booked for ASAP /
+ * emergency" never renders; renderTemplate then drops the whole phrase.
+ */
+function buildPipelineVars(input: {
+  customerName?: string | null
+  businessName: string
+  timeSlot?: string | null
+  techName?: string | null
+  reviewUrl: string
+  location?: string | null
+}): Record<string, string> {
+  const firstName = String(input.customerName || "").trim().split(/\s+/)[0] || ""
+  const rawSlot = String(input.timeSlot || "").trim()
+  return {
+    customer_name: firstName || "there",
+    business_name: input.businessName,
+    time_slot: /asap|emergency/i.test(rawSlot) ? "" : rawSlot,
+    tech_name: input.techName?.trim() || "your technician",
+    review_url: input.reviewUrl,
+    location: String(input.location || "").trim(),
+  }
 }
 
 export type PipelineResult =
@@ -107,14 +140,14 @@ export async function runSmsPipeline(params: {
       })) || reviewUrl
   }
 
-  const vars: Record<string, string> = {
-    customer_name: ctx.customer_name?.trim() || "there",
-    business_name: owner?.business_name?.trim() || brandLabel(),
-    time_slot: ctx.time_slot?.trim() || "",
-    tech_name: params.techName?.trim() || "your technician",
-    review_url: reviewUrl,
-    location: ctx.location?.trim() || "",
-  }
+  const vars: Record<string, string> = buildPipelineVars({
+    customerName: ctx.customer_name,
+    businessName: owner?.business_name?.trim() || brandLabel(),
+    timeSlot: ctx.time_slot,
+    techName: params.techName,
+    reviewUrl,
+    location: ctx.location,
+  })
 
   const template =
     (settings[TEMPLATE_BY_PHASE[params.phase]] as string | null)?.trim() || defaultTemplate(params.phase)
@@ -224,14 +257,14 @@ export async function sendManualThanksReviewSms(params: {
         customerPhone: toE164,
       })) || reviewUrl
   }
-  const vars: Record<string, string> = {
-    customer_name: ctx.customer_name?.trim() || "there",
-    business_name: owner?.business_name?.trim() || brandLabel(),
-    time_slot: ctx.time_slot?.trim() || "",
-    tech_name: params.techName?.trim() || "your technician",
-    review_url: reviewUrl,
-    location: ctx.location?.trim() || "",
-  }
+  const vars: Record<string, string> = buildPipelineVars({
+    customerName: ctx.customer_name,
+    businessName: owner?.business_name?.trim() || brandLabel(),
+    timeSlot: ctx.time_slot,
+    techName: params.techName,
+    reviewUrl,
+    location: ctx.location,
+  })
 
   // Always use the owner’s saved review wording (Today “Texts” / SMS templates).
   // If they left {{review_url}} in place but have no link yet, strip the empty tag cleanly.

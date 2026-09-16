@@ -5,6 +5,7 @@ import { neon } from "@neondatabase/serverless"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import {
   getCallLogSnapshotForTelemetry,
+  getCustomerByPhoneForUser,
   getOwnerSmsSettings,
   getUser,
   isReasonablePstnDialString,
@@ -217,20 +218,31 @@ export async function flushDuePostCallReviewSms(
     }
 
     const owner = await getUser(ownerUserId)
+    const businessName = owner?.business_name?.trim() || brandLabel()
+    // Greet by first name when we have a customer record for this phone — a review
+    // ask addressed to "there" reads like a blast; a name reads like the tech.
+    const customer = await getCustomerByPhoneForUser(ownerUserId, callerE164).catch(() => null)
+    const firstName =
+      String(customer?.display_name || "")
+        .trim()
+        .split(/\s+/)[0] || ""
     const template = settings.sms_review_template?.trim() || defaultTemplate("review")
     const body = renderTemplate(template, {
-      customer_name: "there",
-      business_name: owner?.business_name?.trim() || brandLabel(),
+      customer_name: firstName || "there",
+      business_name: businessName,
       review_url: reviewUrl,
       time_slot: "",
       tech_name: "",
       location: "",
     })
 
-    // Prefer Key Squad copy from the product request when using the default template.
+    // Stock copy keeps the warmer "out of a jam / local small business" framing,
+    // but with the SHOP'S real name — the old hardcoded string said "Key Squad"
+    // for every tenant and ignored the rendered business_name entirely.
+    const greeting = firstName ? `Hey ${firstName} — thanks` : "Thanks"
     const finalBody =
       !settings.sms_review_template?.trim()
-        ? `Thanks for choosing Key Squad! If we got you out of a jam today, could you leave us a quick review? It helps a local small business a ton: ${reviewUrl}`
+        ? `${greeting} for choosing ${businessName}! If we got you out of a jam today, could you leave us a quick review? It helps a local small business a ton: ${reviewUrl}`
         : body
 
     const res = await sendTelnyxSms({

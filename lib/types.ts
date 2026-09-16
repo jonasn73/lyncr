@@ -1615,6 +1615,8 @@ export interface SmsMessage {
   status: string
   /** Originating call this text follows up on, when sent from a missed-call context (scripts/168). */
   call_log_id?: string | null
+  /** Inbound MMS media (customer photos) — https URLs from the carrier (scripts/179). */
+  media_urls?: string[] | null
   created_at: string
   /** Set when Telnyx reports carrier delivery (scripts/119). */
   delivered_at?: string | null

@@ -227,19 +227,23 @@ export async function resolveShopLabel(params: {
   userId: string
   businessLineE164: string | null
 }): Promise<{ shopLabel: string | null; organizationId: string | null }> {
-  const sql = sqlClient()
   let organizationId: string | null = null
   try {
+    // Line lookup first, client second — a missing DB env must still yield the
+    // organizationId the multi-shop send guard depends on.
     if (params.businessLineE164) {
       const line = await getActivePhoneNumberByE164(params.businessLineE164)
       if (line?.organization_id && !line.organization_id.startsWith("legacy-")) {
         organizationId = line.organization_id
-        const org = await sql`
-          SELECT name FROM organizations WHERE id = ${organizationId}::uuid LIMIT 1
-        `
-        const name = (org[0] as { name?: string } | undefined)?.name?.trim()
-        if (name) return { shopLabel: name, organizationId }
       }
+    }
+    const sql = sqlClient()
+    if (organizationId) {
+      const org = await sql`
+        SELECT name FROM organizations WHERE id = ${organizationId}::uuid LIMIT 1
+      `
+      const name = (org[0] as { name?: string } | undefined)?.name?.trim()
+      if (name) return { shopLabel: name, organizationId }
     }
     const user = await sql`
       SELECT business_name FROM users WHERE id = ${params.userId}::uuid LIMIT 1

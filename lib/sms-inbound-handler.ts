@@ -24,6 +24,7 @@ import {
   parseOwnerHandledCommand,
 } from "@/lib/hold-no-response-followup"
 import { resolveLeadAlertSmsRecipient } from "@/lib/lead-sms-recipient"
+import { clearSmsOptOut, parseSmsOptOutKeyword, recordSmsOptOut } from "@/lib/sms-opt-out"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { processTelnyxSmsDeliveryEvent, type TelnyxDeliveryWebhook } from "@/lib/sms-delivery-status"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
@@ -40,6 +41,8 @@ export type TelnyxMessagingWebhook = TelnyxDeliveryWebhook & {
       from?: { phone_number?: string }
       to?: { phone_number?: string; status?: string }[] | { phone_number?: string; status?: string }
       text?: string
+      /** Inbound MMS attachments (customer photos). */
+      media?: Array<{ url?: string; content_type?: string }>
       errors?: Array<{ code?: string | number; title?: string; detail?: string }>
     }
   }
@@ -80,6 +83,12 @@ export async function processInboundTelnyxMessage(body: TelnyxMessagingWebhook):
   const fromRaw = body.data?.payload?.from?.phone_number?.trim() || ""
   const toRaw = extractToE164(body.data)
   const text = body.data?.payload?.text?.trim() || ""
+  // MMS attachments were silently dropped before (confirmed live: empty inbound
+  // rows where customers had texted photos of keys/VINs). Keep every https URL.
+  const mediaUrls = (body.data?.payload?.media ?? [])
+    .map((m) => String(m?.url || "").trim())
+    .filter((u) => /^https?:\/\//.test(u))
+    .slice(0, 10)
   if (!fromRaw || !toRaw) return
 
   const fromE164 = normalizePhoneNumberE164(fromRaw)
@@ -91,6 +100,17 @@ export async function processInboundTelnyxMessage(body: TelnyxMessagingWebhook):
   if (!line) {
     console.warn(`[sms-inbound] no active line for ${toE164} — ignoring message from ${fromE164}`)
     return
+  }
+
+  // STOP / START bookkeeping — mirror the carrier's opt-out state so automations
+  // stop attempting sends. Never reply to a STOP (texting after STOP is the exact
+  // violation; Telnyx sends the required carrier confirmation itself). The message
+  // still flows into the thread below so the owner sees what happened.
+  const optKeyword = parseSmsOptOutKeyword(text)
+  if (optKeyword === "stop") {
+    await recordSmsOptOut({ ownerUserId: line.user_id, phone: fromE164 })
+  } else if (optKeyword === "start") {
+    await clearSmsOptOut({ ownerUserId: line.user_id, phone: fromE164 })
   }
 
   // A tech replying to their dispatch SMS — check this before the disposition parser so a
@@ -183,6 +203,7 @@ export async function processInboundTelnyxMessage(body: TelnyxMessagingWebhook):
     telnyx_message_id: telnyxMessageId,
     status: "received",
     call_log_id: followUpCallLogId,
+    media_urls: mediaUrls.length ? mediaUrls : null,
   })
 
   if (!saved) {
@@ -199,7 +220,7 @@ export async function processInboundTelnyxMessage(body: TelnyxMessagingWebhook):
       userId: line.user_id,
       event: "replied",
       customerPhone: fromE164,
-      preview: text,
+      preview: text || (mediaUrls.length ? "📷 Photo" : ""),
     })
   } catch (e) {
     console.warn("[sms-inbound] latest attention SMS failed:", e)

@@ -206,6 +206,15 @@ export async function sendTelnyxSms(params: {
       }
     }
 
+    // STOP suppression — the carrier would reject this send anyway; failing it
+    // here gives automations a clean skip and Messages a human-readable reason.
+    if (params.userId?.trim()) {
+      const { isSmsOptedOut, SMS_OPTED_OUT_ERROR } = await import("@/lib/sms-opt-out")
+      if (await isSmsOptedOut({ ownerUserId: params.userId, phone: params.toE164 })) {
+        return { ok: false, error: SMS_OPTED_OUT_ERROR }
+      }
+    }
+
     // Explicit From: never swap to another account line (that caused cross-shop sends).
     let from = normalizePhoneNumberE164(
       params.fromE164?.trim() || (await resolveTelnyxMessagingFromE164(params.userId)) || ""

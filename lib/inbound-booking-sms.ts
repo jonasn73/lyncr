@@ -8,8 +8,9 @@ import {
 } from "@/lib/telnyx-menu"
 import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
-import { getActivePhoneNumberByE164, updateCallLog } from "@/lib/db"
+import { updateCallLog } from "@/lib/db"
 import { isTollFreeE164 } from "@/lib/phone-e164"
+import { resolveShopLabel } from "@/lib/hold-no-response-followup"
 import { callerGreetingPrefix } from "@/lib/hold-queue"
 import type { CallType } from "@/lib/types"
 import {
@@ -96,6 +97,18 @@ async function sendInboundBookingSms(opts: {
     }
   }
 
+  // Resolve the real shop name once (org name → business name) so no caller has
+  // to thread it: hold-queue paths never passed businessLabel and every press-1 /
+  // timeout text fell back to the generic product default instead of the shop's
+  // actual name (confirmed live: "Key Squad" vs the account's "Key Squad 502").
+  const resolved = opts.ownerUserId
+    ? await resolveShopLabel({
+        userId: opts.ownerUserId,
+        businessLineE164: opts.businessLineE164 || null,
+      }).catch(() => ({ shopLabel: null, organizationId: null }))
+    : { shopLabel: null, organizationId: null }
+  const businessLabel = opts.businessLabel?.trim() || resolved.shopLabel
+
   const bookUrl = await resolveInboundBookingUrl({
     fromE164: opts.fromE164,
     ownerUserId: opts.ownerUserId,
@@ -108,22 +121,16 @@ async function sendInboundBookingSms(opts: {
     bookUrl,
     opts.businessLineE164,
     tone,
-    opts.businessLabel,
+    businessLabel,
     opts.intake
   )
   try {
     // Prefer workspace log so Messages inbox + cooldown lookback see press-1 texts.
     if (opts.ownerUserId) {
-      // The called DID already identifies the shop — resolve it explicitly so multi-shop
+      // The called DID already identifies the shop — resolved above so multi-shop
       // owners don't hit resolveWorkspaceSmsSender's "more than one shop" guard and fail
       // every press-1 send (that guard only accepts an org it wasn't told to look up).
-      const line = opts.businessLineE164
-        ? await getActivePhoneNumberByE164(opts.businessLineE164)
-        : null
-      const organizationId =
-        line?.organization_id && !line.organization_id.startsWith("legacy-")
-          ? line.organization_id
-          : null
+      const organizationId = resolved.organizationId
       const sent = await sendAndLogWorkspaceCustomerSms({
         ownerUserId: opts.ownerUserId,
         toE164: opts.fromE164,

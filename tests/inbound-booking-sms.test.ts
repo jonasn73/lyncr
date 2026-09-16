@@ -19,7 +19,10 @@ vi.mock("@/lib/booking-invite", () => ({
   createBookingInvite: vi.fn().mockResolvedValue({ url: "https://lyncr.app/b/abc" }),
 }))
 
-vi.mock("@/lib/telnyx-menu", () => ({
+// Partial mock: sendInboundBookingSms now imports resolveShopLabel (shop-name fix),
+// which pulls modules that read other telnyx-menu exports — keep those real.
+vi.mock("@/lib/telnyx-menu", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/telnyx-menu")>()),
   buildTelnyxMenuBookingSms: vi.fn(() => "Text: book now https://lyncr.app/b/abc"),
 }))
 

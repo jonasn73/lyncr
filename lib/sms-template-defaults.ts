@@ -44,7 +44,12 @@ export function stockOrSaved(
 export function renderSmsTemplate(template: string, vars: Record<string, string>): string {
   const lower: Record<string, string> = {}
   for (const [k, v] of Object.entries(vars)) lower[k.toLowerCase()] = v
-  return template
+  // No time to show → drop the whole "for {{time_slot}}" phrase, not just the
+  // tag, so a template with a time never renders "booked for ." here either.
+  const cleaned = lower["time_slot"]?.trim()
+    ? template
+    : template.replace(/\s+(?:for|at|on)\s+\{\{\s*time_slot\s*\}\}/gi, "")
+  return cleaned
     .replace(/\{\{\s*([\w]+)\s*\}\}/g, (_m, key: string) => lower[key.toLowerCase()] ?? "")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\s+\./g, ".")
