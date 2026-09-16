@@ -68,6 +68,79 @@ export function bookJobKindNeedsVehicle(jobKind: string): boolean {
   return k === "copy" || k === "akl"
 }
 
+/**
+ * What the caller already told the IVR while on hold, carried on the booking invite
+ * (booking_invites.prefill) so the /book form pre-fills instead of the SMS dumping
+ * "We've got: …" text at the customer. Keys mirror call_queue.collected.
+ */
+export type BookingIntakePrefill = {
+  intent_slug?: string | null
+  intent_label?: string | null
+  vehicle_year?: string | null
+  /** From the spoken hold-queue clip (Phase 3), transcribed + make-list matched. */
+  vehicle_make?: string | null
+  vehicle_model?: string | null
+}
+
+/** Normalize a call_queue.collected blob into an invite prefill (null when nothing usable). */
+export function bookingIntakePrefillFromCollected(
+  collected: Record<string, unknown> | null | undefined
+): BookingIntakePrefill | null {
+  if (!collected) return null
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null)
+  const intentSlug = str(collected.intent_slug)
+  const intentLabel = str(collected.intent_label)
+  const yearRaw = str(collected.vehicle_year)
+  const vehicleYear = yearRaw && /^\d{4}$/.test(yearRaw) ? yearRaw : null
+  const vehicleMake = str(collected.vehicle_make)?.slice(0, 40) ?? null
+  const vehicleModel = str(collected.vehicle_model)?.slice(0, 40) ?? null
+  if (!intentSlug && !intentLabel && !vehicleYear && !vehicleMake && !vehicleModel) return null
+  return {
+    ...(intentSlug ? { intent_slug: intentSlug } : {}),
+    ...(intentLabel ? { intent_label: intentLabel } : {}),
+    ...(vehicleYear ? { vehicle_year: vehicleYear } : {}),
+    ...(vehicleMake ? { vehicle_make: vehicleMake } : {}),
+    ...(vehicleModel ? { vehicle_model: vehicleModel } : {}),
+  }
+}
+
+/**
+ * Seed the /book form's Details step from an invite prefill. Locksmith hold-intake
+ * slugs map onto the job chips directly; any other industry's answer lands on the
+ * "Other" chip with its human label, so nothing captured on the call is re-asked.
+ * "locksmith_other" ("Something else") carries no real signal — leave the chip unpicked.
+ */
+export function bookFormSeedFromIntakePrefill(
+  prefill: BookingIntakePrefill | null | undefined
+): {
+  jobKind: string
+  jobOther: string
+  vehicleYear: string
+  vehicleMake: string
+  vehicleModel: string
+} | null {
+  if (!prefill) return null
+  const slug = String(prefill.intent_slug || "").trim().toLowerCase()
+  const label = String(prefill.intent_label || "").trim()
+  const vehicleYear = String(prefill.vehicle_year || "").trim()
+  const vehicleMake = String(prefill.vehicle_make || "").trim()
+  const vehicleModel = String(prefill.vehicle_model || "").trim()
+
+  let jobKind = ""
+  let jobOther = ""
+  if (slug === "locksmith_lockout" || slug === "locksmith_property") {
+    jobKind = "lockout"
+  } else if (slug === "locksmith_key_generation") {
+    jobKind = "akl"
+  } else if (slug && slug !== "locksmith_other" && label) {
+    jobKind = "other"
+    jobOther = label
+  }
+
+  if (!jobKind && !vehicleYear && !vehicleMake && !vehicleModel) return null
+  return { jobKind, jobOther, vehicleYear, vehicleMake, vehicleModel }
+}
+
 /** Build Today + Tomorrow chips (and a third day if today is late evening). */
 export function buildBookDayOptions(now: Date = new Date()): BookDayOption[] {
   const out: BookDayOption[] = []

@@ -5,6 +5,7 @@ import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { normalizePhoneNumberE164 } from "@/lib/db"
 import { toE164 } from "@/lib/phone-e164"
 import { getAppUrl } from "@/lib/telnyx"
+import type { BookingIntakePrefill } from "@/lib/book-customer-request"
 
 function sqlClient() {
   return neon(resolveNeonDatabaseUrl())
@@ -18,6 +19,28 @@ export type BookingInvite = {
   source: string
   /** Short public token when migration 131 is applied. */
   shortCode?: string | null
+  /** Hold-intake answers for /book form pre-fill when migration 176 is applied. */
+  prefill?: BookingIntakePrefill | null
+}
+
+/** Parse a prefill jsonb value into the typed shape (null for anything unusable). */
+function parseInvitePrefill(value: unknown): BookingIntakePrefill | null {
+  if (!value || typeof value !== "object") return null
+  const v = value as Record<string, unknown>
+  const str = (x: unknown) => (typeof x === "string" && x.trim() ? x.trim() : null)
+  const intentSlug = str(v.intent_slug)
+  const intentLabel = str(v.intent_label)
+  const vehicleYear = str(v.vehicle_year)
+  const vehicleMake = str(v.vehicle_make)
+  const vehicleModel = str(v.vehicle_model)
+  if (!intentSlug && !intentLabel && !vehicleYear && !vehicleMake && !vehicleModel) return null
+  return {
+    ...(intentSlug ? { intent_slug: intentSlug } : {}),
+    ...(intentLabel ? { intent_label: intentLabel } : {}),
+    ...(vehicleYear ? { vehicle_year: vehicleYear } : {}),
+    ...(vehicleMake ? { vehicle_make: vehicleMake } : {}),
+    ...(vehicleModel ? { vehicle_model: vehicleModel } : {}),
+  }
 }
 
 /** Alphabet for short codes — no ambiguous 0/O/1/I. */
@@ -74,7 +97,7 @@ async function findReusableBookingInvite(params: {
   try {
     const sql = sqlClient()
     const rows = await sql`
-      SELECT id, owner_user_id, business_line, caller_phone, source, short_code
+      SELECT id, owner_user_id, business_line, caller_phone, source, short_code, prefill
       FROM booking_invites
       WHERE owner_user_id = ${owner}::uuid
         AND expires_at > now()
@@ -94,6 +117,7 @@ async function findReusableBookingInvite(params: {
           caller_phone: string | null
           source: string
           short_code?: string | null
+          prefill?: unknown
         }
       | undefined
     if (!row?.id) return null
@@ -104,11 +128,12 @@ async function findReusableBookingInvite(params: {
       callerPhone: row.caller_phone ? String(row.caller_phone) : null,
       source: String(row.source || "ivr"),
       shortCode: row.short_code ? String(row.short_code) : null,
+      prefill: parseInvitePrefill(row.prefill),
     }
   } catch (e) {
-    // short_code column may be missing pre-migration — retry without it.
+    // prefill / short_code columns may be missing pre-migration — retry without them.
     const msg = e instanceof Error ? e.message : String(e)
-    if (msg.includes("short_code")) {
+    if (msg.includes("prefill") || msg.includes("short_code")) {
       try {
         const sql = sqlClient()
         const rows = await sql`
@@ -160,6 +185,8 @@ export async function createBookingInvite(params: {
   source?: string
   /** When false, always insert a new row (operator forced re-send). Default true. */
   reuseOpen?: boolean
+  /** Hold-intake answers so /book pre-fills what the caller already said (migration 176). */
+  prefill?: BookingIntakePrefill | null
 }): Promise<{ invite: BookingInvite; url: string; reused: boolean } | null> {
   const line =
     normalizePhoneNumberE164(params.businessLine) || toE164(params.businessLine)
@@ -171,6 +198,7 @@ export async function createBookingInvite(params: {
     : null
   const source = (params.source || "ivr").trim() || "ivr"
   const reuseOpen = params.reuseOpen !== false
+  const prefill = params.prefill ?? null
 
   if (reuseOpen && caller) {
     const existing = await findReusableBookingInvite({
@@ -179,9 +207,29 @@ export async function createBookingInvite(params: {
       withinHours: 24,
     })
     if (existing) {
-      return { invite: existing, url: publicBookingInviteUrl(existing), reused: true }
+      // Newer intake answers enrich the reused link — merged over what it already had
+      // so a re-send after the caller answered more questions still pre-fills.
+      const mergedPrefill = prefill
+        ? { ...(existing.prefill || {}), ...prefill }
+        : existing.prefill ?? null
+      if (prefill) {
+        try {
+          const sql = sqlClient()
+          await sql`
+            UPDATE booking_invites
+            SET prefill = ${JSON.stringify(mergedPrefill)}::jsonb
+            WHERE id = ${existing.id}::uuid
+          `
+        } catch (e) {
+          console.warn("[booking-invite] prefill update skipped:", e)
+        }
+      }
+      const invite = { ...existing, prefill: mergedPrefill }
+      return { invite, url: publicBookingInviteUrl(invite), reused: true }
     }
   }
+
+  const prefillJson = prefill ? JSON.stringify(prefill) : null
 
   // Try a few short codes in case of rare unique collisions.
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -189,9 +237,9 @@ export async function createBookingInvite(params: {
     try {
       const sql = sqlClient()
       const rows = await sql`
-        INSERT INTO booking_invites (owner_user_id, business_line, caller_phone, source, short_code)
-        VALUES (${params.ownerUserId}, ${line}, ${caller}, ${source}, ${shortCode})
-        RETURNING id, owner_user_id, business_line, caller_phone, source, short_code
+        INSERT INTO booking_invites (owner_user_id, business_line, caller_phone, source, short_code, prefill)
+        VALUES (${params.ownerUserId}, ${line}, ${caller}, ${source}, ${shortCode}, ${prefillJson}::jsonb)
+        RETURNING id, owner_user_id, business_line, caller_phone, source, short_code, prefill
       `
       const row = rows[0] as
         | {
@@ -201,6 +249,7 @@ export async function createBookingInvite(params: {
             caller_phone: string | null
             source: string
             short_code?: string | null
+            prefill?: unknown
           }
         | undefined
       if (!row?.id) return null
@@ -212,19 +261,33 @@ export async function createBookingInvite(params: {
         callerPhone: row.caller_phone ? String(row.caller_phone) : null,
         source: String(row.source || source),
         shortCode: row.short_code ? String(row.short_code) : shortCode,
+        prefill: parseInvitePrefill(row.prefill),
       }
       return { invite, url: publicBookingInviteUrl(invite), reused: false }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      // Pre-migration: short_code column missing — insert UUID-only row.
-      if (msg.includes("short_code")) {
+      // Unique violation on short_code — retry with a new code. Checked BEFORE the
+      // missing-column fallback: the constraint name also contains "short_code".
+      if (msg.includes("duplicate key") || msg.includes("unique constraint")) {
+        continue
+      }
+      // Pre-migration: prefill and/or short_code column missing — insert without them.
+      // A prefill-only miss (migration 131 applied, 176 not yet) keeps its short /b link.
+      if (msg.includes("does not exist") && (msg.includes("prefill") || msg.includes("short_code"))) {
+        const keepShortCode = !msg.includes("short_code")
         try {
           const sql = sqlClient()
-          const rows = await sql`
-            INSERT INTO booking_invites (owner_user_id, business_line, caller_phone, source)
-            VALUES (${params.ownerUserId}, ${line}, ${caller}, ${source})
-            RETURNING id, owner_user_id, business_line, caller_phone, source
-          `
+          const rows = keepShortCode
+            ? await sql`
+                INSERT INTO booking_invites (owner_user_id, business_line, caller_phone, source, short_code)
+                VALUES (${params.ownerUserId}, ${line}, ${caller}, ${source}, ${shortCode})
+                RETURNING id, owner_user_id, business_line, caller_phone, source, short_code
+              `
+            : await sql`
+                INSERT INTO booking_invites (owner_user_id, business_line, caller_phone, source)
+                VALUES (${params.ownerUserId}, ${line}, ${caller}, ${source})
+                RETURNING id, owner_user_id, business_line, caller_phone, source
+              `
           const row = rows[0] as
             | {
                 id: string
@@ -232,6 +295,7 @@ export async function createBookingInvite(params: {
                 business_line: string
                 caller_phone: string | null
                 source: string
+                short_code?: string | null
               }
             | undefined
           if (!row?.id) return null
@@ -241,7 +305,7 @@ export async function createBookingInvite(params: {
             businessLine: String(row.business_line),
             callerPhone: row.caller_phone ? String(row.caller_phone) : null,
             source: String(row.source || source),
-            shortCode: null,
+            shortCode: row.short_code ? String(row.short_code) : null,
           }
           return { invite, url: publicBookingInviteUrl(invite), reused: false }
         } catch (e2) {
@@ -280,7 +344,7 @@ export async function getBookingInviteById(id: string): Promise<BookingInvite | 
     const sql = sqlClient()
     if (isUuidToken(token)) {
       const rows = await sql`
-        SELECT id, owner_user_id, business_line, caller_phone, source, short_code
+        SELECT id, owner_user_id, business_line, caller_phone, source, short_code, prefill
         FROM booking_invites
         WHERE id = ${token}::uuid
           AND expires_at > now()
@@ -290,7 +354,7 @@ export async function getBookingInviteById(id: string): Promise<BookingInvite | 
     }
     if (isShortCodeToken(token)) {
       const rows = await sql`
-        SELECT id, owner_user_id, business_line, caller_phone, source, short_code
+        SELECT id, owner_user_id, business_line, caller_phone, source, short_code, prefill
         FROM booking_invites
         WHERE short_code = ${token.toUpperCase()}
           AND expires_at > now()
@@ -301,7 +365,37 @@ export async function getBookingInviteById(id: string): Promise<BookingInvite | 
     return null
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    // Pre-migration fallback without short_code.
+    // Pre-176 fallback: same lookups without prefill (short /b codes still resolve).
+    if (msg.includes("prefill")) {
+      try {
+        const sql = sqlClient()
+        if (isUuidToken(token)) {
+          const rows = await sql`
+            SELECT id, owner_user_id, business_line, caller_phone, source, short_code
+            FROM booking_invites
+            WHERE id = ${token}::uuid
+              AND expires_at > now()
+            LIMIT 1
+          `
+          return mapInviteRow(rows[0])
+        }
+        if (isShortCodeToken(token)) {
+          const rows = await sql`
+            SELECT id, owner_user_id, business_line, caller_phone, source, short_code
+            FROM booking_invites
+            WHERE short_code = ${token.toUpperCase()}
+              AND expires_at > now()
+            LIMIT 1
+          `
+          return mapInviteRow(rows[0])
+        }
+        return null
+      } catch (e2) {
+        console.warn("[booking-invite] lookup failed:", e2)
+        return null
+      }
+    }
+    // Pre-131 fallback without short_code.
     if (msg.includes("short_code") && isUuidToken(token)) {
       try {
         const sql = sqlClient()
@@ -332,6 +426,7 @@ function mapInviteRow(row: unknown): BookingInvite | null {
         caller_phone: string | null
         source: string
         short_code?: string | null
+        prefill?: unknown
       }
     | undefined
   if (!r?.id) return null
@@ -342,6 +437,7 @@ function mapInviteRow(row: unknown): BookingInvite | null {
     callerPhone: r.caller_phone ? String(r.caller_phone) : null,
     source: String(r.source || "ivr"),
     shortCode: r.short_code ? String(r.short_code) : null,
+    prefill: parseInvitePrefill(r.prefill),
   }
 }
 

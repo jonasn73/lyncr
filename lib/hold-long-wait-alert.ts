@@ -32,6 +32,9 @@ function buildHoldLongWaitAlertText(params: {
     `⏳ ${brandLabel()} — still on hold`,
     `${caller} has been waiting ${minutes} min${minutes === 1 ? "" : "s"} for ${params.businessName} and hasn't hung up.`,
     dashboardUrl ? `Answer from Lines: ${dashboardUrl}` : "Answer from Lines in your dashboard.",
+    // Personal-cell calls are invisible to the platform — this reply is how the
+    // owner stops the closed-hours no-response auto-text (sms-inbound-handler).
+    "Calling them yourself? Reply HANDLED and we'll skip the auto follow-up text.",
   ].join("\n")
 }
 

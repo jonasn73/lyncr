@@ -164,6 +164,60 @@ export function resolveHoldQueueIntakeOption(
   return prompt.options.find((o) => o.digit === digit) ?? null
 }
 
+/** Max times the spoken make/model ask runs (first ask + one retry). */
+export const MAX_VEHICLE_VOICE_ATTEMPTS = 2
+/** Max read-back confirm asks per capture — silence keeps the data, unconfirmed. */
+export const MAX_VEHICLE_VOICE_CONFIRM_ASKS = 1
+/** Transcription still pending after this long counts as failed → retry the ask. */
+export const VEHICLE_VOICE_PENDING_STALE_MS = 60_000
+
+export type HoldVehicleVoiceStep = "ask" | "retry" | "confirm" | "year_fallback" | "none"
+
+/**
+ * The "do we have every vehicle detail we need?" check, run each reprompt cycle
+ * once nothing higher-priority (the Phase-1 question) is being asked. Voice runs
+ * FIRST — one spoken "2015 Toyota Camry" replaces typing a year — and the typed
+ * year question survives only as the fallback:
+ * - a captured make the caller hasn't confirmed yet → read it back ("confirm")
+ * - a finished clip that produced no usable make (silence, spoke too late, garbage
+ *   transcript, lost webhook past the stale window) → one more ask ("retry")
+ * - the clip never ran at all (earlier failure) → "ask"
+ * - voice exhausted (or confirm handled) but the YEAR is still missing → the DTMF
+ *   typed-year question ("year_fallback") so the year is never simply lost
+ * - transcription still in flight, caps reached, or everything captured → "none"
+ */
+export function resolveHoldVehicleVoiceStep(params: {
+  isVehicleIntent: boolean
+  attempts: number
+  confirmed: boolean
+  confirmAsks: number
+  /** collected.vehicle_voice_pending — transcription not yet merged. */
+  transcriptionPending: boolean
+  /** True when pending has outlived VEHICLE_VOICE_PENDING_STALE_MS. */
+  pendingIsStale: boolean
+  capturedMake: string | null
+  capturedYear: string | null
+  /** The typed-year fallback already ran and was answered. */
+  yearFallbackAnswered: boolean
+}): HoldVehicleVoiceStep {
+  if (!params.isVehicleIntent) return "none"
+  if (params.transcriptionPending && !params.pendingIsStale) return "none"
+  const make = params.capturedMake?.trim()
+  const hasYear = Boolean(params.capturedYear?.trim()) || params.yearFallbackAnswered
+
+  if (params.confirmed) {
+    return hasYear ? "none" : "year_fallback"
+  }
+  if (make) {
+    if (params.confirmAsks < MAX_VEHICLE_VOICE_CONFIRM_ASKS) return "confirm"
+    return hasYear ? "none" : "year_fallback"
+  }
+  if (params.attempts === 0) return "ask"
+  if (params.attempts < MAX_VEHICLE_VOICE_ATTEMPTS) return "retry"
+  // Voice never produced a make — at least get the year deterministically.
+  return hasYear ? "none" : "year_fallback"
+}
+
 export type HoldQueueCollectedPreFill = {
   /** Matches a resolveJobIntakeOptions(industry) option id — feeds OpenManualCallPanelInput. */
   serviceQuoteTypeId?: string

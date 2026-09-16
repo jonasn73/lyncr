@@ -307,6 +307,12 @@ function classifyCall(call: UiCallRecord): ActivityCallStatus {
     if (/\(recent text\)/i.test(routed)) return "hold_press1_skipped"
     return "hold_press1"
   }
+  // System-ended hold (timed out / at capacity / menu failed) — link texted, no press 1.
+  if (/link texted/i.test(routed)) {
+    if (/\(text failed\)/i.test(routed)) return "hold_press1_failed"
+    if (/\(recent text\)/i.test(routed)) return "hold_press1_skipped"
+    return "hold_link_sms"
+  }
   if (routed === CAPTURE_STATUS_HOLD_QUEUE || /^hold queue$/i.test(routed)) {
     return "hold_queue"
   }
@@ -358,7 +364,13 @@ function isHoldFilterCall(call: UiCallRecord): boolean {
 function isPress1FilterCall(call: UiCallRecord): boolean {
   if (call.type === "outgoing") return false
   const st = classifyCall(call)
-  return st === "hold_press1" || st === "hold_press1_failed" || st === "hold_press1_skipped"
+  return (
+    st === "hold_press1" ||
+    st === "hold_press1_failed" ||
+    st === "hold_press1_skipped" ||
+    // System-ended hold sends land in the same "booking text" filter bucket.
+    st === "hold_link_sms"
+  )
 }
 
 /** Missed-call textback still open — sent and waiting, or the customer replied (#missed-call-follow-up). */
@@ -691,6 +703,9 @@ function buildCallActionsTimeline(call: UiCallRecord): string[] {
   if (st === "hold_press1_skipped") {
     lines.push("Press 1 · already had a recent text, no new one sent")
   }
+  if (st === "hold_link_sms") {
+    lines.push("Hold ended without pickup · booking text sent")
+  }
   if (st === "answered_from_queue") {
     lines.push("Answered from queue")
   }
@@ -721,6 +736,7 @@ function resolveCallAgent(call: UiCallRecord): CallAgent {
   if (st === "hold_press1") return { label: "Press 1 SMS", kind: "none" }
   if (st === "hold_press1_failed") return { label: "Press 1 · text failed", kind: "none" }
   if (st === "hold_press1_skipped") return { label: "Press 1 · already texted", kind: "none" }
+  if (st === "hold_link_sms") return { label: "Booking link SMS", kind: "none" }
   if (st === "hold_queue" || st === "busy_menu") return { label: "Hold queue", kind: "none" }
   if (st === "answered_from_queue") return { label: "You (from queue)", kind: "owner" }
   if (st === "missed") return { label: "Unanswered", kind: "none" }

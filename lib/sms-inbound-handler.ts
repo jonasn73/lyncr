@@ -7,6 +7,8 @@ import {
   getActivePhoneNumberByE164,
   getDefaultOrganizationForOwner,
   getFieldTechnicianByPhone,
+  getOnboardingProfile,
+  getUser,
   insertSmsMessage,
   markLatestAwaitingCallLogReplied,
   normalizePhoneNumberE164,
@@ -17,6 +19,12 @@ import {
   recordOperatorDisposition,
   DISPOSITION_LABEL,
 } from "@/lib/call-disposition"
+import {
+  cancelPendingHoldFollowup,
+  parseOwnerHandledCommand,
+} from "@/lib/hold-no-response-followup"
+import { resolveLeadAlertSmsRecipient } from "@/lib/lead-sms-recipient"
+import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { processTelnyxSmsDeliveryEvent, type TelnyxDeliveryWebhook } from "@/lib/sms-delivery-status"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 
@@ -98,6 +106,32 @@ export async function processInboundTelnyxMessage(body: TelnyxMessagingWebhook):
         if (!sent.ok) console.warn(`[sms-reply] accept confirmation not sent to ${fromE164}: ${sent.error}`)
         return
       }
+    }
+  }
+
+  // Owner saying "I'm on it" from their alert phone — a personal-cell call to the
+  // customer is invisible to the platform, so this reply is how the no-response
+  // follow-up gets canceled. Checked BEFORE the disposition parser: "HANDLED 0137"
+  // contains digits 1-4 and must never be misread as a call outcome.
+  const handledCmd = parseOwnerHandledCommand(text)
+  if (handledCmd) {
+    const [profile, user] = await Promise.all([
+      getOnboardingProfile(line.user_id).catch(() => null),
+      getUser(line.user_id).catch(() => null),
+    ])
+    const alertCell = resolveLeadAlertSmsRecipient(profile, user)
+    const digits10 = (v: string | null) => String(v || "").replace(/\D/g, "").slice(-10)
+    if (alertCell && digits10(alertCell) === digits10(fromE164)) {
+      const { canceledCallerE164 } = await cancelPendingHoldFollowup({
+        ownerUserId: line.user_id,
+        targetDigits: handledCmd.targetDigits,
+      })
+      const confirm = canceledCallerE164
+        ? `Lyncr System: Got it — ${formatPhoneDisplay(canceledCallerE164)} is marked handled. We won't auto-text them.`
+        : "Lyncr System: No customer is waiting on an auto follow-up right now."
+      const sent = await sendTelnyxSms({ toE164: fromE164, text: confirm, userId: line.user_id })
+      if (!sent.ok) console.warn(`[sms-reply] handled confirmation not sent to ${fromE164}: ${sent.error}`)
+      return
     }
   }
 

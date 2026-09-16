@@ -408,14 +408,34 @@ export async function telnyxCallControlDial(
 export async function telnyxCallControlRecordStart(
   callControlId: string,
   clientState: string,
-  webhookUrl: string
+  webhookUrl: string,
+  opts?: {
+    /** Short beep before recording — signals "talk now" for prompted answers. */
+    playBeep?: boolean
+    /** Auto-stop after this many seconds (short prompted clips, not whole legs). */
+    maxLengthSecs?: number
+    /** "inbound" records only the caller — hold music/TTS never bleeds in. */
+    recordingTrack?: "both" | "inbound" | "outbound"
+  }
 ): Promise<TelnyxCallControlActionResult> {
   return postCallAction(callControlId, "record_start", {
     format: "mp3",
     channels: "single",
     client_state: clientState,
-    recording_track: "both",
+    recording_track: opts?.recordingTrack ?? "both",
     recording_webhook_url: webhookUrl,
+    ...(opts?.playBeep ? { play_beep: true } : {}),
+    ...(opts?.maxLengthSecs ? { max_length: Math.max(1, Math.floor(opts.maxLengthSecs)) } : {}),
+  })
+}
+
+/** Stop an in-progress recording — Telnyx then fires the saved webhook for the clip. */
+export async function telnyxCallControlRecordStop(
+  callControlId: string,
+  clientState?: string
+): Promise<TelnyxCallControlActionResult> {
+  return postCallAction(callControlId, "record_stop", {
+    ...(clientState ? { client_state: clientState } : {}),
   })
 }
 

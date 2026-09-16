@@ -31,6 +31,10 @@
     {
       "path": "/api/cron/sweep-unsettled-calls",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/hold-no-response",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

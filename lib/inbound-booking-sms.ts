@@ -27,6 +27,8 @@ async function resolveInboundBookingUrl(opts: {
   source: string
   /** When false, force a brand-new invite (rare). Default reuses open same-day invite. */
   reuseOpen?: boolean
+  /** Hold-intake answers — stored on the invite so /book opens pre-filled. */
+  prefill?: import("@/lib/book-customer-request").BookingIntakePrefill | null
 }): Promise<string> {
   const line = opts.businessLineE164?.trim() || ""
   if (opts.ownerUserId && line) {
@@ -36,6 +38,7 @@ async function resolveInboundBookingUrl(opts: {
       callerPhone: opts.fromE164 || null,
       source: opts.source,
       reuseOpen: opts.reuseOpen,
+      prefill: opts.prefill ?? null,
     })
     if (created?.url) return created.url
   }
@@ -59,7 +62,7 @@ async function sendInboundBookingSms(opts: {
    * Skip the 45-min cooldown (operator manual send). Auto paths keep dedupe on.
    */
   bypassCooldown?: boolean
-  /** What was captured on hold, if anything — appended as a make/model ask when relevant. */
+  /** What was captured on hold, if anything — rides the invite as /book pre-fill and softens the SMS copy. */
   intake?: HoldIntakeSmsContext | null
 }): Promise<{ ok: boolean; error?: string; skipped?: boolean }> {
   if (!opts.fromE164) return { ok: false, error: "missing from" }
@@ -90,6 +93,7 @@ async function sendInboundBookingSms(opts: {
     ownerUserId: opts.ownerUserId,
     businessLineE164: opts.businessLineE164,
     source: opts.source,
+    prefill: opts.intake?.prefill ?? null,
   })
   const text = buildTelnyxMenuBookingSms(
     opts.fromE164,
@@ -203,7 +207,7 @@ export async function sendInboundBookingSmsAndTag(opts: {
   callType?: CallType
   businessLabel?: string | null
   tone?: BookingLinkSmsTone
-  /** What was captured on hold, if anything — appended as a make/model ask when relevant. */
+  /** What was captured on hold, if anything — rides the invite as /book pre-fill and softens the SMS copy. */
   intake?: HoldIntakeSmsContext | null
 }): Promise<{ outcome: InboundBookingSmsOutcome; error?: string }> {
   // First hangup wins. Second overlapping event does not send another book link.

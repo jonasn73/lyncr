@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
+  bookFormSeedFromIntakePrefill,
+  bookingIntakePrefillFromCollected,
   bookJobKindNeedsVehicle,
   bookWindowStartIso,
   buildBookCollectedExtras,
@@ -70,5 +72,60 @@ describe("book customer request helpers", () => {
     const iso = bookWindowStartIso("2026-08-03", "13:00")
     expect(iso).toBeTruthy()
     expect(Number.isNaN(Date.parse(iso!))).toBe(false)
+  })
+})
+
+describe("hold-intake booking prefill", () => {
+  it("normalizes call_queue.collected into an invite prefill", () => {
+    expect(
+      bookingIntakePrefillFromCollected({
+        intent_slug: "locksmith_key_generation",
+        intent_label: "Lost key / needs new key made",
+        vehicle_year: "2015",
+        vehicle_year_label: "Year 2015",
+      })
+    ).toEqual({
+      intent_slug: "locksmith_key_generation",
+      intent_label: "Lost key / needs new key made",
+      vehicle_year: "2015",
+    })
+  })
+
+  it("returns null for empty or junk collected blobs", () => {
+    expect(bookingIntakePrefillFromCollected(null)).toBeNull()
+    expect(bookingIntakePrefillFromCollected({})).toBeNull()
+    expect(bookingIntakePrefillFromCollected({ vehicle_year: "20xx" })).toBeNull()
+  })
+
+  it("seeds the /book form from locksmith intake answers", () => {
+    expect(
+      bookFormSeedFromIntakePrefill({
+        intent_slug: "locksmith_key_generation",
+        intent_label: "Lost key / needs new key made",
+        vehicle_year: "2015",
+      })
+    ).toEqual({ jobKind: "akl", jobOther: "", vehicleYear: "2015", vehicleMake: "", vehicleModel: "" })
+    expect(
+      bookFormSeedFromIntakePrefill({ intent_slug: "locksmith_lockout" })
+    ).toEqual({ jobKind: "lockout", jobOther: "", vehicleYear: "", vehicleMake: "", vehicleModel: "" })
+    expect(
+      bookFormSeedFromIntakePrefill({ intent_slug: "locksmith_property" })
+    ).toEqual({ jobKind: "lockout", jobOther: "", vehicleYear: "", vehicleMake: "", vehicleModel: "" })
+  })
+
+  it("routes non-locksmith intents to the Other chip with their label", () => {
+    expect(
+      bookFormSeedFromIntakePrefill({ intent_slug: "roofing_emergency", intent_label: "Active leak" })
+    ).toEqual({ jobKind: "other", jobOther: "Active leak", vehicleYear: "", vehicleMake: "", vehicleModel: "" })
+  })
+
+  it("leaves the chip unpicked for locksmith_other (no real signal)", () => {
+    expect(
+      bookFormSeedFromIntakePrefill({ intent_slug: "locksmith_other", intent_label: "Something else" })
+    ).toBeNull()
+    // …but still carries a captured year if one exists.
+    expect(
+      bookFormSeedFromIntakePrefill({ intent_slug: "locksmith_other", vehicle_year: "2015" })
+    ).toEqual({ jobKind: "", jobOther: "", vehicleYear: "2015", vehicleMake: "", vehicleModel: "" })
   })
 })

@@ -125,6 +125,17 @@ export const CAPTURE_STATUS_HOLD_PRESS1_FAILED = "Booked from hold · press 1 (t
  * already has a recent text with a booking link, so this is benign, not a failure.
  */
 export const CAPTURE_STATUS_HOLD_PRESS1_SKIPPED = "Booked from hold · press 1 (recent text)"
+/**
+ * Hold max-wait reached with no pickup — the SYSTEM ended the hold and texted the link.
+ * Distinct from press-1 on purpose (confirmed live: a timed-out caller was tagged
+ * "Booked from hold · press 1" and the investigation started from that wrong label).
+ * The "· link texted" suffix family is what isHoldAutomationStatus matches on.
+ */
+export const CAPTURE_STATUS_HOLD_TIMEOUT_SMS = "Hold timed out · link texted"
+/** Hold queue at capacity — caller never got to hold; texted the link instead. */
+export const CAPTURE_STATUS_HOLD_CAP_SMS = "Hold at capacity · link texted"
+/** Busy greeting/gather itself failed (TTS chain down) — texted the link, hung up. */
+export const CAPTURE_STATUS_BUSY_MENU_FAIL_SMS = "Busy menu failed · link texted"
 /** Busy gather (press 1 / stay on line) before enqueue — not an owner ring. */
 export const CAPTURE_STATUS_BUSY_MENU = "Busy · hold menu"
 /** Owner/teammate Answered a waiting caller from Lines hold queue. */
@@ -448,6 +459,9 @@ export function isHoldAutomationStatus(routedToName: string | null | undefined):
     n === CAPTURE_STATUS_BUSY_MENU ||
     /^hold queue$/i.test(n) ||
     /booked from hold/i.test(n) ||
+    // Timed-out / at-capacity / menu-failed link sends (plus their "(text failed)"
+    // and "(recent text)" suffixed variants).
+    /link texted/i.test(n) ||
     /busy · hold menu/i.test(n)
   )
 }
@@ -477,6 +491,9 @@ export function isCaptureMissedLinkStatus(routedToName: string | null | undefine
     n === CAPTURE_STATUS_CALL_WAITING ||
     n === CAPTURE_STATUS_HOLD_QUEUE ||
     n === CAPTURE_STATUS_HOLD_PRESS1 ||
+    n === CAPTURE_STATUS_HOLD_TIMEOUT_SMS ||
+    n === CAPTURE_STATUS_HOLD_CAP_SMS ||
+    n === CAPTURE_STATUS_BUSY_MENU_FAIL_SMS ||
     n === CAPTURE_STATUS_BUSY_MENU
   )
 }

@@ -236,6 +236,36 @@ export function isWithinScheduledHours(
   return false
 }
 
+const DAY_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+/**
+ * Customer-facing label for the next scheduled opening — "today at 9:00 AM",
+ * "tomorrow at 9:00 AM", or "Wednesday at 9:00 AM". Null when the schedule is
+ * disabled or no enabled day exists; callers should then drop the time from copy
+ * rather than invent one.
+ */
+export function nextScheduledOpeningLabel(
+  hours: AccountWeeklyHours,
+  now: Date = new Date()
+): string | null {
+  if (!hours.scheduleEnabled) return null
+  const weekday = localWeekdayInZone(now, hours.timezone)
+  const { minutes } = localDateTimePartsInZone(now, hours.timezone)
+
+  for (let offset = 0; offset <= 7; offset += 1) {
+    const dayOfWeek = (weekday + offset) % 7
+    const day = hours.days.find((d) => d.dayOfWeek === dayOfWeek)
+    if (!day?.enabled) continue
+    const start = parseHhMmToMinutes(day.startTime)
+    if (start == null) continue
+    // Today's opening only counts while it's still ahead of us.
+    if (offset === 0 && minutes >= start) continue
+    const when = offset === 0 ? "today" : offset === 1 ? "tomorrow" : DAY_FULL[dayOfWeek]
+    return `${when} at ${formatHhMmTo12h(day.startTime)}`
+  }
+  return null
+}
+
 const DAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
 function formatHhMmTo12h(hhmm: string): string {

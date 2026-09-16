@@ -33,6 +33,7 @@ export default async function BookShortInvitePage({
         initialPhone={invite.callerPhone || ""}
         initialFormMode={initialFormMode}
         inviteSource={invite.source}
+        initialPrefill={invite.prefill || null}
       />
     </Suspense>
   )

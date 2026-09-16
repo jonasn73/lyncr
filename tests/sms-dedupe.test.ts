@@ -14,7 +14,7 @@ describe("smsBodiesLookDuplicate", () => {
   it("does not treat a book link and a booked note as the same", () => {
     expect(
       smsBodiesLookDuplicate(
-        "Key Squad — still need help? Tell us when you need us: https://lyncr.app/b/XV4Q573D",
+        "Key Squad — sorry for the wait. Tell us when you need us: https://lyncr.app/b/XV4Q573D",
         "Hi Jade, your appointment with Key Squad 502 is booked. Reply here if anything changes."
       )
     ).toBe(false)

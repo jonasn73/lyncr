@@ -4,7 +4,7 @@
 import { updateAiLeadSmsOutcome } from "@/lib/db"
 import { dispatchLeadSmsAlert } from "@/lib/intake-engine"
 import { notifyOwnerLatestNeedsAttention } from "@/lib/latest-attention-sms"
-import { isHoldPress1BookingSource } from "@/lib/owner-live-call"
+import { holdBookingSourceHeadline } from "@/lib/owner-live-call"
 
 export type NotifyOwnerBookFormParams = {
   ownerUserId: string
@@ -36,13 +36,14 @@ export async function notifyOwnerBookFormSubmitted(
       ? "ASAP / emergency"
       : (params.availabilityLabel || "").trim() || "Preferred window"
 
-  // Hold / press-1 path gets a clearer Latest + SMS headline.
-  const fromHold = isHoldPress1BookingSource(params.bookingSource)
-  const latestPreview = fromHold
-    ? `Booked from hold · press 1 · ${urgencyLabel}`
+  // Hold / press-1 path gets a clearer Latest + SMS headline ("press 1" only when
+  // the caller actually pressed it — timeout/capacity sends say "hold link").
+  const holdHeadline = holdBookingSourceHeadline(params.bookingSource)
+  const latestPreview = holdHeadline
+    ? `${holdHeadline} · ${urgencyLabel}`
     : `Customer submitted book form · ${urgencyLabel}`
-  const leadSummary = fromHold
-    ? `Booked from hold · press 1 · ${urgencyLabel} — ${who}`
+  const leadSummary = holdHeadline
+    ? `${holdHeadline} · ${urgencyLabel} — ${who}`
     : params.summary?.trim() || `Customer submitted book form · ${urgencyLabel} — ${who}`
 
   // Owner Latest SMS (sms_latest_enabled) — works even when Instant lead SMS is off.

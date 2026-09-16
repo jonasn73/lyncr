@@ -33,6 +33,9 @@ function buildHoldIntakeCapturedAlertText(params: {
     `📋 ${brandLabel()} — caller answered your questions`,
     `${caller} on hold for ${params.businessName}: ${params.summary}`,
     dashboardUrl ? `Answer from Lines: ${dashboardUrl}` : "Answer from Lines in your dashboard.",
+    // Personal-cell calls are invisible to the platform — this reply is how the
+    // owner stops the closed-hours no-response auto-text (sms-inbound-handler).
+    "Calling them yourself? Reply HANDLED and we'll skip the auto follow-up text.",
   ].join("\n")
 }
 

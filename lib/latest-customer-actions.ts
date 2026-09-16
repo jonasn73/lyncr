@@ -2,7 +2,7 @@
 
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import type { SmsMessage } from "@/lib/types"
-import { isHoldPress1BookingSource } from "@/lib/owner-live-call"
+import { holdBookingSourceHeadline } from "@/lib/owner-live-call"
 
 /** Kind of outbound text (heuristic from body), or a finished job / payment row. */
 export type LatestSmsKind = "review" | "booking" | "en_route" | "status" | "other" | "job" | "paid"
@@ -424,10 +424,11 @@ export function buildLatestCustomerActions(params: {
     const avail =
       (form.availabilityLabel || "").trim() ||
       (urgency === "asap" ? "ASAP / emergency" : "Preferred window")
-    // Hold / press-1 bookings get a clearer one-card headline for owners.
-    const fromHold = isHoldPress1BookingSource(form.bookingSource)
-    const headline = fromHold
-      ? `Booked from hold · press 1 · ${urgencyLabel}`
+    // Hold / press-1 bookings get a clearer one-card headline for owners
+    // ("press 1" only when actually pressed — timeout sends say "hold link").
+    const holdHeadline = holdBookingSourceHeadline(form.bookingSource)
+    const headline = holdHeadline
+      ? `${holdHeadline} · ${urgencyLabel}`
       : `Customer submitted book form · ${urgencyLabel}`
 
     out.push({

@@ -5,6 +5,7 @@
 import { defaultIntakeScheduleDate, suggestNextOpenTime, combineDateAndTime } from "@/lib/intake-schedule-helpers"
 import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
 import { cleanTextForTTS, getTexmlSayVoiceAttributes } from "@/lib/texml-say-voice"
+import type { BookingIntakePrefill } from "@/lib/book-customer-request"
 
 /** Default TeXML voice — neural Polly (not robotic `alice`). Evaluated per call so env overrides apply. */
 function defaultMenuSayVoice(): string {
@@ -99,32 +100,28 @@ function normalizeBookingSmsShopLabel(raw?: string | null): string {
 }
 
 /**
- * What was captured on hold (service type, optionally model year) — reused for both the
- * SMS follow-up ask and the spoken confirmation, so a caller who already answered two
- * quick DTMF questions doesn't have to repeat them, and we ask for what's still missing
- * (make/model was never askable over touch-tone) instead of a generic "we'll be in touch."
+ * What was captured on hold (service type, optionally model year). The details
+ * themselves never go into the SMS body anymore — they ride the booking invite
+ * (booking_invites.prefill) so the /book form opens pre-filled. The SMS only
+ * changes tone ("we saved your details") when something was captured; the spoken
+ * confirmation still reads `summary` back so the caller knows we heard them.
  */
 export type HoldIntakeSmsContext = {
   /** Human-readable label, e.g. "Lost key / needs new key made — Year 2009". */
   summary?: string | null
-  /** True when this intent is vehicle-related at all (a plain lockout, roofing, etc. isn't). */
-  vehicleRelated?: boolean
-  /** True when the model-year follow-up was actually answered. */
-  hasVehicleYear?: boolean
+  /** Raw intake for the invite's /book pre-fill (call_queue.collected shape). */
+  prefill?: BookingIntakePrefill | null
 }
 
-function bookingSmsIntakeSuffix(intake?: HoldIntakeSmsContext | null): string {
-  if (!intake) return ""
-  const summary = intake.summary?.trim()
-  const summaryPart = summary ? ` We've got: ${summary}.` : ""
-  if (!intake.vehicleRelated) return summaryPart
-  const ask = intake.hasVehicleYear
-    ? " Reply with the make and model too, so we're ready when we call."
-    : " Reply with the year, make, and model, so we're ready when we call."
-  return `${summaryPart}${ask}`
+/** True when the caller actually gave us something on the call. */
+function hasCapturedIntake(intake?: HoldIntakeSmsContext | null): boolean {
+  if (!intake) return false
+  if (intake.summary?.trim()) return true
+  const p = intake.prefill
+  return Boolean(p && (p.intent_slug || p.intent_label || p.vehicle_year))
 }
 
-/** Build the SMS body once we know the final booking URL. */
+/** Build the SMS body once we know the final booking URL — one CTA, link last. */
 function formatBookingLinkSmsBody(
   link: string,
   tone: BookingLinkSmsTone,
@@ -135,14 +132,17 @@ function formatBookingLinkSmsBody(
   if (tone === "missed_call") {
     return `Sorry we missed your call — when you need us: ${link}`
   }
-  const intakeSuffix = bookingSmsIntakeSuffix(intake)
+  const shop = normalizeBookingSmsShopLabel(businessLabel)
+  const saved = hasCapturedIntake(intake)
   if (tone === "hold_timeout") {
-    const shop = normalizeBookingSmsShopLabel(businessLabel)
-    return `${shop} — still need help? Tell us when you need us: ${link}${intakeSuffix}`
+    return saved
+      ? `${shop} — sorry for the wait. We saved your details, so booking only takes a few seconds: ${link}`
+      : `${shop} — sorry for the wait. Tell us when you need us: ${link}`
   }
   // Press-1 / hold / IVR — they send availability (ASAP or a window), not our slots.
-  const shop = normalizeBookingSmsShopLabel(businessLabel)
-  return `${shop} — when you need us: ${link}${intakeSuffix}`
+  return saved
+    ? `${shop} — we saved your details, so booking only takes a few seconds: ${link}`
+    : `${shop} — when you need us: ${link}`
 }
 
 /** Absolute tracking links: /book/<id> or short /b/<code>. */

@@ -22,6 +22,8 @@ type TelnyxCallControlPhase =
   | "await_ai_assistant_hold"
   /** Agent cell dialed from Lines Answer — bridge to queue when they pick up. */
   | "await_queue_agent_answer"
+  /** "Say the make and model" ask is being spoken — speak.ended starts the recording. */
+  | "await_hold_vehicle_voice_prompt"
   | "recording"
 
 /** Why Call Control chose this PSTN target (Busy backup vs owner day dial). */
@@ -164,6 +166,24 @@ export type TelnyxCallControlClientState = {
   holdIntakeFollowUpAttempts?: number
   /** True only while a gather is waiting on the Phase-2 follow-up's numeric answer. */
   holdAwaitingIntakeFollowUpAnswer?: boolean
+  /**
+   * True only while the spoken make/model clip is recording (Phase 3) — the very next
+   * gather.ended (backstop timeout, pound, or any digit) stops the recording and
+   * resumes hold music instead of being read as a press-1 / reprompt digit.
+   */
+  holdAwaitingVehicleVoice?: boolean
+  /** True once the spoken make/model ask has run at least once (first-ask guard). */
+  holdVehicleVoiceDone?: boolean
+  /** How many times the spoken make/model ask has run — retries are capped. */
+  holdVehicleVoiceAttempts?: number
+  /** Unix ms when the last clip finished recording — stale transcription → retry. */
+  holdVehicleVoiceRecordedAtMs?: number
+  /** True only while a gather is waiting on the make/model read-back confirm (1 = right, 2 = redo). */
+  holdAwaitingVehicleVoiceConfirm?: boolean
+  /** How many times the read-back confirm has been asked for the current capture. */
+  holdVehicleVoiceConfirmAsks?: number
+  /** True once the caller confirmed the captured make/model — step fully complete. */
+  holdVehicleVoiceConfirmed?: boolean
   /**
    * Human-readable summary of what's been captured so far (e.g. "Lost key / needs new
    * key made — Year 2009") — built up as each phase answers, used for the reprompt copy

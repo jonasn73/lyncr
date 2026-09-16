@@ -31,6 +31,7 @@ import {
   handleHoldLoopGatherEnded,
   kickHoldMusicPlaybackImmediate,
   recoverHoldLoopAfterError,
+  startHoldVehicleVoiceRecording,
 } from "@/lib/telnyx-call-control-hold-queue"
 import { prefetchHoldMusicPlaybackContent } from "@/lib/hold-inline-audio"
 import {
@@ -84,6 +85,7 @@ import { isAccountRoutingBlocked, parseAccountStatus } from "@/lib/account-statu
 import {
   CAPTURE_DEFAULT_RING_E164,
   CAPTURE_STATUS_BUSY_MENU,
+  CAPTURE_STATUS_BUSY_MENU_FAIL_SMS,
   CAPTURE_STATUS_HOLD_AI_ASSISTED,
   CAPTURE_STATUS_HOLD_PRESS1,
   resolveInboundCapturePlan,
@@ -564,7 +566,8 @@ async function startBusyAutomationFlow(
       ownerUserId: routing.user_id,
       businessLineE164: state.businessLineE164,
       callSid: callControlId,
-      routedToName: CAPTURE_STATUS_HOLD_PRESS1,
+      // Not a press-1 — the caller never even heard the menu.
+      routedToName: CAPTURE_STATUS_BUSY_MENU_FAIL_SMS,
       source: "cc_busy_gather_fail",
       businessLabel: resolveWorkspaceDisplayName(routing),
     })
@@ -1539,6 +1542,13 @@ async function handleSpeakEnded(
       console.error(JSON.stringify({ lyncr: "telnyx-cc-record-start-failed", error: recordRes.error }))
       await telnyxCallControlHangup(event.callControlId)
     }
+    return
+  }
+
+  // Hold-queue Phase-3 "say the make and model" ask finished playing — start the
+  // caller-only recording now so the beep lands after the sentence, never over it.
+  if (state.phase === "await_hold_vehicle_voice_prompt") {
+    await startHoldVehicleVoiceRecording(event.callControlId, state)
   }
 }
 

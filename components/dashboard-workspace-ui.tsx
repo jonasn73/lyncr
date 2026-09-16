@@ -180,6 +180,8 @@ export type ActivityCallStatus =
   | "hold_press1_failed"
   /** Press-1 path, but the send was skipped (caller already had a recent text) — benign. */
   | "hold_press1_skipped"
+  /** System-ended hold (max wait / capacity / menu failure) — link texted, no press 1. */
+  | "hold_link_sms"
   | "busy_menu"
   | "emergency"
 
@@ -205,6 +207,7 @@ export function isHoldActivityStatus(status: ActivityCallStatus): boolean {
     status === "hold_queue" ||
     status === "hold_press1" ||
     status === "hold_press1_skipped" ||
+    status === "hold_link_sms" ||
     status === "busy_menu"
   )
 }
@@ -246,6 +249,8 @@ export function ActivityStatusPill({
       "border-destructive/60 bg-destructive/20 text-destructive shadow-[0_0_18px_-3px_rgba(244,63,94,0.65)]",
     hold_press1_skipped:
       "border-warning/50 bg-warning/15 text-warning shadow-[0_0_14px_-6px_rgba(245,158,11,0.45)]",
+    hold_link_sms:
+      "border-warning/50 bg-warning/15 text-warning shadow-[0_0_14px_-6px_rgba(245,158,11,0.45)]",
     busy_menu:
       "border-warning/45 bg-warning/12 text-warning shadow-[0_0_12px_-6px_rgba(245,158,11,0.4)]",
     missed:
@@ -266,6 +271,7 @@ export function ActivityStatusPill({
     hold_press1: dense ? "Press 1" : "Press 1 · booking text",
     hold_press1_failed: dense ? "Text failed" : "Press 1 · text failed",
     hold_press1_skipped: dense ? "Already texted" : "Press 1 · already texted",
+    hold_link_sms: dense ? "Link texted" : "Hold ended · link texted",
     busy_menu: dense ? "Busy" : "Busy · hold menu",
     missed: "Missed",
   }

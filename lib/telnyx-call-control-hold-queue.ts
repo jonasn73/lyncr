@@ -45,9 +45,12 @@ import { sendHoldIntakeCapturedOwnerAlert } from "@/lib/hold-intake-captured-ale
 import { loadHoldMusicPlaybackContentBase64 } from "@/lib/hold-inline-audio"
 import {
   CAPTURE_STATUS_HOLD_AI_ASSISTED,
+  CAPTURE_STATUS_HOLD_CAP_SMS,
   CAPTURE_STATUS_HOLD_PRESS1,
   CAPTURE_STATUS_HOLD_QUEUE,
+  CAPTURE_STATUS_HOLD_TIMEOUT_SMS,
 } from "@/lib/inbound-time-capture"
+import { bookingIntakePrefillFromCollected } from "@/lib/book-customer-request"
 import { bookingSmsConfirmSpeech, sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
 import type { HoldIntakeSmsContext } from "@/lib/telnyx-menu"
 import { resolveSpeakVoiceForPersona } from "@/lib/ivr-automation-settings"
@@ -64,10 +67,13 @@ import {
   telnyxCallControlLeaveQueue,
   telnyxCallControlPlaybackStart,
   telnyxCallControlPlaybackStop,
+  telnyxCallControlRecordStart,
+  telnyxCallControlRecordStop,
   telnyxCallControlSpeak,
   telnyxCallControlStartAiAssistant,
   telnyxCallControlStopAiAssistant,
 } from "@/lib/telnyx-call-control-api"
+import { getAppUrl } from "@/lib/telnyx"
 import {
   encodeTelnyxCallControlState,
   type TelnyxCallControlClientState,
@@ -78,6 +84,8 @@ import {
   holdQueueIntakeValidDigits,
   resolveHoldQueueIntakeOption,
   resolveHoldQueueIntakePrompt,
+  resolveHoldVehicleVoiceStep,
+  VEHICLE_VOICE_PENDING_STALE_MS,
   type HoldQueueIntakeFollowUp,
   type HoldQueueIntakePrompt,
 } from "@/lib/hold-queue-intake-prompts"
@@ -141,16 +149,25 @@ function isHoldIntakeFullyAnswered(state: TelnyxCallControlClientState): boolean
 }
 
 /**
- * What was captured on hold, shaped for the booking SMS + spoken confirmation. A queued
- * follow-up (holdIntakeFollowUp) means this intent is vehicle-related at all — make/model
- * was never askable over touch-tone, so the SMS asks for it (plus year too, if that
- * follow-up was never answered) instead of leaving the caller with just a generic link.
+ * What was captured on hold, shaped for the booking SMS + spoken confirmation. The raw
+ * call_queue.collected answers ride along as the booking invite's /book pre-fill, so
+ * the customer never re-types what they already answered over DTMF (and the SMS body
+ * never dumps "We've got: …" at them — reported live by a customer).
  */
-function holdIntakeSmsContext(state: TelnyxCallControlClientState): HoldIntakeSmsContext {
+async function holdIntakeSmsContext(
+  callControlId: string,
+  state: TelnyxCallControlClientState
+): Promise<HoldIntakeSmsContext> {
+  // A failed collected read must never block the SMS itself — fall back to summary-only.
+  let collected: Record<string, unknown> | null = null
+  try {
+    collected = await getCallQueueCollectedByCallControlId(callControlId)
+  } catch {
+    collected = null
+  }
   return {
     summary: state.holdIntakeSummary ?? null,
-    vehicleRelated: Boolean(state.holdIntakeFollowUp),
-    hasVehicleYear: Boolean(state.holdIntakeFollowUpAnswered),
+    prefill: bookingIntakePrefillFromCollected(collected),
   }
 }
 
@@ -281,10 +298,10 @@ export async function enterBusyHoldQueue(params: {
       ownerUserId: userId,
       businessLineE164: state.businessLineE164,
       callSid: callControlId,
-      routedToName: CAPTURE_STATUS_HOLD_PRESS1,
+      routedToName: CAPTURE_STATUS_HOLD_CAP_SMS,
       source: "cc_busy_hold_cap",
       tone: "hold_timeout",
-      intake: holdIntakeSmsContext(state),
+      intake: await holdIntakeSmsContext(callControlId, state),
     })
     const confirmState = encodeTelnyxCallControlState({
       ...state,
@@ -727,6 +744,27 @@ async function startHoldRepromptGather(
       intakeAnswered = true
       followUpAnswered = followUpAnswered || Boolean(recentYearLabel)
       reusedIntakeSummary = recentYearLabel ? `${recentIntentLabel} — ${recentYearLabel}` : recentIntentLabel
+      // Copy the reused answers onto THIS call's collected too — the Lines waiting
+      // card and the booking-link pre-fill both read the current call's row, and a
+      // repeat caller's details shouldn't vanish just because they weren't re-asked.
+      const reusable: Record<string, unknown> = {}
+      for (const key of [
+        "intent_slug",
+        "intent_label",
+        "vehicle_year",
+        "vehicle_year_label",
+        "vehicle_make",
+        "vehicle_model",
+        "vehicle_make_model_label",
+      ]) {
+        const v = recent.collected[key]
+        if (typeof v === "string" && v.trim()) reusable[key] = v.trim()
+      }
+      if (Object.keys(reusable).length > 0) {
+        void mergeCallQueueCollected(callControlId, reusable).catch((e) =>
+          console.warn(lyncrLog("telnyx-cc-hold-intake-reuse-merge-failed", { error: String(e) }))
+        )
+      }
       console.log(
         lyncrLog("telnyx-cc-hold-intake-reused", {
           callControlId,
@@ -757,11 +795,61 @@ async function startHoldRepromptGather(
     }
   }
   const followUpAttempts = state.holdIntakeFollowUpAttempts ?? 0
-  const askFollowUp =
+  const isVehicleYearFollowUp = state.holdIntakeFollowUp?.fieldKey === "vehicle_year"
+  let askFollowUp =
     !intakePrompt &&
     !followUpAnswered &&
     followUpAttempts < MAX_INTAKE_ATTEMPTS &&
-    Boolean(state.holdIntakeFollowUp)
+    Boolean(state.holdIntakeFollowUp) &&
+    // Vehicle jobs go voice-first — the typed-year question only runs when the
+    // completeness check below explicitly falls back to it.
+    !isVehicleYearFollowUp
+
+  // Phase 3 completeness check — nothing higher-priority is being asked this cycle,
+  // so verify the spoken year/make/model actually landed: read a good capture back
+  // for confirmation, retry a failed/late/garbled clip (capped), run the ask if an
+  // earlier failure skipped it, or fall back to the typed-year question when voice
+  // is exhausted and the year is still missing. One collected read per cycle.
+  if (
+    !intakePrompt &&
+    intakeAnswered &&
+    isVehicleYearFollowUp &&
+    !(state.holdVehicleVoiceConfirmed && followUpAnswered)
+  ) {
+    const collected = await getCallQueueCollectedByCallControlId(callControlId).catch(
+      () => ({}) as Record<string, unknown>
+    )
+    const pending = collected.vehicle_voice_pending === true
+    const recordedAt = state.holdVehicleVoiceRecordedAtMs ?? 0
+    const step = resolveHoldVehicleVoiceStep({
+      isVehicleIntent: true,
+      attempts: holdVehicleVoiceAttemptCount(state),
+      confirmed: Boolean(state.holdVehicleVoiceConfirmed),
+      confirmAsks: state.holdVehicleVoiceConfirmAsks ?? 0,
+      transcriptionPending: pending,
+      pendingIsStale: pending && recordedAt > 0 && Date.now() - recordedAt > VEHICLE_VOICE_PENDING_STALE_MS,
+      capturedMake:
+        typeof collected.vehicle_make === "string" ? collected.vehicle_make : null,
+      capturedYear:
+        typeof collected.vehicle_year === "string" ? collected.vehicle_year : null,
+      yearFallbackAnswered: followUpAnswered,
+    })
+    const stepState: TelnyxCallControlClientState = { ...state, holdPromptCount: promptCount }
+    if (step === "confirm") {
+      await startVehicleVoiceReadbackConfirm(callControlId, stepState, collected)
+      return
+    }
+    if (step === "ask" || step === "retry") {
+      const started = await startHoldVehicleVoicePrompt(callControlId, stepState, {
+        retry: step === "retry",
+      })
+      if (started) return
+      // Prompt failed — fall through to the ordinary reprompt below.
+    }
+    if (step === "year_fallback" && !followUpAnswered && followUpAttempts < MAX_INTAKE_ATTEMPTS) {
+      askFollowUp = true
+    }
+  }
 
   const say = intakePrompt
     ? intakePrompt.text
@@ -977,7 +1065,7 @@ async function leaveHoldQueueWithSms(
     routedToName: CAPTURE_STATUS_HOLD_PRESS1,
     source,
     tone: "booking_link",
-    intake: holdIntakeSmsContext(state),
+    intake: await holdIntakeSmsContext(callControlId, state),
   })
 
   const confirmState = encodeTelnyxCallControlState({
@@ -1215,10 +1303,13 @@ async function finishHoldWithSms(
     ownerUserId: state.userId,
     businessLineE164: state.businessLineE164,
     callSid: callControlId,
-    routedToName: CAPTURE_STATUS_HOLD_PRESS1,
+    // NOT press-1 — the system gave up on the wait. Tagging this as "Booked from
+    // hold · press 1" is exactly the mislabel that sent a real investigation the
+    // wrong way (caller had simply out-waited the 10-min max hold).
+    routedToName: CAPTURE_STATUS_HOLD_TIMEOUT_SMS,
     source: "cc_busy_hold_max_wait",
     tone: "hold_timeout",
-    intake: holdIntakeSmsContext(state),
+    intake: await holdIntakeSmsContext(callControlId, state),
   })
 
   const confirmState = encodeTelnyxCallControlState({
@@ -1330,6 +1421,19 @@ async function handleHoldIntakeAnswer(
   // away) before it was ever asked — long enough that callers had usually forgotten the
   // first question, or the operator had already answered, so it read as "never asked
   // again." Ask it now, in the same turn, while the topic is still fresh.
+  //
+  // Vehicle jobs go voice-first (owner's call: one spoken "2015 Toyota Camry" beats
+  // typing a year and then speaking anyway — faster, and some callers hate keypads).
+  // The typed-year question survives only as the fallback when voice capture fails
+  // (see resolveHoldVehicleVoiceStep's "year_fallback"), or right here if the voice
+  // prompt itself can't start.
+  if (matched.followUp?.fieldKey === "vehicle_year") {
+    const started = await startHoldVehicleVoicePrompt(callControlId, baseState, {})
+    if (started) return
+    await speakHoldIntakeFollowUpNow(callControlId, baseState, matched.followUp)
+    return
+  }
+
   if (matched.followUp) {
     await speakHoldIntakeFollowUpNow(callControlId, baseState, matched.followUp)
     return
@@ -1430,6 +1534,10 @@ async function handleHoldIntakeFollowUpAnswer(
     })
   )
 
+  // Note: the typed year is now the FALLBACK path — voice capture (year, make and
+  // model in one clip) runs first, so reaching here means voice is exhausted or
+  // never started. No voice re-trigger: just read the year back and resume music.
+
   // Echo the actual digits back — "Perfect, got it" alone left callers unsure whether
   // anything was really captured (reported live). Hearing their own answer read back
   // is unambiguous confirmation; a generic phrase isn't.
@@ -1440,6 +1548,255 @@ async function handleHoldIntakeFollowUpAnswer(
     { voice: baseState.holdSpeakVoice }
   ).catch(() => undefined)
 
+  await startHoldMusicGather(callControlId, baseState)
+}
+
+/** Voice-ask attempts so far — holdVehicleVoiceDone predates the counter, count it as one. */
+function holdVehicleVoiceAttemptCount(state: TelnyxCallControlClientState): number {
+  return state.holdVehicleVoiceAttempts ?? (state.holdVehicleVoiceDone ? 1 : 0)
+}
+
+/**
+ * Phase 3 — speak the "say the make and model" ask (first ask or capped retry). The
+ * recording itself starts on this speak's `call.speak.ended` (see
+ * handleTelnyxCallControlVoiceWebhook), so the beep always lands AFTER the sentence
+ * instead of over it. Returns false when the speak couldn't start — the caller then
+ * gets the ordinary year read-back + music, and a later reprompt cycle retries.
+ */
+async function startHoldVehicleVoicePrompt(
+  callControlId: string,
+  state: TelnyxCallControlClientState,
+  opts: { retry?: boolean }
+): Promise<boolean> {
+  const speakVoice = await resolveHoldSpeakVoice(state)
+  const nextState: TelnyxCallControlClientState = {
+    ...state,
+    phase: "await_hold_vehicle_voice_prompt",
+    holdSpeakVoice: speakVoice,
+    holdVehicleVoiceDone: true,
+    holdVehicleVoiceAttempts: holdVehicleVoiceAttemptCount(state) + 1,
+    // A fresh capture gets a fresh read-back confirm.
+    holdVehicleVoiceConfirmAsks: 0,
+  }
+  const text = opts.retry
+    ? "Sorry — I didn't quite catch your vehicle. One more time: after the beep, say the year, make and model — for example, 2015 Toyota Camry. When you're done, press pound or just pause."
+    : "Got it. After the beep, tell us the year, make and model of your vehicle — for example, 2015 Toyota Camry. When you're done, press pound or just pause."
+  const res = await telnyxCallControlSpeak(callControlId, text, encodeTelnyxCallControlState(nextState), {
+    voice: speakVoice,
+  })
+  if (!res.ok) {
+    console.warn(
+      lyncrLog("telnyx-cc-hold-vehicle-voice-prompt-failed", { callControlId, error: res.error })
+    )
+    return false
+  }
+  console.log(
+    lyncrLog("telnyx-cc-hold-vehicle-voice-prompt", {
+      callControlId,
+      attempt: nextState.holdVehicleVoiceAttempts,
+      retry: Boolean(opts.retry),
+    })
+  )
+  return true
+}
+
+/** Max seconds of spoken make/model we record — roomy enough for a slow starter. */
+const VEHICLE_VOICE_MAX_SECS = 12
+/** Backstop gather that ends the recording step even if max_length is ignored. */
+const VEHICLE_VOICE_BACKSTOP_MS = 14_000
+
+/**
+ * `call.speak.ended` for the Phase-3 ask — start the caller-only recording (the beep
+ * signals "talk now"; inbound track keeps TTS/music out of the clip), then arm a plain
+ * DTMF gather as the flow-control backstop: its gather.ended (pound, any digit, or the
+ * 12s timeout) stops the recording and resumes hold music deterministically, without
+ * depending on the recording webhook for call flow. The saved clip is transcribed
+ * asynchronously by /api/voice/telnyx/hold-vehicle-note.
+ */
+export async function startHoldVehicleVoiceRecording(
+  callControlId: string,
+  state: TelnyxCallControlClientState
+): Promise<void> {
+  const nextState: TelnyxCallControlClientState = {
+    ...state,
+    phase: "await_busy_hold_loop",
+    holdSegment: "reprompt",
+    holdAwaitingVehicleVoice: true,
+  }
+  // Mark BEFORE recording so the saved-clip webhook knows this is the vehicle answer.
+  await mergeCallQueueCollected(callControlId, { vehicle_voice_pending: true })
+
+  const encoded = encodeTelnyxCallControlState(nextState)
+  const webhook = `${getAppUrl().replace(/\/+$/, "")}/api/voice/telnyx/hold-vehicle-note`
+  const rec = await telnyxCallControlRecordStart(callControlId, encoded, webhook, {
+    playBeep: true,
+    maxLengthSecs: VEHICLE_VOICE_MAX_SECS,
+    recordingTrack: "inbound",
+  })
+  if (!rec.ok) {
+    console.warn(
+      lyncrLog("telnyx-cc-hold-vehicle-voice-record-failed", { callControlId, error: rec.error })
+    )
+    await startHoldMusicGather(callControlId, {
+      ...state,
+      phase: "await_busy_hold_loop",
+      holdVehicleVoiceDone: true,
+    })
+    return
+  }
+
+  const gatherRes = await telnyxCallControlGather(callControlId, {
+    clientState: encoded,
+    timeoutMillis: VEHICLE_VOICE_BACKSTOP_MS,
+  })
+  if (!gatherRes.ok) {
+    // No backstop event would ever resume music — stop now and keep the call moving.
+    await telnyxCallControlRecordStop(callControlId).catch(() => undefined)
+    await startHoldMusicGather(callControlId, {
+      ...state,
+      phase: "await_busy_hold_loop",
+      holdVehicleVoiceDone: true,
+    })
+  }
+}
+
+/** Backstop gather ended (pound / digit / 12s timeout) — close the clip, resume music. */
+async function finishHoldVehicleVoiceCapture(
+  callControlId: string,
+  state: TelnyxCallControlClientState
+): Promise<void> {
+  await telnyxCallControlRecordStop(callControlId).catch(() => undefined)
+  const cleared: TelnyxCallControlClientState = {
+    ...state,
+    holdAwaitingVehicleVoice: false,
+    holdVehicleVoiceDone: true,
+    // Stamps the stale-transcription clock: pending past the window → retry.
+    holdVehicleVoiceRecordedAtMs: Date.now(),
+  }
+  await telnyxCallControlSpeak(
+    callControlId,
+    "Perfect — thank you. Hang tight.",
+    encodeTelnyxCallControlState(cleared),
+    { voice: cleared.holdSpeakVoice }
+  ).catch(() => undefined)
+  console.log(lyncrLog("telnyx-cc-hold-vehicle-voice-captured", { callControlId }))
+  await startHoldMusicGather(callControlId, cleared)
+}
+
+/**
+ * Read the captured vehicle back for a one-digit confirm ("2015 Toyota Camry —
+ * press 1 if right, press 2 to say it again"). Wrong transcriptions were otherwise
+ * silently trusted all the way into the booking form; asked at most
+ * MAX_VEHICLE_VOICE_CONFIRM_ASKS times per capture — silence keeps the data,
+ * just unconfirmed.
+ */
+async function startVehicleVoiceReadbackConfirm(
+  callControlId: string,
+  state: TelnyxCallControlClientState,
+  collected: Record<string, unknown>
+): Promise<void> {
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : "")
+  const vehicle = [str(collected.vehicle_year), str(collected.vehicle_make), str(collected.vehicle_model)]
+    .filter(Boolean)
+    .join(" ")
+  const speakVoice = await resolveHoldSpeakVoice(state)
+  const nextState: TelnyxCallControlClientState = {
+    ...state,
+    phase: "await_busy_hold_loop",
+    holdSegment: "reprompt",
+    holdPromptCount: (state.holdPromptCount ?? 0) + 1,
+    holdSpeakVoice: speakVoice,
+    holdAwaitingVehicleVoiceConfirm: true,
+    holdVehicleVoiceConfirmAsks: (state.holdVehicleVoiceConfirmAsks ?? 0) + 1,
+  }
+  console.log(lyncrLog("telnyx-cc-hold-vehicle-voice-confirm-start", { callControlId }))
+  const gatherRes = await telnyxCallControlGatherUsingSpeak(callControlId, {
+    text: `Quick check — I have your vehicle as ${vehicle}. If that's right, press 1. To say it again, press 2.`,
+    clientState: encodeTelnyxCallControlState(nextState),
+    maximumDigits: 1,
+    validDigits: "12",
+    timeoutMillis: 9_000,
+    maximumTries: 1,
+    voice: speakVoice,
+  })
+  if (!gatherRes.ok) {
+    await startHoldMusicGather(callControlId, { ...state, holdSpeakVoice: speakVoice })
+  }
+}
+
+/** gather.ended answering the make/model read-back (1 = right, 2 = redo the clip). */
+async function handleVehicleVoiceConfirmAnswer(
+  callControlId: string,
+  state: TelnyxCallControlClientState,
+  digits: string
+): Promise<void> {
+  const baseState: TelnyxCallControlClientState = {
+    ...state,
+    holdAwaitingVehicleVoiceConfirm: false,
+  }
+
+  if (digits === "2") {
+    // Wrong capture — wipe it so the owner never acts on data the caller disowned,
+    // then redo the clip (counts against the attempt cap; the redo path's own
+    // startHoldVehicleVoicePrompt resets the per-capture confirm counter). A year
+    // that came from the clip is wiped with it; a keypad-typed year is kept.
+    const collected = await getCallQueueCollectedByCallControlId(callControlId).catch(
+      () => ({}) as Record<string, unknown>
+    )
+    const yearWasVoice = collected.vehicle_year_source === "voice"
+    await mergeCallQueueCollected(callControlId, {
+      vehicle_make: null,
+      vehicle_model: null,
+      vehicle_make_model_label: null,
+      vehicle_voice_transcript: null,
+      vehicle_confirmed: null,
+      ...(yearWasVoice
+        ? { vehicle_year: null, vehicle_year_label: null, vehicle_year_source: null }
+        : {}),
+    })
+    const started = await startHoldVehicleVoicePrompt(callControlId, baseState, { retry: true })
+    if (!started) await startHoldMusicGather(callControlId, baseState)
+    return
+  }
+
+  if (digits === "1") {
+    const confirmedState: TelnyxCallControlClientState = {
+      ...baseState,
+      holdVehicleVoiceConfirmed: true,
+    }
+    void mergeCallQueueCollected(callControlId, { vehicle_confirmed: true }).catch(() => undefined)
+    // Fold the confirmed vehicle into the running summary so the final spoken
+    // read-back and the owner alert both carry it.
+    try {
+      const collected = await getCallQueueCollectedByCallControlId(callControlId)
+      const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : "")
+      const label = [str(collected.vehicle_year), str(collected.vehicle_make), str(collected.vehicle_model)]
+        .filter(Boolean)
+        .join(" ")
+      if (label) {
+        confirmedState.holdIntakeSummary = confirmedState.holdIntakeSummary
+          ? `${confirmedState.holdIntakeSummary} — ${label}`
+          : label
+      }
+      // A confirmed read-back that included the year counts as the year answered —
+      // the typed-year fallback and the "still need your year" reprompts stand down,
+      // and the owner's intake-captured alert can fire.
+      if (str(collected.vehicle_year)) confirmedState.holdIntakeFollowUpAnswered = true
+    } catch {
+      /* summary enrichment is best-effort */
+    }
+    console.log(lyncrLog("telnyx-cc-hold-vehicle-voice-confirmed", { callControlId }))
+    await telnyxCallControlSpeak(
+      callControlId,
+      "Great — thank you. Hang tight.",
+      encodeTelnyxCallControlState(confirmedState),
+      { voice: confirmedState.holdSpeakVoice }
+    ).catch(() => undefined)
+    await startHoldMusicGather(callControlId, confirmedState)
+    return
+  }
+
+  // Timeout / anything else — keep the capture, just unconfirmed (never nag twice).
   await startHoldMusicGather(callControlId, baseState)
 }
 
@@ -1510,6 +1867,21 @@ export async function handleHoldLoopGatherEnded(params: {
     gatherStatus === "call_hangup_bye"
   ) {
     await abandonHoldQueue(callControlId)
+    return
+  }
+
+  // Spoken make/model clip is recording — this gather.ended (pound, any digit, or
+  // the backstop timeout) closes it and resumes music; digits here are never a
+  // press-1 / reprompt answer.
+  if (state.holdAwaitingVehicleVoice) {
+    await finishHoldVehicleVoiceCapture(callControlId, state)
+    return
+  }
+
+  // Make/model read-back confirm (1 = right, 2 = redo) — same state-before-digits
+  // reasoning as every other awaiting flag below.
+  if (state.holdAwaitingVehicleVoiceConfirm) {
+    await handleVehicleVoiceConfirmAnswer(callControlId, state, digits)
     return
   }
 

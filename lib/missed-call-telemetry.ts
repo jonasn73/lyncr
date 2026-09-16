@@ -254,6 +254,9 @@ export function formatCaptureRoutedStatus(routedToName: string | null | undefine
   if (n === "Hold Queue") return "On hold / Hold queue"
   if (n === "Busy · hold menu") return "Busy · hold menu"
   if (n === "Booked from hold · press 1") return "Press 1 · booking text sent"
+  if (n === "Hold timed out · link texted") return "Hold timed out · booking text sent"
+  if (n === "Hold at capacity · link texted") return "Hold full · booking text sent"
+  if (n === "Busy menu failed · link texted") return "Menu failed · booking text sent"
   if (n === "Answered from queue") return "Answered from queue"
   return null
 }

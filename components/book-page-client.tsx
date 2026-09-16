@@ -9,6 +9,7 @@ import { Loader2 } from "lucide-react"
 import { CustomerPortalShell } from "@/components/customer-portal-shell"
 import {
   BOOK_JOB_KIND_OPTIONS,
+  bookFormSeedFromIntakePrefill,
   bookJobKindNeedsVehicle,
   buildBookDayOptions,
   buildBookTimeOptions,
@@ -16,6 +17,7 @@ import {
   formatBookAvailabilityLabel,
   isValidBookTimeRange,
   jobTypeFromBookFormKind,
+  type BookingIntakePrefill,
   type BookUrgency,
 } from "@/lib/book-customer-request"
 import { customerPortalBookSuccessCopy } from "@/lib/customer-portal"
@@ -45,6 +47,7 @@ export default function BookPageClient({
   initialPhone = "",
   initialFormMode = "book",
   inviteSource = "",
+  initialPrefill = null,
 }: {
   /** From /book/[id] invite resolution — used when query string is absent. */
   initialLine?: string
@@ -56,6 +59,8 @@ export default function BookPageClient({
   initialFormMode?: BookFormMode
   /** Invite SMS source (e.g. cc_busy_hold_press1) for owner alerts. */
   inviteSource?: string
+  /** Hold-intake answers from the invite — pre-fills job type / vehicle year. */
+  initialPrefill?: BookingIntakePrefill | null
 } = {}) {
   const searchParams = useSearchParams()
   // Prefill phone from SMS link or invite.
@@ -79,15 +84,18 @@ export default function BookPageClient({
   const [payHandoffUrl, setPayHandoffUrl] = useState<string | null>(null)
 
   // —— Step 1 fields (intake-ready) ——
+  // Seed job type + vehicle year from what the caller already told the IVR on hold
+  // (invite prefill) — they only fill in what's still missing (e.g. make/model).
+  const prefillSeed = bookFormSeedFromIntakePrefill(initialPrefill)
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState(phone)
   const [customerEmail, setCustomerEmail] = useState("")
   const [serviceAddress, setServiceAddress] = useState("")
-  const [jobKind, setJobKind] = useState("")
-  const [jobOther, setJobOther] = useState("")
-  const [vehicleYear, setVehicleYear] = useState("")
-  const [vehicleMake, setVehicleMake] = useState("")
-  const [vehicleModel, setVehicleModel] = useState("")
+  const [jobKind, setJobKind] = useState(prefillSeed?.jobKind || "")
+  const [jobOther, setJobOther] = useState(prefillSeed?.jobOther || "")
+  const [vehicleYear, setVehicleYear] = useState(prefillSeed?.vehicleYear || "")
+  const [vehicleMake, setVehicleMake] = useState(prefillSeed?.vehicleMake || "")
+  const [vehicleModel, setVehicleModel] = useState(prefillSeed?.vehicleModel || "")
   const [notes, setNotes] = useState("")
   /** Notes stay collapsed until the customer taps “Add notes”. */
   const [notesOpen, setNotesOpen] = useState(false)

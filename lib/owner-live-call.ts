@@ -80,3 +80,19 @@ export function isHoldPress1BookingSource(source?: string | null): boolean {
     s.includes("busy_press1")
   )
 }
+
+/**
+ * Owner-facing headline for a booking that came in through a hold/busy SMS link.
+ * "press 1" is only claimed when the caller actually pressed 1 — a max-wait /
+ * capacity / menu-failure send says "hold link" instead (confirmed live: a
+ * timed-out caller's booking path was mislabeled press 1 end-to-end).
+ * Returns null when the source isn't a hold/busy link at all.
+ */
+export function holdBookingSourceHeadline(source?: string | null): string | null {
+  if (!isHoldPress1BookingSource(source)) return null
+  const s = String(source || "")
+    .trim()
+    .toLowerCase()
+  const pressed1 = s.includes("press1") || s.includes("hold_press")
+  return pressed1 ? "Booked from hold · press 1" : "Booked from hold link"
+}

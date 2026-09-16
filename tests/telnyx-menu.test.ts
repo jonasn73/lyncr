@@ -94,7 +94,7 @@ describe("telnyx menu IVR helpers", () => {
     expect(sms).not.toContain("book here:")
   })
 
-  it("uses a human still-need-help hold SMS", () => {
+  it("apologizes for the wait on the hold-timeout SMS", () => {
     const sms = buildTelnyxMenuBookingSms(
       "+15025550100",
       "https://lyncr.app/b/AB12CD34",
@@ -102,7 +102,7 @@ describe("telnyx menu IVR helpers", () => {
       "hold_timeout",
       "Key Squad"
     )
-    expect(sms).toContain("still need help?")
+    expect(sms).toContain("sorry for the wait")
     expect(sms).toContain("when you need us:")
     expect(sms).toContain("https://lyncr.app/b/AB12CD34")
     expect(sms).not.toContain("Sorry we missed")
@@ -119,20 +119,7 @@ describe("telnyx menu IVR helpers", () => {
     expect(sms).toBe("Key Squad — when you need us: https://lyncr.app/b/XYZ23456")
   })
 
-  it("asks for year, make, and model when hold intake was vehicle-related but year wasn't captured", () => {
-    const sms = buildTelnyxMenuBookingSms(
-      "+15025550100",
-      "https://lyncr.app/b/XYZ23456",
-      null,
-      "booking_link",
-      "Key Squad",
-      { summary: "Won't start / stranded", vehicleRelated: true, hasVehicleYear: false }
-    )
-    expect(sms).toContain("We've got: Won't start / stranded.")
-    expect(sms).toContain("Reply with the year, make, and model")
-  })
-
-  it("asks only for make and model when the year was already captured", () => {
+  it("never dumps the captured intake into the SMS body — details ride the invite pre-fill", () => {
     const sms = buildTelnyxMenuBookingSms(
       "+15025550100",
       "https://lyncr.app/b/XYZ23456",
@@ -141,27 +128,31 @@ describe("telnyx menu IVR helpers", () => {
       "Key Squad",
       {
         summary: "Lost key / needs new key made — Year 2009",
-        vehicleRelated: true,
-        hasVehicleYear: true,
+        prefill: { intent_slug: "locksmith_key_generation", vehicle_year: "2009" },
       }
     )
-    expect(sms).toContain("We've got: Lost key / needs new key made — Year 2009.")
-    expect(sms).toContain("Reply with the make and model too")
-    expect(sms).not.toContain("year, make, and model")
+    expect(sms).toContain("we saved your details")
+    expect(sms).toContain("https://lyncr.app/b/XYZ23456")
+    expect(sms).not.toContain("We've got")
+    expect(sms).not.toContain("Lost key")
+    expect(sms).not.toContain("Reply with")
+    // Single CTA — the link is the last thing in the message.
+    expect(sms.endsWith("https://lyncr.app/b/XYZ23456")).toBe(true)
   })
 
-  it("mentions the captured summary but skips the vehicle ask for a non-vehicle intent", () => {
+  it("says details were saved on the hold-timeout SMS when intake was captured", () => {
     const sms = buildTelnyxMenuBookingSms(
       "+15025550100",
       "https://lyncr.app/b/XYZ23456",
       null,
-      "booking_link",
+      "hold_timeout",
       "Key Squad",
-      { summary: "Active leak", vehicleRelated: false }
+      { summary: "Active leak", prefill: { intent_label: "Active leak" } }
     )
-    expect(sms).toContain("We've got: Active leak.")
-    expect(sms).not.toContain("make and model")
-    expect(sms).not.toContain("year, make, and model")
+    expect(sms).toContain("sorry for the wait")
+    expect(sms).toContain("We saved your details")
+    expect(sms).not.toContain("Active leak")
+    expect(sms.endsWith("https://lyncr.app/b/XYZ23456")).toBe(true)
   })
 
   it("adds no intake suffix at all when intake is omitted", () => {
