@@ -131,8 +131,11 @@ function formatBookingLinkSmsBody(
   // True miss (rang team / no answer / abandoned hold) — distinct from press-1.
   if (tone === "missed_call") {
     if (hasCapturedIntake(intake)) {
+      // They weren't "missed" — they answered questions and then hung up (owner's
+      // point: in the customer's mind they were connected). Frame it as finishing
+      // what they started, not as an apology for a call that never happened.
       const shop = normalizeBookingSmsShopLabel(businessLabel)
-      return `${shop} — sorry we missed your call. We saved your details, so booking only takes a few seconds: ${link}`
+      return `${shop} — thanks, we saved your details. We just need a little more to get you booked — finish up here: ${link}`
     }
     return `Sorry we missed your call — when you need us: ${link}`
   }

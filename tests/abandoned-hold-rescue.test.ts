@@ -55,7 +55,7 @@ describe("missed-call rescue SMS copy", () => {
     expect(sms).toBe("Sorry we missed your call — when you need us: https://lyncr.app/b/AB12CD34")
   })
 
-  it("mentions saved details when the abandoned hold captured intake", () => {
+  it("frames a captured-intake abandon as finishing up, never as a missed call", () => {
     const sms = buildTelnyxMenuBookingSms(
       "+15025550100",
       "https://lyncr.app/b/AB12CD34",
@@ -64,8 +64,10 @@ describe("missed-call rescue SMS copy", () => {
       "Key Squad",
       { summary: "Lost key / needs new key made", prefill: { intent_slug: "locksmith_key_generation" } }
     )
-    expect(sms).toContain("sorry we missed your call")
-    expect(sms).toContain("we saved your details".replace("we", "We"))
+    // They answered questions on the call — "we missed you" would ring false.
+    expect(sms).not.toContain("missed your call")
+    expect(sms).toContain("we saved your details")
+    expect(sms).toContain("finish up here")
     expect(sms).not.toContain("Lost key")
     expect(sms.endsWith("https://lyncr.app/b/AB12CD34")).toBe(true)
   })
