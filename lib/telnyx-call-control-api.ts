@@ -19,6 +19,14 @@ export type TelnyxCallControlActionResult =
 /** Telnyx: call already ended — further commands return 422 / code 90018. */
 const TELNYX_CALL_NO_LONGER_ACTIVE_CODE = "90018"
 
+/**
+ * Telnyx: leave_queue on a call the queue already dropped (answered from Lines, hung up,
+ * or already left another way) — 422 / code 90035. Distinct from 90018 above: the leg
+ * itself may still be active, only the queue membership is stale. Only ever relevant to
+ * leave_queue, unlike 90018 which any action can hit.
+ */
+const TELNYX_CALL_NOT_IN_QUEUE_CODE = "90035"
+
 /** Short-lived memory of legs we know are done — skips duplicate hangup / leave_queue. */
 const knownTerminalCallControlIds = new Map<string, number>()
 const TERMINAL_CALL_TTL_MS = 15 * 60 * 1000
@@ -64,6 +72,24 @@ export function isTelnyxCallNoLongerActiveError(
     }
   }
   return /no longer active/i.test(detail) || detail.includes(TELNYX_CALL_NO_LONGER_ACTIVE_CODE)
+}
+
+/** True when Telnyx rejected leave_queue because the call already isn't in a queue (race). */
+export function isTelnyxCallNotInQueueError(
+  status: number,
+  errBody: unknown,
+  detail: string
+): boolean {
+  if (status !== 422 && status !== 400 && status !== 409) return false
+  const errors = (errBody as { errors?: Array<{ code?: string | number; detail?: string }> } | null)
+    ?.errors
+  if (Array.isArray(errors)) {
+    for (const err of errors) {
+      if (String(err?.code ?? "") === TELNYX_CALL_NOT_IN_QUEUE_CODE) return true
+      if (/isn't in a queue|is not in a queue/i.test(String(err?.detail ?? ""))) return true
+    }
+  }
+  return /isn't in a queue|is not in a queue/i.test(detail) || detail.includes(TELNYX_CALL_NOT_IN_QUEUE_CODE)
 }
 
 async function postCallAction(
@@ -144,6 +170,22 @@ async function postCallAction(
       return { ok: true, alreadyTerminal: true }
     }
     return { ok: false, status: res.status, error: detail || res.statusText }
+  }
+  // Same expected-race treatment as above, but leave_queue-specific: the call may still be
+  // live, just already out of the queue (answered from Lines, or left another way) — every
+  // call site already does `.catch(() => undefined)` on this, so logging it as an error was
+  // pure noise, not a signal of anything actually wrong.
+  if (action === "leave_queue" && isTelnyxCallNotInQueueError(res.status, errBody, detail || res.statusText)) {
+    console.warn(
+      lyncrLog("telnyx-cc-api-already-left-queue", {
+        action,
+        callControlId: id,
+        status: res.status,
+        error: detail || res.statusText,
+        telnyxCode: TELNYX_CALL_NOT_IN_QUEUE_CODE,
+      })
+    )
+    return { ok: true, alreadyTerminal: true }
   }
   // Full Telnyx error JSON (truncated) — required to debug silent hold / real 422s.
   console.error(
