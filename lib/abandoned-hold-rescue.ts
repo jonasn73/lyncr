@@ -170,6 +170,7 @@ export async function runAbandonedHoldRescueSweep(
       `.catch((e) => console.warn(lyncrLog("abandon-rescue-release-failed", { error: String(e) })))
     }
 
+    let didClaim = false
     try {
       let enabled = textbackEnabled.get(candidate.user_id)
       if (enabled === undefined) {
@@ -219,6 +220,7 @@ export async function runAbandonedHoldRescueSweep(
         result.skippedMovedOn += 1
         continue
       }
+      didClaim = true
 
       const { shopLabel } = await resolveShopLabel({
         userId: candidate.user_id,
@@ -274,6 +276,9 @@ export async function runAbandonedHoldRescueSweep(
         result.skippedMovedOn += 1
       }
     } catch (e) {
+      // Release only a claim this pass made, so a throw after claiming retries next
+      // pass instead of silently burying the row as decided-but-unsent.
+      if (didClaim) await releaseClaim()
       result.failed += 1
       console.warn(
         lyncrLog("abandon-rescue-candidate-failed", { userId: candidate.user_id, error: String(e) })
