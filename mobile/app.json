@@ -57,6 +57,15 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "50390fcf-2257-4d08-aa7f-b51c96c9a8c7"
+      }
+    },
+    "owner": "sim44p"
   }
 }
