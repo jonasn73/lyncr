@@ -1439,14 +1439,7 @@ async function handleHoldIntakeAnswer(
     return
   }
 
-  await telnyxCallControlSpeak(
-    callControlId,
-    "Got it, thanks — hang tight.",
-    encodeTelnyxCallControlState(baseState),
-    { voice: baseState.holdSpeakVoice }
-  ).catch(() => undefined)
-
-  await startHoldMusicGather(callControlId, baseState)
+  await speakHoldAckThenMusic(callControlId, baseState, "Got it, thanks — hang tight.")
 }
 
 /**
@@ -1660,6 +1653,36 @@ export async function startHoldVehicleVoiceRecording(
   }
 }
 
+/**
+ * Speak a short ack and resume hold music only on that speak's `call.speak.ended`
+ * (dispatched back into resumeHoldMusicAfterAckSpeak). Starting music in the same
+ * turn cancelled the ack: startHoldMusicGather's playback_start uses stop:"all",
+ * so the TTS died milliseconds in and callers heard music with no confirmation.
+ * If the speak command itself is rejected, music resumes immediately —
+ * `call.speak.failed` covers the async-failure path (see handleSpeakFailed).
+ */
+async function speakHoldAckThenMusic(
+  callControlId: string,
+  state: TelnyxCallControlClientState,
+  text: string
+): Promise<void> {
+  const ackState: TelnyxCallControlClientState = { ...state, phase: "await_hold_ack_speak" }
+  const res = await telnyxCallControlSpeak(callControlId, text, encodeTelnyxCallControlState(ackState), {
+    voice: state.holdSpeakVoice,
+  }).catch(() => null)
+  if (!res?.ok) {
+    await startHoldMusicGather(callControlId, { ...state, phase: "await_busy_hold_loop" })
+  }
+}
+
+/** `call.speak.ended` / `call.speak.failed` for a hold ack — pick the music loop back up. */
+export async function resumeHoldMusicAfterAckSpeak(
+  callControlId: string,
+  state: TelnyxCallControlClientState
+): Promise<void> {
+  await startHoldMusicGather(callControlId, { ...state, phase: "await_busy_hold_loop" })
+}
+
 /** Backstop gather ended (pound / digit / 12s timeout) — close the clip, resume music. */
 async function finishHoldVehicleVoiceCapture(
   callControlId: string,
@@ -1673,14 +1696,8 @@ async function finishHoldVehicleVoiceCapture(
     // Stamps the stale-transcription clock: pending past the window → retry.
     holdVehicleVoiceRecordedAtMs: Date.now(),
   }
-  await telnyxCallControlSpeak(
-    callControlId,
-    "Perfect — thank you. Hang tight.",
-    encodeTelnyxCallControlState(cleared),
-    { voice: cleared.holdSpeakVoice }
-  ).catch(() => undefined)
   console.log(lyncrLog("telnyx-cc-hold-vehicle-voice-captured", { callControlId }))
-  await startHoldMusicGather(callControlId, cleared)
+  await speakHoldAckThenMusic(callControlId, cleared, "Perfect — thank you. Hang tight.")
 }
 
 /**
@@ -1786,13 +1803,7 @@ async function handleVehicleVoiceConfirmAnswer(
       /* summary enrichment is best-effort */
     }
     console.log(lyncrLog("telnyx-cc-hold-vehicle-voice-confirmed", { callControlId }))
-    await telnyxCallControlSpeak(
-      callControlId,
-      "Great — thank you. Hang tight.",
-      encodeTelnyxCallControlState(confirmedState),
-      { voice: confirmedState.holdSpeakVoice }
-    ).catch(() => undefined)
-    await startHoldMusicGather(callControlId, confirmedState)
+    await speakHoldAckThenMusic(callControlId, confirmedState, "Great — thank you. Hang tight.")
     return
   }
 

@@ -31,6 +31,7 @@ import {
   handleHoldLoopGatherEnded,
   kickHoldMusicPlaybackImmediate,
   recoverHoldLoopAfterError,
+  resumeHoldMusicAfterAckSpeak,
   startHoldVehicleVoiceRecording,
 } from "@/lib/telnyx-call-control-hold-queue"
 import { prefetchHoldMusicPlaybackContent } from "@/lib/hold-inline-audio"
@@ -650,6 +651,13 @@ async function handleSpeakFailed(
     // actually heard a greeting, so correct the optimistic flag before continuing, so
     // Busy/Hold automation still says the business name once instead of assuming it was heard.
     await continueAfterInboundGreeting(event, { ...state, brandedGreetingPlayed: false })
+    return
+  }
+
+  // Hold ack never played — no speak.ended is coming, so restart the music loop here
+  // or the caller sits in dead air with no gather armed for the rest of the call.
+  if (state?.phase === "await_hold_ack_speak") {
+    await resumeHoldMusicAfterAckSpeak(event.callControlId, state)
   }
 }
 
@@ -1549,6 +1557,13 @@ async function handleSpeakEnded(
   // caller-only recording now so the beep lands after the sentence, never over it.
   if (state.phase === "await_hold_vehicle_voice_prompt") {
     await startHoldVehicleVoiceRecording(event.callControlId, state)
+    return
+  }
+
+  // A hold-queue ack ("Perfect — thank you…") finished — only now restart music,
+  // whose playback_start (stop:"all") would otherwise have cancelled the ack mid-word.
+  if (state.phase === "await_hold_ack_speak") {
+    await resumeHoldMusicAfterAckSpeak(event.callControlId, state)
   }
 }
 
@@ -2221,6 +2236,9 @@ async function handleCallHangup(
     state?.phase !== "await_busy_gather_end" &&
     state?.phase !== "await_busy_sms_confirm_end" &&
     state?.phase !== "await_busy_hold_loop" &&
+    // Mid-hold speak phases are still the hold loop, just for the ~2s a prompt/ack plays.
+    state?.phase !== "await_hold_vehicle_voice_prompt" &&
+    state?.phase !== "await_hold_ack_speak" &&
     state?.phase !== "await_ai_assistant_hold" &&
     (Boolean(state?.inboundCallControlId) || state?.phase === "await_dial_end")
 

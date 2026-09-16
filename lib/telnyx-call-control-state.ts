@@ -24,6 +24,13 @@ type TelnyxCallControlPhase =
   | "await_queue_agent_answer"
   /** "Say the make and model" ask is being spoken — speak.ended starts the recording. */
   | "await_hold_vehicle_voice_prompt"
+  /**
+   * A short hold-queue ack ("Perfect — thank you…") is being spoken — speak.ended
+   * resumes hold music. Music must NOT start in the same turn as the speak: its
+   * playback_start uses stop:"all", which cancels the in-flight TTS and the caller
+   * hears no acknowledgement at all.
+   */
+  | "await_hold_ack_speak"
   | "recording"
 
 /** Why Call Control chose this PSTN target (Busy backup vs owner day dial). */
