@@ -56,16 +56,20 @@ export async function GET(req: NextRequest) {
     let currency = "usd"
     let payoutSchedule: string = "unknown"
     if (state.accountId) {
-      // Enforce manual bank payouts so Available balance never auto-drains.
-      const schedule = await ensureManualConnectPayoutSchedule(state.accountId)
+      // Independent Stripe calls (neither depends on the other's result) — sequential
+      // awaits here were adding ~1s+ to every Lines page load for nothing.
+      const [schedule, bal] = await Promise.all([
+        ensureManualConnectPayoutSchedule(state.accountId),
+        getConnectBalanceSummary(state.accountId).catch((e) => {
+          console.warn("[payments/connect/status] balance:", e)
+          return null
+        }),
+      ])
       payoutSchedule = schedule.interval
-      try {
-        const bal = await getConnectBalanceSummary(state.accountId)
+      if (bal) {
         availableCents = bal.availableCents
         pendingCents = bal.pendingCents
         currency = bal.currency
-      } catch (e) {
-        console.warn("[payments/connect/status] balance:", e)
       }
     }
 
