@@ -64,9 +64,10 @@ describe("buildHoldNoResponseSmsBody", () => {
       link: "https://lyncr.app/b/4KGFXNSF",
     })
     expect(body).toBe(
-      "Key Squad — sorry, our whole team is still unavailable tonight. We're back tomorrow at 9:00 AM and you're at the top of our list. If anything frees up sooner, we'll call you right away. Book anytime: https://lyncr.app/b/4KGFXNSF"
+      "Key Squad — sorry, our whole team is still unavailable tonight. We're back tomorrow at 9:00 AM and you're at the top of our list. If anything frees up sooner, we'll call you right away. Book anytime:\nhttps://lyncr.app/b/4KGFXNSF"
     )
     expect(body.endsWith("https://lyncr.app/b/4KGFXNSF")).toBe(true)
+    expect(body).toContain("\nhttps://lyncr.app/b/4KGFXNSF")
   })
 
   it("drops the opening time when the schedule can't provide one", () => {
@@ -79,6 +80,7 @@ describe("buildHoldNoResponseSmsBody", () => {
     expect(body).toContain("still unavailable right now")
     expect(body).not.toContain("We're back")
     expect(body.endsWith("https://lyncr.app/b/AB12CD34")).toBe(true)
+    expect(body).toContain("\nhttps://lyncr.app/b/AB12CD34")
   })
 })
 

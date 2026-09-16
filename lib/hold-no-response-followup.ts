@@ -73,9 +73,9 @@ export function buildHoldNoResponseSmsBody(opts: {
   const when = opts.night ? "tonight" : "right now"
   const nextOpen = opts.nextOpenLabel?.trim()
   if (nextOpen) {
-    return `${shop} — sorry, our whole team is still unavailable ${when}. We're back ${nextOpen} and you're at the top of our list. If anything frees up sooner, we'll call you right away. Book anytime: ${opts.link}`
+    return `${shop} — sorry, our whole team is still unavailable ${when}. We're back ${nextOpen} and you're at the top of our list. If anything frees up sooner, we'll call you right away. Book anytime:\n${opts.link}`
   }
-  return `${shop} — sorry, our whole team is still unavailable ${when}. You're at the top of our list — if anything frees up, we'll call you right away. Book anytime: ${opts.link}`
+  return `${shop} — sorry, our whole team is still unavailable ${when}. You're at the top of our list — if anything frees up, we'll call you right away. Book anytime:\n${opts.link}`
 }
 
 /**

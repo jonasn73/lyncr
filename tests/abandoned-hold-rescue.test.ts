@@ -106,7 +106,7 @@ describe("missed-call rescue SMS copy", () => {
       null,
       "missed_call"
     )
-    expect(sms).toBe("Sorry we missed your call — when you need us: https://lyncr.app/b/AB12CD34")
+    expect(sms).toBe("Sorry we missed your call — when you need us:\nhttps://lyncr.app/b/AB12CD34")
   })
 
   it("frames a captured-intake abandon as finishing up, never as a missed call", () => {
@@ -121,8 +121,10 @@ describe("missed-call rescue SMS copy", () => {
     // They answered questions on the call — "we missed you" would ring false.
     expect(sms).not.toContain("missed your call")
     expect(sms).toContain("we saved your details")
-    expect(sms).toContain("finish up here")
+    expect(sms).toContain("finish up here:")
     expect(sms).not.toContain("Lost key")
     expect(sms.endsWith("https://lyncr.app/b/AB12CD34")).toBe(true)
+    // Link on its own line so phones don't swallow a trailing period into the path.
+    expect(sms).toContain("\nhttps://lyncr.app/b/AB12CD34")
   })
 })

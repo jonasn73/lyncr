@@ -335,9 +335,40 @@ function isShortCodeToken(token: string): boolean {
   return /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6,12}$/i.test(token)
 }
 
+/**
+ * Phones often auto-link SMS URLs and drag along trailing punctuation
+ * (`/b/QKZLHEAA.` / `/b/CODE,`) — that used to 404 as "Page not found".
+ * Strip junk and pull out a UUID or short code when the path is noisy.
+ */
+export function normalizeBookingInviteToken(raw: string): string {
+  let token = String(raw || "").trim()
+  if (!token) return ""
+  try {
+    token = decodeURIComponent(token)
+  } catch {
+    /* keep raw */
+  }
+  token = token.trim()
+  // Drop query/hash if somehow present, and anything after whitespace.
+  token = token.split(/[?#\s]/)[0] || ""
+  // Trailing junk iMessage / Android often appends when the sentence continues.
+  token = token.replace(/[.,;:!?)\]\}>'"…]+$/g, "")
+  token = token.replace(/\/+$/g, "")
+
+  const uuid = token.match(
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+  )
+  if (uuid?.[0]) return uuid[0]
+
+  const short = token.match(/[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6,12}/i)
+  if (short?.[0]) return short[0].toUpperCase()
+
+  return token
+}
+
 /** Resolve a public /book/[id] or /b/[code] token (ignores expired rows). */
 export async function getBookingInviteById(id: string): Promise<BookingInvite | null> {
-  const token = id.trim()
+  const token = normalizeBookingInviteToken(id)
   if (!token) return null
 
   try {

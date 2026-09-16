@@ -116,7 +116,7 @@ describe("telnyx menu IVR helpers", () => {
       "booking_link",
       "Key Squad"
     )
-    expect(sms).toBe("Key Squad — when you need us: https://lyncr.app/b/XYZ23456")
+    expect(sms).toBe("Key Squad — when you need us:\nhttps://lyncr.app/b/XYZ23456")
   })
 
   it("never dumps the captured intake into the SMS body — details ride the invite pre-fill", () => {
@@ -163,7 +163,7 @@ describe("telnyx menu IVR helpers", () => {
       "booking_link",
       "Key Squad"
     )
-    expect(sms).toBe("Key Squad — when you need us: https://lyncr.app/b/XYZ23456")
+    expect(sms).toBe("Key Squad — when you need us:\nhttps://lyncr.app/b/XYZ23456")
   })
 
   it("builds Digits=1 / Digits=2 Say+Hangup TeXML with neural Polly voice", () => {

@@ -121,6 +121,14 @@ function hasCapturedIntake(intake?: HoldIntakeSmsContext | null): boolean {
   return Boolean(p && (p.intent_slug || p.intent_label || p.vehicle_year))
 }
 
+/**
+ * Put the booking URL on its own line so phone auto-linkers don't swallow a
+ * trailing period/comma from the sentence (that used to open /b/CODE. → 404).
+ */
+function withBookingLinkOnOwnLine(copy: string, link: string): string {
+  return `${copy.trim()}\n${link.trim()}`
+}
+
 /** Build the SMS body once we know the final booking URL — one CTA, link last. */
 function formatBookingLinkSmsBody(
   link: string,
@@ -135,21 +143,30 @@ function formatBookingLinkSmsBody(
       // point: in the customer's mind they were connected). Frame it as finishing
       // what they started, not as an apology for a call that never happened.
       const shop = normalizeBookingSmsShopLabel(businessLabel)
-      return `${shop} — thanks, we saved your details. We just need a little more to get you booked — finish up here: ${link}`
+      return withBookingLinkOnOwnLine(
+        `${shop} — thanks, we saved your details. We just need a little more to get you booked — finish up here:`,
+        link
+      )
     }
-    return `Sorry we missed your call — when you need us: ${link}`
+    return withBookingLinkOnOwnLine("Sorry we missed your call — when you need us:", link)
   }
   const shop = normalizeBookingSmsShopLabel(businessLabel)
   const saved = hasCapturedIntake(intake)
   if (tone === "hold_timeout") {
-    return saved
-      ? `${shop} — sorry for the wait. We saved your details, so booking only takes a few seconds: ${link}`
-      : `${shop} — sorry for the wait. Tell us when you need us: ${link}`
+    return withBookingLinkOnOwnLine(
+      saved
+        ? `${shop} — sorry for the wait. We saved your details, so booking only takes a few seconds:`
+        : `${shop} — sorry for the wait. Tell us when you need us:`,
+      link
+    )
   }
   // Press-1 / hold / IVR — they send availability (ASAP or a window), not our slots.
-  return saved
-    ? `${shop} — we saved your details, so booking only takes a few seconds: ${link}`
-    : `${shop} — when you need us: ${link}`
+  return withBookingLinkOnOwnLine(
+    saved
+      ? `${shop} — we saved your details, so booking only takes a few seconds:`
+      : `${shop} — when you need us:`,
+    link
+  )
 }
 
 /** Absolute tracking links: /book/<id> or short /b/<code>. */
