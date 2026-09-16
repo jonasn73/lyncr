@@ -599,23 +599,31 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
   }, [])
 
   // Empty settled → hide Alerts (CallFlow min-h absorbs the gap — no fake gray card).
-  if (items.length === 0 && !selected) {
-    if (loading) {
-      return (
-        <div className="mt-3 w-full text-left" aria-hidden data-flicker-probe="lines-alerts-loading">
-          <div className="mb-2 h-5 w-14 rounded bg-muted/25" />
-          <div className="h-[4.75rem] rounded-xl border border-border/50 bg-muted/10" />
-        </div>
-      )
-    }
-    return null
-  }
+  const showLoadingSkeleton = items.length === 0 && !selected && loading
+  const showAlerts = items.length > 0
 
   return (
     <>
-      {items.length > 0 ? (
+      {showAlerts || showLoadingSkeleton ? (
+        // layout: the skeleton is one row tall but real alerts can be 0–4+ — animating the
+        // height change (framer-motion FLIP, via transform) instead of snapping it in avoids
+        // a real, measured CLS hit on Lines (Available/Caller ID used to jump ~150-250px).
         // mt-3 only when Alerts actually paint — keeps Primary→Available gap honest when empty.
-        <div className="mt-3 w-full text-left" aria-label="Alerts">
+        <motion.div
+          layout
+          transition={MOTION_SPRING_LAYOUT}
+          className="mt-3 w-full text-left"
+          aria-label={showAlerts ? "Alerts" : undefined}
+          aria-hidden={showLoadingSkeleton ? true : undefined}
+          data-flicker-probe={showLoadingSkeleton ? "lines-alerts-loading" : undefined}
+        >
+          {showLoadingSkeleton ? (
+            <>
+              <div className="mb-2 h-5 w-14 rounded bg-muted/25" />
+              <div className="h-[4.75rem] rounded-xl border border-border/50 bg-muted/10" />
+            </>
+          ) : (
+            <>
           {/* Tiny header only — alert cards carry the meaning. */}
           <div className="mb-2 flex items-center gap-2 px-0.5">
             <p
@@ -839,7 +847,9 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
             })}
             </AnimatePresence>
           </ul>
-        </div>
+            </>
+          )}
+        </motion.div>
       ) : null}
 
       {/* Mount Sheet only while open — always-mounted Radix Sheet+Close button
