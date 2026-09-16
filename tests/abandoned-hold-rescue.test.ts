@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { shouldRescueAbandonedHold } from "@/lib/abandoned-hold-rescue"
+import {
+  abandonedHoldRescueDelayMinutes,
+  hasCompleteHoldIntake,
+  shouldRescueAbandonedHold,
+} from "@/lib/abandoned-hold-rescue"
 import { isTollFreeE164 } from "@/lib/phone-e164"
 import { buildTelnyxMenuBookingSms } from "@/lib/telnyx-menu"
 
@@ -23,6 +27,56 @@ describe("shouldRescueAbandonedHold", () => {
     expect(
       shouldRescueAbandonedHold({ heldSecs: 300, answeredIntake: true, callerE164: "+18003536737" })
     ).toBe(false)
+  })
+})
+
+describe("hasCompleteHoldIntake", () => {
+  it("needs an intent at minimum", () => {
+    expect(hasCompleteHoldIntake({})).toBe(false)
+    expect(hasCompleteHoldIntake({ intent_slug: "locksmith_lockout" })).toBe(true)
+  })
+
+  it("requires vehicle detail for key-generation", () => {
+    expect(hasCompleteHoldIntake({ intent_slug: "locksmith_key_generation" })).toBe(false)
+    expect(
+      hasCompleteHoldIntake({
+        intent_slug: "locksmith_key_generation",
+        vehicle_year: "2016",
+      })
+    ).toBe(true)
+    expect(
+      hasCompleteHoldIntake({
+        intent_slug: "locksmith_key_generation",
+        vehicle_make_model_label: "Chrysler 200",
+      })
+    ).toBe(true)
+  })
+
+  it("treats a pending vehicle clip as incomplete", () => {
+    expect(
+      hasCompleteHoldIntake({
+        intent_slug: "locksmith_key_generation",
+        vehicle_year: "2016",
+        vehicle_voice_pending: true,
+      })
+    ).toBe(false)
+  })
+})
+
+describe("abandonedHoldRescueDelayMinutes", () => {
+  it("texts right away unless after hours with complete intake", () => {
+    expect(
+      abandonedHoldRescueDelayMinutes({ presenceClosed: false, completeIntake: false })
+    ).toBe(0)
+    expect(
+      abandonedHoldRescueDelayMinutes({ presenceClosed: false, completeIntake: true })
+    ).toBe(0)
+    expect(
+      abandonedHoldRescueDelayMinutes({ presenceClosed: true, completeIntake: false })
+    ).toBe(0)
+    expect(
+      abandonedHoldRescueDelayMinutes({ presenceClosed: true, completeIntake: true })
+    ).toBe(15)
   })
 })
 

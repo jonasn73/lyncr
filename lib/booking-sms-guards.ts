@@ -66,13 +66,13 @@ function sqlClient() {
 export async function hasOutboundSmsToCustomerRecently(params: {
   ownerUserId: string
   customerPhone: string
-  /** Default 0.75h (45 min) — shared with press-1 / hold / rescue dedupe. */
+  /** Default 24h — shared with press-1 / hold / rescue dedupe (no spam on redial). */
   withinHours?: number
 }): Promise<boolean> {
   const phone = normalizePhoneNumberE164(params.customerPhone) || toE164(params.customerPhone)
   if (!phone) return false
   const digits = phone.replace(/\D/g, "").slice(-10)
-  const hours = params.withinHours ?? 0.75
+  const hours = params.withinHours ?? 24
   // Convert to minutes so Neon interval accepts fractional hours cleanly.
   const minutes = Math.max(1, Math.round(hours * 60))
   const sql = sqlClient()
@@ -102,13 +102,13 @@ export async function hasOutboundSmsToCustomerRecently(params: {
 async function recentOutboundSmsBodies(params: {
   ownerUserId: string
   customerPhone: string
-  /** Default 45 minutes — same window as missed-call rescue. */
+  /** Default 24h — same window as auto booking-link dedupe. */
   withinHours?: number
 }): Promise<string[]> {
   const phone = normalizePhoneNumberE164(params.customerPhone) || toE164(params.customerPhone)
   if (!phone) return []
   const digits = phone.replace(/\D/g, "").slice(-10)
-  const hours = params.withinHours ?? 0.75
+  const hours = params.withinHours ?? 24
   const minutes = Math.max(1, Math.round(hours * 60))
   const sql = sqlClient()
   try {

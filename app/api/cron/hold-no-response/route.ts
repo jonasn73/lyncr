@@ -5,8 +5,9 @@
 //    window, tell the customer the team is unavailable until the next scheduled
 //    opening (honest + door open) instead of leaving them up at 1 AM expecting
 //    a call.
-// 2. Abandoned-hold rescue: a caller who hung up mid-hold gets the booking link
-//    a few minutes later (92% previously got nothing, links convert ~45%).
+// 2. Abandoned-hold rescue: mid-hold hangups get the booking link immediately
+//    (hangup path); after-hours + complete intake waits 15 minutes. Cron catches
+//    deferred / missed sends (92% previously got nothing, links convert ~45%).
 
 import { NextRequest, NextResponse } from "next/server"
 import { runHoldNoResponseFollowupSweep } from "@/lib/hold-no-response-followup"

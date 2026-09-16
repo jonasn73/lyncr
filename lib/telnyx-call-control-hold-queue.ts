@@ -1343,7 +1343,8 @@ async function finishHoldWithoutSms(
 }
 
 /**
- * Caller hung up — cleanup Neon + Telnyx queue (no auto SMS).
+ * Caller hung up — cleanup Neon + Telnyx queue, then kick abandoned-hold rescue
+ * (immediate booking link unless after-hours + complete intake, which waits 15 min).
  * Called unconditionally on every inbound hangup (even with stale/missing client_state,
  * to guarantee ghost "holding" rows clear) — including the NORMAL end of a call that was
  * already answered from the queue. Without the status check below, that hangup silently
@@ -1358,6 +1359,13 @@ export async function abandonHoldQueue(callControlId: string): Promise<void> {
   const liveStatus = await getCallQueueStatusByCallControlId(callControlId).catch(() => null)
   if (liveStatus && liveStatus !== "waiting" && liveStatus !== "holding") return
   await updateCallQueueStatus({ callControlId, status: "left" })
+  // Early hangups get the booking-link rescue right away (after-hours + complete
+  // intake still waits 15 min via cron). Fire-and-forget — never block hangup cleanup.
+  void import("@/lib/abandoned-hold-rescue")
+    .then(({ tryImmediateAbandonedHoldRescue }) => tryImmediateAbandonedHoldRescue(callControlId))
+    .catch((e) =>
+      console.warn(lyncrLog("abandon-rescue-immediate-kick-failed", { error: String(e) }))
+    )
 }
 
 /**

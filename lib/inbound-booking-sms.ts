@@ -18,8 +18,8 @@ import {
   hasOutboundSmsToCustomerRecently,
 } from "@/lib/booking-sms-guards"
 
-/** Default auto-SMS cooldown — kill duplicate press-1 / rescue / max-wait blasts. */
-const BOOKING_SMS_COOLDOWN_MINUTES = 45
+/** Default auto-SMS cooldown — kill duplicate press-1 / rescue / max-wait / redial blasts. */
+const BOOKING_SMS_COOLDOWN_MINUTES = 24 * 60
 
 /** Build a secure /book or /b invite URL (falls back to query-string book link). */
 async function resolveInboundBookingUrl(opts: {
@@ -61,7 +61,7 @@ async function sendInboundBookingSms(opts: {
   /** Press-1 vs missed vs hold-timeout copy. */
   tone?: BookingLinkSmsTone
   /**
-   * Skip the 45-min cooldown (operator manual send). Auto paths keep dedupe on.
+   * Skip the 24h cooldown (operator manual send). Auto paths keep dedupe on.
    */
   bypassCooldown?: boolean
   /** What was captured on hold, if anything — rides the invite as /book pre-fill and softens the SMS copy. */
@@ -231,7 +231,7 @@ export async function sendInboundBookingSmsAndTag(opts: {
    * here can never win for exactly the callers this rescue targets — it would always
    * return not_attempted and no booking text would ever send. The rescue's own
    * idempotency is the call_queue.no_response_followup_at marker (claimed atomically
-   * by the sweep before this call), and the SMS 45-min cooldown backstops any race.
+   * by the sweep before this call), and the SMS 24h cooldown backstops any race.
    */
   bypassIvrClaim?: boolean
 }): Promise<{ outcome: InboundBookingSmsOutcome; error?: string }> {
