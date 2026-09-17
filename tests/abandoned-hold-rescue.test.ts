@@ -78,6 +78,16 @@ describe("abandonedHoldRescueDelayMinutes", () => {
       abandonedHoldRescueDelayMinutes({ presenceClosed: true, completeIntake: true })
     ).toBe(15)
   })
+
+  it("skips the after-hours wait for an urgent intent", () => {
+    expect(
+      abandonedHoldRescueDelayMinutes({
+        presenceClosed: true,
+        completeIntake: true,
+        urgentIntent: true,
+      })
+    ).toBe(0)
+  })
 })
 
 describe("isTollFreeE164", () => {

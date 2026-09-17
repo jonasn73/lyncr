@@ -10,6 +10,11 @@
 // - Early hangup / incomplete intake → text right away (hangup path + delay 0)
 // - After hours AND complete intake → wait 15 minutes (give the shop a chance
 //   to call back before the auto booking link)
+// - Urgent intent (locked out, stranded, active leak — see
+//   hold-queue-intake-prompts.ts `urgent`) → always immediate, even after hours
+//   with complete intake. The 15-minute wait only helps if the owner is both
+//   notified AND free to call back; someone standing at a locked car cannot
+//   wait out a "give the shop a chance" window meant for routine requests.
 //
 // Guards, in order:
 // - users.missed_call_textback_enabled (the long-orphaned toggle) gates per owner
@@ -29,6 +34,7 @@ import { sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
 import { conversationMovedOn, resolveShopLabel } from "@/lib/hold-no-response-followup"
 import { getMissedCallTextbackEnabled } from "@/lib/missed-call-textback"
 import { bookingIntakePrefillFromCollected } from "@/lib/book-customer-request"
+import { isUrgentHoldQueueIntentSlug } from "@/lib/hold-queue-intake-prompts"
 import { CAPTURE_STATUS_HOLD_ABANDON_RESCUE } from "@/lib/inbound-time-capture"
 import { isTollFreeE164 } from "@/lib/phone-e164"
 import { getAccountPresence } from "@/lib/account-presence"
@@ -117,11 +123,14 @@ export function hasCompleteHoldIntake(
 /**
  * Minutes to wait after hangup before the rescue text.
  * Only after-hours + complete intake waits 15 minutes; everyone else is immediate.
+ * A "right now" urgent intent always skips the wait, even after hours.
  */
 export function abandonedHoldRescueDelayMinutes(params: {
   presenceClosed: boolean
   completeIntake: boolean
+  urgentIntent?: boolean
 }): number {
+  if (params.urgentIntent) return RESCUE_DELAY_IMMEDIATE_MINUTES
   if (params.presenceClosed && params.completeIntake) {
     return RESCUE_DELAY_AFTER_HOURS_COMPLETE_MINUTES
   }
@@ -260,9 +269,13 @@ async function processAbandonedHoldCandidate(
 
     const completeIntake = hasCompleteHoldIntake(collected)
     const presenceClosed = await isShopClosed(candidate.user_id)
+    const urgentIntent = isUrgentHoldQueueIntentSlug(
+      typeof collected.intent_slug === "string" ? collected.intent_slug : null
+    )
     const delayMinutes = abandonedHoldRescueDelayMinutes({
       presenceClosed,
       completeIntake,
+      urgentIntent,
     })
 
     if (opts.requireDelayElapsed !== false && delayMinutes > 0) {
@@ -401,9 +414,17 @@ export async function tryImmediateAbandonedHoldRescue(
     candidate.collected && typeof candidate.collected === "object" ? candidate.collected : {}
   const completeIntake = hasCompleteHoldIntake(collected)
   const presenceClosed = await isShopClosed(candidate.user_id)
-  const delayMinutes = abandonedHoldRescueDelayMinutes({ presenceClosed, completeIntake })
+  const urgentIntent = isUrgentHoldQueueIntentSlug(
+    typeof collected.intent_slug === "string" ? collected.intent_slug : null
+  )
+  const delayMinutes = abandonedHoldRescueDelayMinutes({
+    presenceClosed,
+    completeIntake,
+    urgentIntent,
+  })
 
-  // After-hours complete intake waits — cron sends after 15 minutes.
+  // After-hours complete intake waits — cron sends after 15 minutes. Urgent intents
+  // (see isUrgentHoldQueueIntentSlug) always come back immediate above.
   if (delayMinutes > 0) {
     console.log(
       lyncrLog("abandon-rescue-deferred-after-hours", {

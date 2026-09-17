@@ -35,6 +35,13 @@ export type HoldQueueIntakeOption = {
   intentSlug: string
   /** Optional Phase-2 numeric follow-up, asked only when this option is picked. */
   followUp?: HoldQueueIntakeFollowUp
+  /**
+   * "Right now" situations (stranded, locked out, active leak) — read by
+   * lib/abandoned-hold-rescue.ts to skip the after-hours 15-minute wait so an
+   * abandoned-hold caller in genuine trouble gets the booking-link text
+   * immediately instead of waiting alongside routine/scheduled requests.
+   */
+  urgent?: boolean
 }
 
 export type HoldQueueIntakePrompt = {
@@ -77,6 +84,7 @@ const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> 
         digit: "1",
         label: "Locked out of car",
         intentSlug: "locksmith_lockout",
+        urgent: true,
       },
       {
         digit: "2",
@@ -84,7 +92,12 @@ const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> 
         intentSlug: "locksmith_key_generation",
         followUp: VEHICLE_YEAR_FOLLOW_UP,
       },
-      { digit: "3", label: "Home or business lockout", intentSlug: "locksmith_property" },
+      {
+        digit: "3",
+        label: "Home or business lockout",
+        intentSlug: "locksmith_property",
+        urgent: true,
+      },
       { digit: "4", label: "Something else", intentSlug: "locksmith_other" },
     ],
   },
@@ -100,6 +113,7 @@ const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> 
         // drivable / warning lights / noise".
         intentSlug: "auto_repair_diagnostic",
         followUp: VEHICLE_YEAR_FOLLOW_UP,
+        urgent: true,
       },
       {
         digit: "2",
@@ -117,8 +131,13 @@ const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> 
       "Quick question while you wait. If you need a tow right now, press 1. " +
       "For roadside help like a jump start or flat tire, press 2.",
     options: [
-      { digit: "1", label: "Tow needed", intentSlug: "towing_tow" },
-      { digit: "2", label: "Roadside help (jump / flat tire)", intentSlug: "towing_roadside" },
+      { digit: "1", label: "Tow needed", intentSlug: "towing_tow", urgent: true },
+      {
+        digit: "2",
+        label: "Roadside help (jump / flat tire)",
+        intentSlug: "towing_roadside",
+        urgent: true,
+      },
     ],
   },
   roofing: {
@@ -126,7 +145,7 @@ const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> 
       "Quick question while you wait. If you have an active leak right now, press 1. " +
       "For an estimate, press 2.",
     options: [
-      { digit: "1", label: "Active leak", intentSlug: "roofing_emergency" },
+      { digit: "1", label: "Active leak", intentSlug: "roofing_emergency", urgent: true },
       { digit: "2", label: "Estimate", intentSlug: "roofing_estimate" },
     ],
   },
@@ -137,9 +156,33 @@ const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> 
     options: [
       // Bespoke industry — ids are flat (BESPOKE_OPTIONS in job-intake-registry.ts),
       // not registry-branch-derived, so these must match those exact ids.
-      { digit: "1", label: "Leak / flooding", intentSlug: "plumbing_emergency_leak" },
+      { digit: "1", label: "Leak / flooding", intentSlug: "plumbing_emergency_leak", urgent: true },
       { digit: "2", label: "Clogged drain", intentSlug: "plumbing_drain_clog" },
       { digit: "3", label: "Something else", intentSlug: "plumbing_other" },
+    ],
+  },
+  hvac: {
+    text:
+      "Quick question while you wait. If you have no heat, press 1. " +
+      "If you have no cooling, press 2. For anything else, press 3.",
+    options: [
+      // Bespoke industry — ids are flat (BESPOKE_OPTIONS in job-intake-registry.ts),
+      // not registry-branch-derived, so these must match those exact ids.
+      { digit: "1", label: "No heat", intentSlug: "hvac_no_heat", urgent: true },
+      { digit: "2", label: "No cooling", intentSlug: "hvac_no_cooling", urgent: true },
+      { digit: "3", label: "Something else", intentSlug: "hvac_other" },
+    ],
+  },
+  electrical: {
+    text:
+      "Quick question while you wait. If you smell smoke or see sparks, press 1. " +
+      "For partial or no power, press 2. For anything else, press 3.",
+    options: [
+      // Bespoke industry — ids are flat (BESPOKE_OPTIONS in job-intake-registry.ts),
+      // not registry-branch-derived, so these must match those exact ids.
+      { digit: "1", label: "Sparks / smoke / safety concern", intentSlug: "electrical_safety", urgent: true },
+      { digit: "2", label: "Partial or no power", intentSlug: "electrical_partial_power" },
+      { digit: "3", label: "Something else", intentSlug: "electrical_other" },
     ],
   },
 }
@@ -162,6 +205,22 @@ export function resolveHoldQueueIntakeOption(
   digit: string
 ): HoldQueueIntakeOption | null {
   return prompt.options.find((o) => o.digit === digit) ?? null
+}
+
+/** Precomputed across every industry — intent_slug is already industry-prefixed and unique. */
+const URGENT_HOLD_QUEUE_INTENT_SLUGS = new Set(
+  Object.values(HOLD_QUEUE_INTAKE_PROMPTS).flatMap((prompt) =>
+    (prompt?.options ?? []).filter((o) => o.urgent).map((o) => o.intentSlug)
+  )
+)
+
+/**
+ * True when a captured hold-queue intent is a "right now" situation (locked out,
+ * stranded, active leak) — used to skip the after-hours abandoned-hold rescue delay.
+ */
+export function isUrgentHoldQueueIntentSlug(intentSlug: string | null | undefined): boolean {
+  const slug = String(intentSlug || "").trim()
+  return Boolean(slug) && URGENT_HOLD_QUEUE_INTENT_SLUGS.has(slug)
 }
 
 /** Max times the spoken make/model ask runs (first ask + one retry). */
