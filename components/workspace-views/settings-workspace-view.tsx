@@ -32,6 +32,7 @@ import {
 import { SettingsMenuRow, SettingsGroupedList } from "@/components/dashboard/settings-menu-row"
 import { useSettingsModalActions } from "@/components/dashboard/settings-modals-host"
 import { SalesTaxSettingsSheet } from "@/components/dashboard/sales-tax-settings-sheet"
+import { AiScriptSettingsSheet } from "@/components/dashboard/ai-script-settings-sheet"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { fetchOnboardingProfile } from "@/lib/onboarding-profile-client"
@@ -74,6 +75,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
   const modals = useSettingsModalActions()
   const router = useRouter()
   const [salesTaxOpen, setSalesTaxOpen] = useState(false)
+  const [aiScriptOpen, setAiScriptOpen] = useState(false)
   const accountIndustry = useDashboardSessionOptional()?.industry
   const isLocksmithAccount = !accountIndustry || accountIndustry.trim().toLowerCase() === "locksmith"
   const initials = profile.name
@@ -161,6 +163,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
       </section>
 
       <SalesTaxSettingsSheet open={salesTaxOpen} onOpenChange={setSalesTaxOpen} />
+      <AiScriptSettingsSheet open={aiScriptOpen} onOpenChange={setAiScriptOpen} />
 
       <section className="space-y-2">
         <p className="px-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Calls & SMS</p>
@@ -200,6 +203,14 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
             subtitle="10DLC for US lead-alert SMS"
             badge={carrierRegistrationPending ? "Pending" : undefined}
             onClick={modals.openCarrierRegistration}
+          />
+          <SettingsMenuRow
+            grouped
+            tone="operator"
+            icon={<Sparkles className="h-5 w-5 text-operator" aria-hidden />}
+            title="AI phone assistant"
+            subtitle="Greeting and notes for no-answer calls"
+            onClick={() => setAiScriptOpen(true)}
           />
           <ToggleRow
             label="Call whisper"
