@@ -19,6 +19,7 @@ function buildHoldLongWaitAlertText(params: {
   businessName: string
   callerE164: string | null
   waitedSecs: number
+  urgent?: boolean
 }): string {
   const minutes = Math.max(1, Math.round(params.waitedSecs / 60))
   const caller = params.callerE164 ? formatPhoneDisplay(params.callerE164) : "Unknown number"
@@ -29,7 +30,9 @@ function buildHoldLongWaitAlertText(params: {
     /* unit tests may lack NEXT_PUBLIC_APP_URL */
   }
   return [
-    `⏳ ${brandLabel()} — still on hold`,
+    // Same urgent marker as hold-intake-captured-alert.ts — a long wait matters more
+    // when the caller already told us it's a "right now" situation.
+    params.urgent ? `🚨 ${brandLabel()} — URGENT, still on hold` : `⏳ ${brandLabel()} — still on hold`,
     `${caller} has been waiting ${minutes} min${minutes === 1 ? "" : "s"} for ${params.businessName} and hasn't hung up.`,
     dashboardUrl ? `Answer from Lines: ${dashboardUrl}` : "Answer from Lines in your dashboard.",
     // Personal-cell calls are invisible to the platform — this reply is how the
@@ -45,6 +48,7 @@ export async function sendHoldLongWaitOwnerAlert(params: {
   userId: string
   callerE164: string | null
   waitedSecs: number
+  urgent?: boolean
 }): Promise<HoldLongWaitAlertResult> {
   const userId = params.userId?.trim()
   if (!userId) return { ok: true, sent: false }
@@ -60,6 +64,7 @@ export async function sendHoldLongWaitOwnerAlert(params: {
     businessName: user?.business_name?.trim() || user?.name?.trim() || "your business",
     callerE164: params.callerE164,
     waitedSecs: params.waitedSecs,
+    urgent: params.urgent,
   })
 
   const sent = await sendTelnyxSms({ toE164: to, text, userId })

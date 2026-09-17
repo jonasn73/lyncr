@@ -1980,6 +1980,7 @@ export async function handleHoldLoopGatherEnded(params: {
       userId: state.userId,
       callerE164: state.callerE164,
       waitedSecs,
+      urgent: state.holdIntakeUrgent,
     }).catch((e) => console.warn(lyncrLog("hold-long-wait-alert-failed", { error: String(e) })))
     console.log(lyncrLog("telnyx-cc-hold-long-wait-alert", { callControlId, waitedSecs }))
     effectiveState = { ...state, holdLongWaitAlerted: true }
