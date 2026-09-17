@@ -1333,8 +1333,13 @@ function SchedulerWorkspaceViewInner({
         setHighlightId(focusLeadId)
         return
       }
-      if (scheduled) {
+      if (scheduled && !scheduled.scheduled_tentative) {
         completeScheduleIntent(scheduled)
+        return
+      }
+      if (scheduled && scheduled.scheduled_tentative) {
+        setIntakeScheduleJob(schedulerEventToPoolJob(scheduled))
+        setHighlightId(focusLeadId)
         return
       }
       if (pipelineJob && !poolJob && !poolLoading) {
