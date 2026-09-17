@@ -7,6 +7,12 @@ import type { ReceptionistBusinessType } from "@/lib/types"
 export function resolveBusinessType(industryTag: string | null | undefined): ReceptionistBusinessType {
   const tag = (industryTag ?? "").toLowerCase().replace(/[-\s]+/g, "_")
   if (!tag) return "generic"
+  // Catalog ids that aren't a real receptionist-layout vertical get sent to "generic"
+  // outright, before token matching — otherwise "appliance_repair" tokenizes into
+  // ["appliance", "repair"] and the "repair" keyword below incorrectly matches
+  // auto_repair's vehicle-oriented layout for a business that repairs refrigerators,
+  // not cars.
+  if (tag === "appliance_repair") return "generic"
   // Token-aware so multi-word slugs resolve correctly: "auto_detailing" -> detailing,
   // "auto_repair" -> auto_repair, instead of both collapsing to the coarse "auto" head.
   const tokens = tag.split("_")
