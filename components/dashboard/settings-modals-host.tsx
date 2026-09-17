@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
   OPEN_BILLING_MODAL_EVENT,
@@ -200,8 +200,20 @@ export function DashboardSettingsModalsHost({
     openTeamInvite,
   ])
 
+  // `bootstrapEvent` is owned by the lazy-load wrapper and never goes back to null —
+  // it stays the FIRST modal-open event for the rest of the page's life. Without this
+  // guard, any unrelated re-render that recreates openBusiness/openCarrierFromEvent/etc.
+  // (all depend on refreshProfile, which depends on the sessionSeed prop) re-runs this
+  // effect and blindly reopens that same modal. Reported live: saving inside Business
+  // profile calls the notification-preferences Server Action, whose revalidatePath
+  // triggers exactly that kind of refresh — the modal Save just closed snapped right
+  // back open. Track the exact event reference already handled so a later rerun with
+  // the same bootstrapEvent (just different callback identities) is a no-op.
+  const handledBootstrapEventRef = useRef<SettingsModalBootstrapEvent | null>(null)
   useEffect(() => {
     if (!bootstrapEvent) return
+    if (handledBootstrapEventRef.current === bootstrapEvent) return
+    handledBootstrapEventRef.current = bootstrapEvent
     // Get paid is owned by the header wallet (always mounted) — skip here.
     if (bootstrapEvent.type === OPEN_GET_PAID_MODAL_EVENT) return
     const map: Record<string, () => void> = {
