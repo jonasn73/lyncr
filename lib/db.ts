@@ -15553,6 +15553,30 @@ export async function getAdminIndustryAccountCounts(): Promise<Record<string, nu
   }
 }
 
+/**
+ * How many active receptionist agents (dedicated or global network pool) carry each
+ * skill tag — skills are normalized to catalog-style slugs at write time
+ * (normalizeRoutingPoolSkillTag), so a tag here lines up with a business-industries.ts
+ * id whenever an admin has actually tagged an agent for that industry.
+ */
+export async function getRoutingPoolSkillTagCounts(): Promise<Record<string, number>> {
+  const sql = getSql()
+  try {
+    const rows = (await sql`
+      SELECT skill, count(*)::int AS agent_count
+      FROM receptionists, unnest(skills) AS skill
+      WHERE is_active = true
+      GROUP BY 1
+    `) as { skill: string; agent_count: number }[]
+    const out: Record<string, number> = {}
+    for (const row of rows) out[row.skill] = Number(row.agent_count) || 0
+    return out
+  } catch (e) {
+    console.error("[db] getRoutingPoolSkillTagCounts:", e)
+    return {}
+  }
+}
+
 export type AuditEventRow = {
   id: string
   owner_user_id: string | null
@@ -17137,7 +17161,6 @@ function mapOnboardingProfileRow(row: Record<string, unknown>): OnboardingProfil
       method === "buy" || method === "port" ? method : null,
     port_carrier: row.port_carrier != null ? String(row.port_carrier) : null,
     fallback_type: fallback === "ai" || fallback === "voicemail" ? fallback : null,
-    trade_category: row.trade_category != null ? String(row.trade_category) : null,
     opening_line: row.opening_line != null ? String(row.opening_line) : null,
     has_active_subscription: pgBool(row.has_active_subscription),
     subscription_tier: row.subscription_tier != null ? String(row.subscription_tier) : "free_trial",
@@ -17344,7 +17367,7 @@ export async function getOnboardingProfile(userId: string): Promise<OnboardingPr
   try {
     const rows = await sql`
       SELECT user_id, reserved_number, reserved_number_display, reserved_number_method,
-             port_carrier, fallback_type, trade_category, opening_line,
+             port_carrier, fallback_type, opening_line,
              has_active_subscription,
              subscription_tier, carrier_credit,
              total_calls_routed, total_minutes_used, account_status, custom_routing_note,
@@ -17365,7 +17388,7 @@ export async function getOnboardingProfile(userId: string): Promise<OnboardingPr
       try {
         const rows = await sql`
           SELECT user_id, reserved_number, reserved_number_display, reserved_number_method,
-                 port_carrier, fallback_type, trade_category, opening_line,
+                 port_carrier, fallback_type, opening_line,
                  has_active_subscription,
                  subscription_tier, carrier_credit,
                  total_calls_routed, total_minutes_used, account_status, custom_routing_note,
@@ -17387,7 +17410,7 @@ export async function getOnboardingProfile(userId: string): Promise<OnboardingPr
       try {
         const rows = await sql`
           SELECT user_id, reserved_number, reserved_number_display, reserved_number_method,
-                 port_carrier, fallback_type, trade_category, opening_line,
+                 port_carrier, fallback_type, opening_line,
                  has_active_subscription,
                  subscription_tier, carrier_credit,
                  billing_cycle_start, billing_cycle_end,
@@ -17406,7 +17429,7 @@ export async function getOnboardingProfile(userId: string): Promise<OnboardingPr
       try {
         const rows = await sql`
           SELECT user_id, reserved_number, reserved_number_display, reserved_number_method,
-                 port_carrier, fallback_type, trade_category, opening_line,
+                 port_carrier, fallback_type, opening_line,
                  has_active_subscription,
                  billing_cycle_start, billing_cycle_end,
                  stripe_customer_id, stripe_subscription_id,
@@ -17424,7 +17447,7 @@ export async function getOnboardingProfile(userId: string): Promise<OnboardingPr
       try {
         const rows = await sql`
           SELECT user_id, reserved_number, reserved_number_display, reserved_number_method,
-                 port_carrier, fallback_type, trade_category, opening_line,
+                 port_carrier, fallback_type, opening_line,
                  has_active_subscription, updated_at
           FROM onboarding_profiles
           WHERE user_id = ${userId}
@@ -17466,8 +17489,6 @@ export async function updateOnboardingProfile(
     updates.port_carrier !== undefined ? updates.port_carrier : existing?.port_carrier ?? null
   const fallback_type =
     updates.fallback_type !== undefined ? updates.fallback_type : existing?.fallback_type ?? null
-  const trade_category =
-    updates.trade_category !== undefined ? updates.trade_category : existing?.trade_category ?? null
   const opening_line =
     updates.opening_line !== undefined ? updates.opening_line : existing?.opening_line ?? null
   const has_active_subscription =
@@ -17509,7 +17530,7 @@ export async function updateOnboardingProfile(
     const rows = await sql`
       INSERT INTO onboarding_profiles (
         user_id, reserved_number, reserved_number_display, reserved_number_method,
-        port_carrier, fallback_type, trade_category, opening_line,
+        port_carrier, fallback_type, opening_line,
         has_active_subscription,
         subscription_tier, carrier_credit, low_balance_notified,
         billing_cycle_start, billing_cycle_end,
@@ -17518,7 +17539,7 @@ export async function updateOnboardingProfile(
       )
       VALUES (
         ${userId}, ${reserved_number}, ${reserved_number_display}, ${reserved_number_method},
-        ${port_carrier}, ${fallback_type}, ${trade_category}, ${opening_line},
+        ${port_carrier}, ${fallback_type}, ${opening_line},
         ${has_active_subscription},
         ${subscription_tier}, ${carrier_credit}, ${low_balance_notified},
         ${billing_cycle_start}, ${billing_cycle_end},
@@ -17531,7 +17552,6 @@ export async function updateOnboardingProfile(
         reserved_number_method = EXCLUDED.reserved_number_method,
         port_carrier = EXCLUDED.port_carrier,
         fallback_type = EXCLUDED.fallback_type,
-        trade_category = EXCLUDED.trade_category,
         opening_line = EXCLUDED.opening_line,
         has_active_subscription = EXCLUDED.has_active_subscription,
         subscription_tier = EXCLUDED.subscription_tier,
@@ -17543,7 +17563,7 @@ export async function updateOnboardingProfile(
         stripe_subscription_id = EXCLUDED.stripe_subscription_id,
         updated_at = now()
       RETURNING user_id, reserved_number, reserved_number_display, reserved_number_method,
-                port_carrier, fallback_type, trade_category, opening_line,
+                port_carrier, fallback_type, opening_line,
                 has_active_subscription,
                 subscription_tier, carrier_credit, low_balance_notified,
                 billing_cycle_start, billing_cycle_end,
@@ -17557,7 +17577,7 @@ export async function updateOnboardingProfile(
         const rows = await sql`
           INSERT INTO onboarding_profiles (
             user_id, reserved_number, reserved_number_display, reserved_number_method,
-            port_carrier, fallback_type, trade_category, opening_line,
+            port_carrier, fallback_type, opening_line,
             has_active_subscription,
             subscription_tier, carrier_credit,
             billing_cycle_start, billing_cycle_end,
@@ -17566,7 +17586,7 @@ export async function updateOnboardingProfile(
           )
           VALUES (
             ${userId}, ${reserved_number}, ${reserved_number_display}, ${reserved_number_method},
-            ${port_carrier}, ${fallback_type}, ${trade_category}, ${opening_line},
+            ${port_carrier}, ${fallback_type}, ${opening_line},
             ${has_active_subscription},
             ${subscription_tier}, ${carrier_credit},
             ${billing_cycle_start}, ${billing_cycle_end},
@@ -17579,7 +17599,6 @@ export async function updateOnboardingProfile(
             reserved_number_method = EXCLUDED.reserved_number_method,
             port_carrier = EXCLUDED.port_carrier,
             fallback_type = EXCLUDED.fallback_type,
-            trade_category = EXCLUDED.trade_category,
             opening_line = EXCLUDED.opening_line,
             has_active_subscription = EXCLUDED.has_active_subscription,
             subscription_tier = EXCLUDED.subscription_tier,
@@ -17590,7 +17609,7 @@ export async function updateOnboardingProfile(
             stripe_subscription_id = EXCLUDED.stripe_subscription_id,
             updated_at = now()
           RETURNING user_id, reserved_number, reserved_number_display, reserved_number_method,
-                    port_carrier, fallback_type, trade_category, opening_line,
+                    port_carrier, fallback_type, opening_line,
                     has_active_subscription,
                     subscription_tier, carrier_credit,
                     billing_cycle_start, billing_cycle_end,
@@ -17604,12 +17623,12 @@ export async function updateOnboardingProfile(
       const rows = await sql`
         INSERT INTO onboarding_profiles (
           user_id, reserved_number, reserved_number_display, reserved_number_method,
-          port_carrier, fallback_type, trade_category, opening_line,
+          port_carrier, fallback_type, opening_line,
           has_active_subscription, updated_at
         )
         VALUES (
           ${userId}, ${reserved_number}, ${reserved_number_display}, ${reserved_number_method},
-          ${port_carrier}, ${fallback_type}, ${trade_category}, ${opening_line},
+          ${port_carrier}, ${fallback_type}, ${opening_line},
           ${has_active_subscription}, now()
         )
         ON CONFLICT (user_id) DO UPDATE SET
@@ -17618,12 +17637,11 @@ export async function updateOnboardingProfile(
           reserved_number_method = EXCLUDED.reserved_number_method,
           port_carrier = EXCLUDED.port_carrier,
           fallback_type = EXCLUDED.fallback_type,
-          trade_category = EXCLUDED.trade_category,
           opening_line = EXCLUDED.opening_line,
           has_active_subscription = EXCLUDED.has_active_subscription,
           updated_at = now()
         RETURNING user_id, reserved_number, reserved_number_display, reserved_number_method,
-                  port_carrier, fallback_type, trade_category, opening_line,
+                  port_carrier, fallback_type, opening_line,
                   has_active_subscription, updated_at
       `
       return mapOnboardingProfileRow(rows[0] as Record<string, unknown>)

@@ -458,7 +458,6 @@ export interface OnboardingProfile {
   reserved_number_method: "buy" | "port" | null
   port_carrier: string | null
   fallback_type: "ai" | "voicemail" | null
-  trade_category: string | null
   opening_line: string | null
   has_active_subscription: boolean
   /** Entitlements tier: free_trial | starter | professional | business (scripts/028). */
@@ -498,7 +497,6 @@ export type UpdateOnboardingProfileRequest = {
   reserved_number_method?: "buy" | "port" | null
   port_carrier?: string | null
   fallback_type?: "ai" | "voicemail" | null
-  trade_category?: string | null
   opening_line?: string | null
   has_active_subscription?: boolean
   subscription_tier?: string

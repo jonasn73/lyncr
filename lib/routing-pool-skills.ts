@@ -1,17 +1,11 @@
-// Known industry / specialty tags for the managed receptionist routing pool.
-
-/** Canonical skill tag slugs stored in `receptionists.skills` and routing `industry_tag`. */
-const ROUTING_POOL_SKILL_TAGS = [
-  "auto_detailing",
-  "auto_repair",
-  "locksmith",
-  "general_support",
-  "real_estate",
-  "medical",
-  "legal",
-  "home_services",
-  "retail",
-] as const
+// Industry / specialty tags for the managed receptionist routing pool.
+//
+// There is no fixed tag taxonomy: app/api/admin/network-agents/route.ts lets an admin
+// tag an agent with any free-text slug, and lib/db.ts's resolveIndustryTagForLine
+// matches it directly against `users.industry` — any of the 31 ids in
+// business-industries.ts's SIGNUP_INDUSTRY_OPTIONS works. SKILL_LABELS below only
+// covers the tags known to be in live use well enough to deserve a friendly display
+// label; formatRoutingPoolSkillLabel title-cases anything else on the fly.
 
 const SKILL_LABELS: Record<string, string> = {
   auto_detailing: "Auto Detailing",

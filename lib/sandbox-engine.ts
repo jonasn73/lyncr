@@ -325,7 +325,6 @@ export async function seedSandboxData(): Promise<SeedSandboxDataResult> {
       reserved_number: SANDBOX_BUSINESS_LINE_E164,
       reserved_number_display: "(555) 765-4321",
       reserved_number_method: "buy",
-      trade_category: "locksmith",
       custom_routing_note: SANDBOX_PROFILE_MARKER,
       account_status: "active",
     })

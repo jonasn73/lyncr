@@ -39,10 +39,6 @@ export function parsePatchBody(body: unknown): UpdateOnboardingProfileRequest {
     const f = o.fallback_type
     out.fallback_type = f === "ai" || f === "voicemail" ? f : null
   }
-  if ("trade_category" in o) {
-    const v = o.trade_category
-    out.trade_category = v == null ? null : String(v).trim() || null
-  }
   if ("opening_line" in o) {
     const v = o.opening_line
     out.opening_line = v == null ? null : String(v)
