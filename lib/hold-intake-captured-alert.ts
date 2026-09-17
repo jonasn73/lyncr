@@ -21,6 +21,7 @@ function buildHoldIntakeCapturedAlertText(params: {
   businessName: string
   callerE164: string | null
   summary: string
+  urgent?: boolean
 }): string {
   const caller = params.callerE164 ? formatPhoneDisplay(params.callerE164) : "Unknown number"
   let dashboardUrl = ""
@@ -30,7 +31,12 @@ function buildHoldIntakeCapturedAlertText(params: {
     /* unit tests may lack NEXT_PUBLIC_APP_URL */
   }
   return [
-    `📋 ${brandLabel()} — caller answered your questions`,
+    // Urgent (locked out, stranded, active leak) sorts visually above routine leads
+    // in a text thread — the owner shouldn't have to read the summary to know which
+    // ones need a callback right now.
+    params.urgent
+      ? `🚨 ${brandLabel()} — URGENT, caller answered your questions`
+      : `📋 ${brandLabel()} — caller answered your questions`,
     `${caller} on hold for ${params.businessName}: ${params.summary}`,
     dashboardUrl ? `Answer from Lines: ${dashboardUrl}` : "Answer from Lines in your dashboard.",
     // Personal-cell calls are invisible to the platform — this reply is how the
@@ -48,6 +54,7 @@ export async function sendHoldIntakeCapturedOwnerAlert(params: {
   userId: string
   callerE164: string | null
   summary: string
+  urgent?: boolean
 }): Promise<HoldIntakeCapturedAlertResult> {
   const userId = params.userId?.trim()
   const summary = params.summary?.trim()
@@ -64,6 +71,7 @@ export async function sendHoldIntakeCapturedOwnerAlert(params: {
     businessName: user?.business_name?.trim() || user?.name?.trim() || "your business",
     callerE164: params.callerE164,
     summary,
+    urgent: params.urgent,
   })
 
   const sent = await sendTelnyxSms({ toE164: to, text, userId })

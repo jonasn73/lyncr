@@ -82,6 +82,7 @@ import { getUser, normalizePhoneNumberE164, updateCallLog } from "@/lib/db"
 import { saveCallIntake } from "@/lib/intake-engine"
 import {
   holdQueueIntakeValidDigits,
+  isUrgentHoldQueueIntentSlug,
   resolveHoldQueueIntakeOption,
   resolveHoldQueueIntakePrompt,
   resolveHoldVehicleVoiceStep,
@@ -725,6 +726,7 @@ async function startHoldRepromptGather(
   let industryHasNoPrompt = false
   let followUpAnswered = Boolean(state.holdIntakeFollowUpAnswered)
   let reusedIntakeSummary: string | null = null
+  let reusedIntakeUrgent: boolean | null = null
 
   // A caller who already answered these on a recent, different call (calling back an
   // hour later, not asking fresh) shouldn't get asked again — reuse what's already known.
@@ -744,6 +746,9 @@ async function startHoldRepromptGather(
       intakeAnswered = true
       followUpAnswered = followUpAnswered || Boolean(recentYearLabel)
       reusedIntakeSummary = recentYearLabel ? `${recentIntentLabel} — ${recentYearLabel}` : recentIntentLabel
+      reusedIntakeUrgent = isUrgentHoldQueueIntentSlug(
+        typeof recent.collected.intent_slug === "string" ? recent.collected.intent_slug : null
+      )
       // Copy the reused answers onto THIS call's collected too — the Lines waiting
       // card and the booking-link pre-fill both read the current call's row, and a
       // repeat caller's details shouldn't vanish just because they weren't re-asked.
@@ -886,6 +891,7 @@ async function startHoldRepromptGather(
     holdIntakeFollowUpAttempts: askFollowUp ? followUpAttempts + 1 : followUpAttempts,
     holdAwaitingIntakeFollowUpAnswer: askFollowUp,
     holdIntakeSummary: reusedIntakeSummary || state.holdIntakeSummary,
+    holdIntakeUrgent: reusedIntakeUrgent ?? state.holdIntakeUrgent,
   }
 
   console.log(
@@ -1411,6 +1417,7 @@ async function handleHoldIntakeAnswer(
   // A real answer — lock it in so no later cycle re-asks this.
   baseState.holdIntakeAnswered = true
   baseState.holdIntakeSummary = matched.label
+  baseState.holdIntakeUrgent = isUrgentHoldQueueIntentSlug(matched.intentSlug)
 
   if (matched.followUp) {
     baseState.holdIntakeFollowUp = matched.followUp
@@ -1993,6 +2000,7 @@ export async function handleHoldLoopGatherEnded(params: {
       userId: effectiveState.userId,
       callerE164: effectiveState.callerE164,
       summary: effectiveState.holdIntakeSummary,
+      urgent: effectiveState.holdIntakeUrgent,
     }).catch((e) => console.warn(lyncrLog("hold-intake-captured-alert-failed", { error: String(e) })))
     console.log(lyncrLog("telnyx-cc-hold-intake-captured-alert", { callControlId }))
     effectiveState = { ...effectiveState, holdIntakeCapturedAlerted: true }

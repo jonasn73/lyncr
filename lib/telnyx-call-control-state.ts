@@ -197,6 +197,8 @@ export type TelnyxCallControlClientState = {
    * once fully answered and for the owner "caller answered" SMS.
    */
   holdIntakeSummary?: string
+  /** True when the matched Phase-1 option is a "right now" situation — see isUrgentHoldQueueIntentSlug. */
+  holdIntakeUrgent?: boolean
   /** One-time owner SMS once intake is fully captured AND the caller has waited a bit — never repeats. */
   holdIntakeCapturedAlerted?: boolean
   /**
