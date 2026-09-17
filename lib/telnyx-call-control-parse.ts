@@ -27,6 +27,15 @@ export type TelnyxVoiceWebhookEvent = {
    * (human | machine | human_residence | human_business | not_sure | …).
    */
   amdResult: string
+  /**
+   * call.recording.saved's downloadable clip — Call Control delivers this on the
+   * ACCOUNT's Call Control Application webhook (this same endpoint), not to any
+   * per-call `recording_webhook_url` override passed to record_start. Requires a
+   * Telnyx Bearer auth header to download (see transcribeTelnyxRecording).
+   */
+  recordingUrl: string
+  /** Seconds recorded, when Telnyx includes start/end timestamps on the event. */
+  recordingDurationSeconds: number
 }
 
 function asRecord(v: unknown): Record<string, unknown> | null {
@@ -41,6 +50,14 @@ export function parseTelnyxVoiceWebhookEvent(body: Record<string, unknown>): Tel
   const callControlId = String(payload.call_control_id ?? "").trim()
   if (!callControlId) return null
   const rawClientState = String(payload.client_state ?? "").trim() || null
+  const recordingUrls = asRecord(payload.recording_urls) ?? asRecord(payload.public_recording_urls)
+  const recordingUrl = String(recordingUrls?.mp3 ?? recordingUrls?.wav ?? "").trim()
+  const recordingStartedAtMs = Date.parse(String(payload.recording_started_at ?? ""))
+  const recordingEndedAtMs = Date.parse(String(payload.recording_ended_at ?? ""))
+  const recordingDurationSeconds =
+    Number.isFinite(recordingStartedAtMs) && Number.isFinite(recordingEndedAtMs) && recordingEndedAtMs > recordingStartedAtMs
+      ? Math.round((recordingEndedAtMs - recordingStartedAtMs) / 1000)
+      : 0
   return {
     eventType: String(data.event_type ?? "").trim().toLowerCase(),
     eventId: String(data.id ?? "").trim(),
@@ -59,5 +76,7 @@ export function parseTelnyxVoiceWebhookEvent(body: Record<string, unknown>): Tel
     digits: String(payload.digits ?? payload.Digits ?? "").trim(),
     gatherStatus: String(payload.status ?? payload.gather_status ?? "").trim().toLowerCase(),
     amdResult: String(payload.result ?? "").trim().toLowerCase(),
+    recordingUrl,
+    recordingDurationSeconds,
   }
 }

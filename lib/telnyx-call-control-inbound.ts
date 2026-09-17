@@ -48,6 +48,7 @@ import {
 import { resolveRepeatCallerUrgency } from "@/lib/repeat-caller-urgency"
 import { envFlagOn, lyncrLog } from "@/lib/lyncr-env"
 import { parseTelnyxVoiceWebhookEvent } from "@/lib/telnyx-call-control-parse"
+import { handleCallRecordingSaved } from "@/lib/telnyx-call-control-recording-saved"
 import {
   encodeTelnyxCallControlState,
   type TelnyxCallControlClientState,
@@ -1542,10 +1543,10 @@ async function handleSpeakEnded(
   }
 
   if (state.phase === "await_voicemail_prompt_end") {
-    const appUrl = getAppUrl()
-    const recordWebhook = `${appUrl}/api/voice/telnyx/recording-status`
+    // "recording" phase is how handleCallRecordingSaved tells this apart from the
+    // hold-queue vehicle-voice clip when call.recording.saved comes back.
     const nextState = encodeTelnyxCallControlState({ ...state, phase: "recording" })
-    const recordRes = await telnyxCallControlRecordStart(event.callControlId, nextState, recordWebhook)
+    const recordRes = await telnyxCallControlRecordStart(event.callControlId, nextState)
     if (!recordRes.ok) {
       console.error(JSON.stringify({ lyncr: "telnyx-cc-record-start-failed", error: recordRes.error }))
       await telnyxCallControlHangup(event.callControlId)
@@ -2315,6 +2316,9 @@ export async function handleTelnyxCallControlVoiceWebhook(body: Record<string, u
       break
     case "call.conversation.ended":
       await handleAiConversationEnded(event)
+      break
+    case "call.recording.saved":
+      await handleCallRecordingSaved(event)
       break
     default:
       break

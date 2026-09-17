@@ -74,6 +74,8 @@ describe("resolveInboundCallLogSid", () => {
       digits: "",
       gatherStatus: "",
       amdResult: "",
+      recordingUrl: "",
+      recordingDurationSeconds: 0,
       clientState: JSON.parse(Buffer.from(raw, "base64").toString("utf8")),
     }
     expect(resolveInboundCallLogSid(event)).toBe("cc-inbound")
@@ -111,6 +113,8 @@ describe("parseTelnyxCallDurationFromVoiceEvent", () => {
       digits: "",
       gatherStatus: "",
       amdResult: "",
+      recordingUrl: "",
+      recordingDurationSeconds: 0,
       clientState: null,
     })
     expect(sec).toBe(142)
@@ -138,6 +142,8 @@ describe("isDialNoAnswerHangup", () => {
         digits: "",
         gatherStatus: "",
         amdResult: "",
+        recordingUrl: "",
+        recordingDurationSeconds: 0,
         clientState: null,
       })
     ).toBe(true)
@@ -174,6 +180,8 @@ describe("isOutboundDialLegEvent", () => {
         digits: "",
         gatherStatus: "",
         amdResult: "",
+        recordingUrl: "",
+        recordingDurationSeconds: 0,
         clientState: JSON.parse(Buffer.from(raw, "base64").toString("utf8")),
       })
     ).toBe(true)

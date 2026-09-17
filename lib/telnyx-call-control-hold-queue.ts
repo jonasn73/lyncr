@@ -73,7 +73,6 @@ import {
   telnyxCallControlStartAiAssistant,
   telnyxCallControlStopAiAssistant,
 } from "@/lib/telnyx-call-control-api"
-import { getAppUrl } from "@/lib/telnyx"
 import {
   encodeTelnyxCallControlState,
   type TelnyxCallControlClientState,
@@ -1619,7 +1618,8 @@ const VEHICLE_VOICE_BACKSTOP_MS = 14_000
  * DTMF gather as the flow-control backstop: its gather.ended (pound, any digit, or the
  * 12s timeout) stops the recording and resumes hold music deterministically, without
  * depending on the recording webhook for call flow. The saved clip is transcribed
- * asynchronously by /api/voice/telnyx/hold-vehicle-note.
+ * asynchronously by handleCallRecordingSaved (lib/telnyx-call-control-recording-saved.ts)
+ * once Telnyx's call.recording.saved event lands on the main Call Control webhook.
  */
 export async function startHoldVehicleVoiceRecording(
   callControlId: string,
@@ -1631,12 +1631,12 @@ export async function startHoldVehicleVoiceRecording(
     holdSegment: "reprompt",
     holdAwaitingVehicleVoice: true,
   }
-  // Mark BEFORE recording so the saved-clip webhook knows this is the vehicle answer.
+  // Mark BEFORE recording so handleCallRecordingSaved (lib/telnyx-call-control-recording-saved.ts)
+  // knows this call.recording.saved is the vehicle answer, not a voicemail.
   await mergeCallQueueCollected(callControlId, { vehicle_voice_pending: true })
 
   const encoded = encodeTelnyxCallControlState(nextState)
-  const webhook = `${getAppUrl().replace(/\/+$/, "")}/api/voice/telnyx/hold-vehicle-note`
-  const rec = await telnyxCallControlRecordStart(callControlId, encoded, webhook, {
+  const rec = await telnyxCallControlRecordStart(callControlId, encoded, {
     playBeep: true,
     maxLengthSecs: VEHICLE_VOICE_MAX_SECS,
     recordingTrack: "inbound",

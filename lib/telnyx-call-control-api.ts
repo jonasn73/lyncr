@@ -404,11 +404,17 @@ export async function telnyxCallControlDial(
   return { ok: true, callControlId: outboundCallControlId || undefined }
 }
 
-/** Start voicemail recording after the spoken prompt. */
+/**
+ * Start a recording. Confirmed live (2026-09-17): Telnyx does NOT honor a per-call
+ * `recording_webhook_url` override — `call.recording.saved` always lands on the
+ * account's Call Control Application webhook (this same one every other call.*
+ * event uses), handled by handleCallRecordingSaved. No webhookUrl param here on
+ * purpose — passing one previously gave the false impression recordings were being
+ * delivered somewhere they never were.
+ */
 export async function telnyxCallControlRecordStart(
   callControlId: string,
   clientState: string,
-  webhookUrl: string,
   opts?: {
     /** Short beep before recording — signals "talk now" for prompted answers. */
     playBeep?: boolean
@@ -423,7 +429,6 @@ export async function telnyxCallControlRecordStart(
     channels: "single",
     client_state: clientState,
     recording_track: opts?.recordingTrack ?? "both",
-    recording_webhook_url: webhookUrl,
     ...(opts?.playBeep ? { play_beep: true } : {}),
     ...(opts?.maxLengthSecs ? { max_length: Math.max(1, Math.floor(opts.maxLengthSecs)) } : {}),
   })
