@@ -4,7 +4,12 @@
 // Day unanswered: Gather (1 = SMS, 2 = hold queue with calendar ETA).
 
 import { NextRequest, NextResponse } from "next/server"
-import { getCallLogSnapshotForTelemetry, normalizePhoneNumberE164, updateCallLog } from "@/lib/db"
+import {
+  getActivePhoneNumberByE164,
+  getCallLogSnapshotForTelemetry,
+  normalizePhoneNumberE164,
+  updateCallLog,
+} from "@/lib/db"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import { getAppUrl } from "@/lib/telnyx"
 import { toE164 } from "@/lib/phone-e164"
@@ -280,6 +285,15 @@ export async function POST(req: NextRequest) {
       ownerUserId = ctx.ownerUserId
     } catch {
       ownerUserId = null
+    }
+    // Fallback owner lookup — getIvrMenuSettingsByInboundDid can legitimately return
+    // null (no routing_config row yet) even though the line itself is active. Without
+    // this, ownerUserId stays null and sendTelnyxSms's STOP-opt-out check below is
+    // silently skipped (it can only check a specific owner's opt-out list), so a
+    // customer who already texted STOP could still get a booking-link text.
+    if (!ownerUserId) {
+      const activeNumber = await getActivePhoneNumberByE164(toRaw).catch(() => null)
+      ownerUserId = activeNumber?.user_id?.trim() || null
     }
   }
   const ringE164 = await resolveRingE164(ownerUserId)
