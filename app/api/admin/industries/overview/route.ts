@@ -5,15 +5,18 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { requireLyncrAdmin } from "@/lib/admin-api-guard"
-import { getAdminIndustryAccountCounts } from "@/lib/db"
+import { getAdminIndustryAccountCounts, getRoutingPoolSkillTagCounts } from "@/lib/db"
 import { buildAdminIndustryOverview } from "@/lib/admin-industries-overview"
 
 export async function GET(req: NextRequest) {
   const ctx = await requireLyncrAdmin(req)
   if (ctx instanceof NextResponse) return ctx
   try {
-    const accountCounts = await getAdminIndustryAccountCounts()
-    const industries = buildAdminIndustryOverview(accountCounts)
+    const [accountCounts, routingPoolSkillCounts] = await Promise.all([
+      getAdminIndustryAccountCounts(),
+      getRoutingPoolSkillTagCounts(),
+    ])
+    const industries = buildAdminIndustryOverview(accountCounts, routingPoolSkillCounts)
     return NextResponse.json({ data: { industries } })
   } catch (e) {
     console.error("[lyncr-admin] industries-overview:", e)

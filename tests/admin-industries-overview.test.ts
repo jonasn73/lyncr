@@ -53,10 +53,10 @@ describe("buildAdminIndustryOverview (admin /industries coverage matrix)", () =>
     expect(rows.find((r) => r.id === "dental")?.equipment).toBeNull()
   })
 
-  it("is vehicle-aware only for locksmith, auto_repair, and towing", () => {
+  it("is vehicle-aware only for locksmith, auto_repair, towing, and auto_detailing", () => {
     const rows = buildAdminIndustryOverview({})
     const vehicleAware = rows.filter((r) => r.vehicleAware).map((r) => r.id).sort()
-    expect(vehicleAware).toEqual(["auto_repair", "locksmith", "towing"].sort())
+    expect(vehicleAware).toEqual(["auto_detailing", "auto_repair", "locksmith", "towing"].sort())
   })
 
   it("every row resolves to a real receptionist layout string", () => {
@@ -64,5 +64,26 @@ describe("buildAdminIndustryOverview (admin /industries coverage matrix)", () =>
     for (const row of rows) {
       expect(["locksmith", "detailing", "auto_repair", "generic"]).toContain(row.receptionistLayout)
     }
+  })
+
+  it("does not collapse appliance_repair into the auto_repair receptionist layout", () => {
+    const rows = buildAdminIndustryOverview({})
+    expect(rows.find((r) => r.id === "appliance_repair")?.receptionistLayout).toBe("generic")
+  })
+
+  it("marks hold-queue prompt coverage for the configured industries only", () => {
+    const rows = buildAdminIndustryOverview({})
+    const withPrompt = rows.filter((r) => r.holdQueuePrompt).map((r) => r.id).sort()
+    expect(withPrompt).toEqual(
+      ["locksmith", "auto_repair", "towing", "roofing", "plumbing", "hvac", "electrical"].sort()
+    )
+    expect(rows.find((r) => r.id === "dental")?.holdQueuePrompt).toBe(false)
+  })
+
+  it("wires routing-pool skill-tag counts through, defaulting to 0 when missing", () => {
+    const rows = buildAdminIndustryOverview({}, { dental: 2, roofing: 1 })
+    expect(rows.find((r) => r.id === "dental")?.routingPoolAgentCount).toBe(2)
+    expect(rows.find((r) => r.id === "roofing")?.routingPoolAgentCount).toBe(1)
+    expect(rows.find((r) => r.id === "handyman")?.routingPoolAgentCount).toBe(0)
   })
 })

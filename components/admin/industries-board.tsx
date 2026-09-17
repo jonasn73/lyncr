@@ -77,11 +77,21 @@ function IndustryRow({ row }: { row: AdminIndustryOverviewRow }) {
             {row.receptionistLayout.replace(/_/g, " ")}
           </span>
         </TableCell>
+        <TableCell>
+          <CoverageBadge ok={row.holdQueuePrompt} label={row.holdQueuePrompt ? "Configured" : "None"} />
+        </TableCell>
+        <TableCell className="text-right tabular-nums">
+          {row.routingPoolAgentCount > 0 ? (
+            row.routingPoolAgentCount
+          ) : (
+            <span className="text-muted-foreground">0</span>
+          )}
+        </TableCell>
       </TableRow>
       {open ? (
         <TableRow className="bg-muted/20 hover:bg-muted/20">
           <TableCell />
-          <TableCell colSpan={6} className="py-3">
+          <TableCell colSpan={8} className="py-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -130,8 +140,8 @@ export function IndustriesBoard() {
           <h1 className="text-lg font-semibold text-foreground">Industries</h1>
           <p className="text-sm text-muted-foreground">
             Every signup-able industry, live account counts, and how each one is actually wired
-            up today — AI phone script, manual job types, equipment-on-file, and receptionist
-            live-call layout.
+            up today — AI phone script, manual job types, equipment-on-file, receptionist
+            live-call layout, hold-queue pre-collection question, and routing-pool agent tagging.
           </p>
         </div>
         <Button variant="outline" size="sm" disabled={refreshing} onClick={() => void refetch()}>
@@ -151,18 +161,20 @@ export function IndustriesBoard() {
               <TableHead>Job types</TableHead>
               <TableHead>Equipment on file</TableHead>
               <TableHead>Receptionist layout</TableHead>
+              <TableHead>Hold-queue prompt</TableHead>
+              <TableHead className="text-right">Routing-pool agents</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
                   Loading industries…
                 </TableCell>
               </TableRow>
             ) : industries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
                   No industries found.
                 </TableCell>
               </TableRow>

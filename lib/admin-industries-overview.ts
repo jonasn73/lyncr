@@ -18,6 +18,7 @@ import {
 } from "@/lib/job-intake-registry"
 import { equipmentAwareProfile } from "@/lib/customer-equipment-registry"
 import { resolveBusinessType } from "@/lib/business-type"
+import { resolveHoldQueueIntakePrompt } from "@/lib/hold-queue-intake-prompts"
 import type { ReceptionistBusinessType } from "@/lib/types"
 
 /**
@@ -51,15 +52,23 @@ export type AdminIndustryOverviewRow = {
   /**
    * Receptionist live-call layout variant — resolveBusinessType keyword-matches whatever
    * string it's given, so this mirrors what a phone line's industry_tag would resolve to
-   * if it were set to this exact industry slug. Known collision: "appliance_repair"
-   * contains "repair" and resolves to the auto_repair layout, not a dedicated one — that's
-   * an existing resolveBusinessType behavior, not something this page changes.
+   * if it were set to this exact industry slug.
    */
   receptionistLayout: ReceptionistBusinessType
+  /** Does a caller on hold get a pre-collection question for this industry? See 097. */
+  holdQueuePrompt: boolean
+  /**
+   * Active receptionist agents (dedicated or global network pool) currently tagged with
+   * this industry as a routing-pool skill — see routing-pool-skills.ts. Zero doesn't mean
+   * the industry is unsupported (any of the 31 catalog ids works as a free-text tag), just
+   * that no admin has tagged an agent for it yet.
+   */
+  routingPoolAgentCount: number
 }
 
 export function buildAdminIndustryOverview(
-  accountCounts: Record<string, number>
+  accountCounts: Record<string, number>,
+  routingPoolSkillCounts: Record<string, number> = {}
 ): AdminIndustryOverviewRow[] {
   return SIGNUP_INDUSTRY_OPTIONS.map(({ value: id, label }) => {
     const registryEntry = INTAKE_REGISTRY[id]
@@ -83,6 +92,8 @@ export function buildAdminIndustryOverview(
       vehicleAware: isVehicleAwareIndustry(id),
       equipment: equipmentAwareProfile(id),
       receptionistLayout: resolveBusinessType(id),
+      holdQueuePrompt: resolveHoldQueueIntakePrompt(id) !== null,
+      routingPoolAgentCount: routingPoolSkillCounts[id] ?? 0,
     }
   })
 }
