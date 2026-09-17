@@ -98,14 +98,15 @@ describe("isVehicleAwareIndustry (087)", () => {
     expect(isVehicleAwareIndustry("")).toBe(true)
   })
 
-  it("is true for auto_repair and towing", () => {
+  it("is true for auto_repair, towing, and auto_detailing", () => {
     expect(isVehicleAwareIndustry("auto_repair")).toBe(true)
     expect(isVehicleAwareIndustry("towing")).toBe(true)
+    expect(isVehicleAwareIndustry("auto_detailing")).toBe(true)
   })
 
   it("is false for every other trade", () => {
     for (const industry of AI_INTAKE_PROFILE_IDS) {
-      if (["locksmith", "auto_repair", "towing"].includes(industry)) continue
+      if (["locksmith", "auto_repair", "towing", "auto_detailing"].includes(industry)) continue
       expect(isVehicleAwareIndustry(industry), `expected "${industry}" to be false`).toBe(false)
     }
   })

@@ -67,7 +67,7 @@ const BESPOKE_OPTIONS: Partial<Record<AiIntakeProfileId, JobIntakeOption[]>> = {
 }
 
 /** Trades whose registry branches genuinely involve a vehicle. */
-const VEHICLE_AWARE_PROFILES = new Set<AiIntakeProfileId>(["auto_repair", "towing"])
+const VEHICLE_AWARE_PROFILES = new Set<AiIntakeProfileId>(["auto_repair", "towing", "auto_detailing"])
 
 const GENERIC_OPTIONS: JobIntakeOption[] = [
   { id: "generic_service_call", label: "Service Call", requiresVehicle: false },
