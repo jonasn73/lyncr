@@ -20,6 +20,7 @@ import {
   MessageCircle,
   MessageSquareWarning,
   MoreHorizontal,
+  Phone,
   Settings,
   Shield,
   Wrench,
@@ -60,6 +61,12 @@ const NAV = [
     label: "Industries",
     icon: Wrench,
     match: (p: string) => p.startsWith("/admin/industries"),
+  },
+  {
+    href: "/admin/calls",
+    label: "Calls",
+    icon: Phone,
+    match: (p: string) => p.startsWith("/admin/calls"),
   },
   {
     href: "/admin/audit",

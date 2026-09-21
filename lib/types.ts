@@ -751,6 +751,10 @@ export interface AdminCallHistoryRow {
   status: string
   duration_seconds: number
   created_at: string
+  /** Owning shop (users.business_name); empty when the tenant row is gone. */
+  business_name: string
+  /** Workspace the dialed line belongs to, null once the line is detached from every workspace. */
+  workspace_name: string | null
 }
 
 /** One provisioned DID in the admin tenant drawer. */
