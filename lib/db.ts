@@ -16097,10 +16097,27 @@ export async function listActiveCallTraffic(): Promise<AdminLiveCall[]> {
   }
 }
 
-/** Most recent calls across every tenant for the platform-admin call history widget. */
-export async function listRecentCallHistory(limit = 50): Promise<AdminCallHistoryRow[]> {
+/** Filters for the platform-admin call history widget. */
+export type AdminCallHistoryQuery = {
+  limit?: number
+  /** Free text — caller/business number digits, shop name, or workspace name. */
+  search?: string
+}
+
+/**
+ * Calls across every tenant for the platform-admin call history widget.
+ *
+ * The workspace label comes from the line the call came in on, so a call still resolves to the
+ * shop it belongs to after the line is moved between workspaces or detached from all of them.
+ */
+export async function listRecentCallHistory(
+  query: AdminCallHistoryQuery | number = {}
+): Promise<AdminCallHistoryRow[]> {
   const sql = getSql()
+  const { limit = 50, search = "" } = typeof query === "number" ? { limit: query, search: "" } : query
   const lim = Math.min(Math.max(limit, 1), 200)
+  const term = search.trim()
+  const digits = term.replace(/\D/g, "")
   const mapRow = (r: Record<string, unknown>): AdminCallHistoryRow => ({
     id: String(r.id),
     // provider_call_sid is our trunk identifier; surfaced as call_uuid per the admin spec.
@@ -16111,19 +16128,38 @@ export async function listRecentCallHistory(limit = 50): Promise<AdminCallHistor
     status: r.status != null ? String(r.status) : "",
     duration_seconds: Number(r.duration_seconds ?? 0) || 0,
     created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at ?? ""),
+    business_name: String(r.business_name ?? "").trim(),
+    workspace_name: r.workspace_name != null && String(r.workspace_name).trim() ? String(r.workspace_name) : null,
   })
   try {
     const rows = await sql`
-      SELECT id,
-             provider_call_sid AS call_uuid,
-             call_type AS direction,
-             from_number,
-             to_number,
-             status,
-             duration_seconds,
-             created_at
-      FROM call_logs
-      ORDER BY created_at DESC
+      SELECT cl.id,
+             cl.provider_call_sid AS call_uuid,
+             cl.call_type AS direction,
+             cl.from_number,
+             cl.to_number,
+             cl.status,
+             cl.duration_seconds,
+             cl.created_at,
+             u.business_name,
+             o.name AS workspace_name
+      FROM call_logs cl
+      LEFT JOIN users u ON u.id = cl.user_id
+      LEFT JOIN LATERAL (
+        SELECT pn.organization_id
+        FROM phone_numbers pn
+        WHERE regexp_replace(pn.number, '\\D', '', 'g') = regexp_replace(cl.to_number, '\\D', '', 'g')
+        ORDER BY pn.created_at DESC NULLS LAST
+        LIMIT 1
+      ) line ON true
+      LEFT JOIN organizations o ON o.id = line.organization_id
+      WHERE ${term}::text = ''
+         OR (${digits}::text <> '' AND (
+              regexp_replace(cl.from_number, '\\D', '', 'g') LIKE '%' || ${digits}::text || '%'
+           OR regexp_replace(cl.to_number, '\\D', '', 'g') LIKE '%' || ${digits}::text || '%'))
+         OR u.business_name ILIKE '%' || ${term}::text || '%'
+         OR o.name ILIKE '%' || ${term}::text || '%'
+      ORDER BY cl.created_at DESC
       LIMIT ${lim}
     `
     return rows.map(mapRow)
