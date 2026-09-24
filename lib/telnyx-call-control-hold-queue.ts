@@ -17,7 +17,6 @@ import {
   getCallQueueCollectedByCallControlId,
   getCallQueuePosition,
   getCallQueueStatusByCallControlId,
-  getRecentHoldIntakeForCaller,
   mergeCallQueueCollected,
   updateCallQueueStatus,
   upsertCallQueueWaiting,
@@ -196,14 +195,8 @@ async function buildHoldRepromptText(
   } catch {
     /* position is polish only */
   }
-  // isRepeatCaller / isKnownCustomer (set once at Busy entry, lib/telnyx-call-control-inbound.ts)
-  // still drive internal signals (urgency, receptionist context, which reprompt tier below) but
-  // are deliberately never spoken to the caller — requested directly, any "we recognize you" /
-  // "welcome back" framing read as unnecessary. Two tiers once intake is answered:
-  // holdIntakeSummary present (real answers from THIS caller to reference, "Thanks for those
-  // details") beats answered-with-no-summary (skipped purely because they're a known customer
-  // on file — never thank them for details they didn't just give us, and never invite them to
-  // "book" when they may already have something on the books).
+  // Thank a caller only for answers given on this call. A path that has no
+  // current-call summary gets a neutral reminder instead.
   const base = !isHoldIntakeFullyAnswered(state)
     ? HOLD_REPROMPT_DEFAULT
     : state.holdIntakeSummary
@@ -720,72 +713,13 @@ async function startHoldRepromptGather(
   //     incomplete (fewer than the full digit count).
   //  3) the original generic "press 1 for a text" reprompt, unchanged.
   let intakePrompt: HoldQueueIntakePrompt | null = null
-  let intakeAnswered = Boolean(state.holdIntakeAnswered)
+  const intakeAnswered = Boolean(state.holdIntakeAnswered)
   const intakeAttempts = state.holdIntakeAttempts ?? 0
   let industryHasNoPrompt = false
-  let followUpAnswered = Boolean(state.holdIntakeFollowUpAnswered)
-  let reusedIntakeSummary: string | null = null
-  let reusedIntakeUrgent: boolean | null = null
-
-  // A caller who already answered these on a recent, different call (calling back an
-  // hour later, not asking fresh) shouldn't get asked again — reuse what's already known.
-  // Reported directly: a caller with an existing lead on file still got the same DTMF
-  // questions on a callback. Checked once, on the first reprompt cycle only, so this
-  // never adds a lookup to every cycle — and never touches hold entry's own no-Neon-
-  // before-music latency budget, since the first music segment always plays first.
-  if (!intakeAnswered && promptCount === 1) {
-    const recent = await getRecentHoldIntakeForCaller(state.userId, state.callerE164, callControlId).catch(
-      () => null
-    )
-    const recentIntentLabel =
-      typeof recent?.collected.intent_label === "string" ? recent.collected.intent_label.trim() : ""
-    const recentYearLabel =
-      typeof recent?.collected.vehicle_year_label === "string" ? recent.collected.vehicle_year_label.trim() : ""
-    if (recentIntentLabel && recent) {
-      intakeAnswered = true
-      followUpAnswered = followUpAnswered || Boolean(recentYearLabel)
-      reusedIntakeSummary = recentYearLabel ? `${recentIntentLabel} — ${recentYearLabel}` : recentIntentLabel
-      reusedIntakeUrgent = isUrgentHoldQueueIntentSlug(
-        typeof recent.collected.intent_slug === "string" ? recent.collected.intent_slug : null
-      )
-      // Copy the reused answers onto THIS call's collected too — the Lines waiting
-      // card and the booking-link pre-fill both read the current call's row, and a
-      // repeat caller's details shouldn't vanish just because they weren't re-asked.
-      const reusable: Record<string, unknown> = {}
-      for (const key of [
-        "intent_slug",
-        "intent_label",
-        "vehicle_year",
-        "vehicle_year_label",
-        "vehicle_make",
-        "vehicle_model",
-        "vehicle_make_model_label",
-      ]) {
-        const v = recent.collected[key]
-        if (typeof v === "string" && v.trim()) reusable[key] = v.trim()
-      }
-      if (Object.keys(reusable).length > 0) {
-        void mergeCallQueueCollected(callControlId, reusable).catch((e) =>
-          console.warn(lyncrLog("telnyx-cc-hold-intake-reuse-merge-failed", { error: String(e) }))
-        )
-      }
-      console.log(
-        lyncrLog("telnyx-cc-hold-intake-reused", {
-          callControlId,
-          summary: reusedIntakeSummary,
-          minutesAgo: Math.round(recent.minutesAgo),
-        })
-      )
-    } else if (state.isKnownCustomer) {
-      // No specific recent DTMF answers to reuse, but we already have a real customers
-      // record for this phone (any booking type) — still skip asking, just without a
-      // summary to reference (buildHoldRepromptText picks HOLD_REPROMPT_KNOWN_CUSTOMER
-      // over HOLD_REPROMPT_ALREADY_ANSWERED when there's no holdIntakeSummary set).
-      intakeAnswered = true
-      followUpAnswered = true
-      console.log(lyncrLog("telnyx-cc-hold-intake-skipped-known-customer", { callControlId }))
-    }
-  }
+  const followUpAnswered = Boolean(state.holdIntakeFollowUpAnswered)
+  // A new call needs a new answer. Reusing an earlier call's intent made silence
+  // look like completed intake, skipped the vehicle question, and falsely thanked
+  // callers for details they had not given on this call.
 
   if (!intakeAnswered && intakeAttempts < MAX_INTAKE_ATTEMPTS) {
     try {
@@ -863,13 +797,9 @@ async function startHoldRepromptGather(
           {
             ...state,
             holdPromptCount: promptCount,
-            // Reflect this cycle's just-computed answered status, not the stale incoming
-            // state — otherwise a caller whose history was just reused above still hears
-            // the plain "still waiting" text instead of the already-answered one (with
-            // the press-2-for-callback offer) on this very first cycle.
             holdIntakeAnswered: intakeAnswered,
             holdIntakeFollowUpAnswered: followUpAnswered,
-            holdIntakeSummary: reusedIntakeSummary || state.holdIntakeSummary,
+            holdIntakeSummary: state.holdIntakeSummary,
           },
           callControlId
         )
@@ -889,8 +819,8 @@ async function startHoldRepromptGather(
     holdIntakeFollowUpAnswered: followUpAnswered,
     holdIntakeFollowUpAttempts: askFollowUp ? followUpAttempts + 1 : followUpAttempts,
     holdAwaitingIntakeFollowUpAnswer: askFollowUp,
-    holdIntakeSummary: reusedIntakeSummary || state.holdIntakeSummary,
-    holdIntakeUrgent: reusedIntakeUrgent ?? state.holdIntakeUrgent,
+    holdIntakeSummary: state.holdIntakeSummary,
+    holdIntakeUrgent: state.holdIntakeUrgent,
   }
 
   console.log(
@@ -965,8 +895,9 @@ async function startVehicleConfirmGather(
 
 /**
  * gather.ended answering the vehicle-confirm question. Press 1 (yes, that's the vehicle) asks
- * whether anything's changed; press 2, a timeout, or anything else means it wasn't about that
- * vehicle — fall through to the normal reprompt/intake logic for this cycle exactly as if
+ * whether anything's changed; press 2 or silence falls through to current-call
+ * intake. Never treat silence as confirmation of a previous job.
+ * Fall through to the normal reprompt/intake logic for this cycle exactly as if
  * there'd been no vehicle on file at all (holdVehicleConfirmOffered is already true on state
  * so this never re-asks).
  */
@@ -1011,11 +942,8 @@ async function startVehicleChangedGather(
 }
 
 /**
- * gather.ended answering "has anything changed". Press 1 (yes) hands off to the normal
- * press-1-for-text SMS flow — there's something new to relay. Press 2, a timeout, or anything
- * else means nothing's changed — they almost certainly just want a status check, so this skips
- * straight to "still tied up, wait or callback" with no re-ask of anything, marking intake as
- * fully answered so no later cycle asks the generic industry question either.
+ * gather.ended answering "has anything changed". Press 1 (yes) sends a link;
+ * press 2 (no) moves to wait or callback. Silence does not assert "no change".
  */
 async function handleVehicleChangedAnswer(
   callControlId: string,
@@ -1025,6 +953,10 @@ async function handleVehicleChangedAnswer(
   const baseState: TelnyxCallControlClientState = { ...state, holdAwaitingVehicleChangedAnswer: false }
   if (digits === "1") {
     await leaveHoldQueueWithSms(callControlId, baseState, "cc_busy_hold_vehicle_changed")
+    return
+  }
+  if (digits !== "2") {
+    await startHoldRepromptGather(callControlId, baseState)
     return
   }
 

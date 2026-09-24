@@ -500,124 +500,36 @@ describe("hold-queue callback request (press 2)", () => {
   })
 })
 
-describe("hold-queue reuses a recent caller's prior answers instead of re-asking", () => {
-  it("skips the intake question on a callback and speaks the already-answered reprompt", async () => {
+describe("new-call hold intake", () => {
+  it("asks for the current need even when this caller answered a prior call", async () => {
     getRecentHoldIntakeForCaller.mockResolvedValue({
       collected: { intent_label: "Lost key / needs new key made", vehicle_year_label: "Year 2016" },
-      minutesAgo: 120,
+      minutesAgo: 4,
     })
+    getUser.mockResolvedValue({ industry: "locksmith" })
 
     await handleHoldLoopGatherEnded({
-      callControlId: "cc-repeat-caller",
+      callControlId: "cc-silent-repeat-caller",
       state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdSegment: "music" },
-      digits: "",
-      gatherStatus: "timeout",
-    })
-
-    expect(getRecentHoldIntakeForCaller).toHaveBeenCalledWith(
-      "owner-1",
-      "+15025559999",
-      "cc-repeat-caller"
-    )
-    // Never asked the Phase-1 question — getUser (industry lookup) is only reached when
-    // intake is still unanswered, so it must not have fired here.
-    expect(getUser).not.toHaveBeenCalled()
-    expect(telnyxCallControlGatherUsingSpeak).toHaveBeenCalledTimes(1)
-    const [, opts] = telnyxCallControlGatherUsingSpeak.mock.calls[0]
-    expect(opts.text).toContain("Thanks for those details")
-    expect(opts.validDigits).toBe("12")
-  })
-
-  it("carries the reused summary onto state for the SMS/callback lead", async () => {
-    getRecentHoldIntakeForCaller.mockResolvedValue({
-      collected: { intent_label: "Won't start / stranded", vehicle_year_label: "Year 2018" },
-      minutesAgo: 120,
-    })
-
-    await handleHoldLoopGatherEnded({
-      callControlId: "cc-repeat-caller-2",
-      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdSegment: "music" },
-      digits: "",
-      gatherStatus: "timeout",
-    })
-
-    // Decode the client_state passed to the reprompt gather and confirm the summary landed.
-    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
-    const decoded = JSON.parse(Buffer.from(opts.clientState, "base64").toString("utf8"))
-    expect(decoded.holdIntakeSummary).toBe("Won't start / stranded — Year 2018")
-    expect(decoded.holdIntakeAnswered).toBe(true)
-    expect(decoded.holdIntakeFollowUpAnswered).toBe(true)
-  })
-
-  it("still asks normally when there's no recent history for this caller", async () => {
-    getRecentHoldIntakeForCaller.mockResolvedValue(null)
-    getUser.mockResolvedValue({ industry: "roofing" })
-
-    await handleHoldLoopGatherEnded({
-      callControlId: "cc-fresh-caller",
-      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdSegment: "music" },
-      digits: "",
-      gatherStatus: "timeout",
-    })
-
-    expect(getRecentHoldIntakeForCaller).toHaveBeenCalledTimes(1)
-    expect(getUser).toHaveBeenCalledTimes(1)
-    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
-    expect(opts.text).toContain("active leak")
-  })
-
-  it("only checks history once — not on a later reprompt cycle within the same call", async () => {
-    await handleHoldLoopGatherEnded({
-      callControlId: "cc-cycle-two",
-      state: {
-        ...timedOutState(),
-        holdStartedAtMs: Date.now(),
-        holdSegment: "music",
-        holdPromptCount: 1,
-        holdIntakeAnswered: true,
-      },
       digits: "",
       gatherStatus: "timeout",
     })
 
     expect(getRecentHoldIntakeForCaller).not.toHaveBeenCalled()
-  })
-})
-
-describe("hold-queue skips intake for any known customer, not just recent DTMF answers", () => {
-  it("skips the question for a known customer with no recent hold-queue history", async () => {
-    getRecentHoldIntakeForCaller.mockResolvedValue(null)
-
-    await handleHoldLoopGatherEnded({
-      callControlId: "cc-known-customer",
-      state: {
-        ...timedOutState(),
-        holdStartedAtMs: Date.now(),
-        holdSegment: "music",
-        isKnownCustomer: true,
-      },
-      digits: "",
-      gatherStatus: "timeout",
-    })
-
-    expect(getUser).not.toHaveBeenCalled()
     const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
-    // Known-customer skip has no specific summary to reference, so it must use the
-    // "team members are still tied up" copy, not the "thanks for those details" one
-    // (which would falsely imply they just answered something on this call).
-    expect(opts.text).toContain("Our team members are still tied up")
+    expect(opts.text).toContain("If you lost your key or need a new one made, press 2")
     expect(opts.text).not.toContain("Thanks for those details")
-    expect(opts.validDigits).toBe("12")
+    const state = JSON.parse(Buffer.from(opts.clientState, "base64").toString("utf8"))
+    expect(state.holdIntakeAnswered).toBe(false)
+    expect(state.holdIntakeSummary).toBeUndefined()
+    expect(state.holdAwaitingIntakeAnswer).toBe(true)
   })
 
-  it("prefers a specific recent-answers match over the generic known-customer copy", async () => {
-    getRecentHoldIntakeForCaller.mockResolvedValue({
-      collected: { intent_label: "Active leak" },
-      minutesAgo: 120,
-    })
+  it("asks a known customer about this call instead of assuming an old job", async () => {
+    getUser.mockResolvedValue({ industry: "locksmith" })
 
     await handleHoldLoopGatherEnded({
-      callControlId: "cc-known-customer-with-history",
+      callControlId: "cc-known-new-job",
       state: {
         ...timedOutState(),
         holdStartedAtMs: Date.now(),
@@ -629,76 +541,31 @@ describe("hold-queue skips intake for any known customer, not just recent DTMF a
     })
 
     const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
-    expect(opts.text).toContain("Thanks for those details")
+    expect(opts.text).toContain("Quick question while you wait")
+    expect(opts.text).not.toContain("Thanks for those details")
   })
 
-  it("still asks normally when the caller is neither a known customer nor has recent history", async () => {
-    getRecentHoldIntakeForCaller.mockResolvedValue(null)
-    getUser.mockResolvedValue({ industry: "plumbing" })
-
+  it("only asks for vehicle details after the caller chooses a vehicle-key need", async () => {
+    getUser.mockResolvedValue({ industry: "locksmith" })
     await handleHoldLoopGatherEnded({
-      callControlId: "cc-unknown-caller",
-      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdSegment: "music", isKnownCustomer: false },
-      digits: "",
-      gatherStatus: "timeout",
+      callControlId: "cc-key-this-call",
+      state: {
+        ...timedOutState(),
+        holdStartedAtMs: Date.now(),
+        holdMaxWaitSecs: 600,
+        holdSegment: "reprompt",
+        holdAwaitingIntakeAnswer: true,
+      },
+      digits: "2",
+      gatherStatus: "digit",
     })
 
-    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
-    expect(opts.text).toContain("leak or flooding")
-  })
-})
-
-describe("hold-queue never speaks recognition — same reprompt copy regardless of recency", () => {
-  it("uses the plain already-answered copy for a match minutes ago (no 'welcome back')", async () => {
-    getRecentHoldIntakeForCaller.mockResolvedValue({
-      collected: { intent_label: "Lost key / needs new key made" },
-      minutesAgo: 8,
-    })
-
-    await handleHoldLoopGatherEnded({
-      callControlId: "cc-just-called",
-      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdSegment: "music" },
-      digits: "",
-      gatherStatus: "timeout",
-    })
-
-    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
-    expect(opts.text).not.toContain("Welcome back")
-    expect(opts.text).not.toContain("welcome back")
-    expect(opts.text).toContain("Thanks for those details")
-  })
-
-  it("uses the same copy for a match a couple hours ago", async () => {
-    getRecentHoldIntakeForCaller.mockResolvedValue({
-      collected: { intent_label: "Lost key / needs new key made" },
-      minutesAgo: 150,
-    })
-
-    await handleHoldLoopGatherEnded({
-      callControlId: "cc-hours-later",
-      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdSegment: "music" },
-      digits: "",
-      gatherStatus: "timeout",
-    })
-
-    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
-    expect(opts.text).not.toContain("Welcome back")
-    expect(opts.text).toContain("Thanks for those details")
-  })
-
-  it("never invites an already-known customer to 'book' by text", async () => {
-    getRecentHoldIntakeForCaller.mockResolvedValue(null)
-
-    await handleHoldLoopGatherEnded({
-      callControlId: "cc-no-book-language",
-      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdSegment: "music", isKnownCustomer: true },
-      digits: "",
-      gatherStatus: "timeout",
-    })
-
-    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
-    expect(opts.text).not.toContain("book by text")
-    expect(opts.text).toContain("Press 1 for a text")
+    expect(telnyxCallControlSpeak).toHaveBeenCalledWith(
+      "cc-key-this-call",
+      expect.stringContaining("year, make and model"),
+      expect.any(String),
+      expect.any(Object)
+    )
   })
 })
 
@@ -816,5 +683,26 @@ describe("hold-queue vehicle-confirm — names the specific vehicle on file inst
     const decoded = JSON.parse(Buffer.from(opts.clientState, "base64").toString("utf8"))
     expect(decoded.holdIntakeAnswered).toBe(true)
     expect(decoded.holdAwaitingVehicleChangedAnswer).toBe(false)
+  })
+
+  it("does not treat silence at the changed-vehicle prompt as no change", async () => {
+    getUser.mockResolvedValue({ industry: "locksmith" })
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-vehicle-changed-silent",
+      state: {
+        ...timedOutState(),
+        holdStartedAtMs: Date.now(),
+        holdVehicleOnFile: "2016 Chrysler 200",
+        holdVehicleConfirmOffered: true,
+        holdAwaitingVehicleChangedAnswer: true,
+      },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    expect(opts.text).toContain("Quick question while you wait")
+    const state = JSON.parse(Buffer.from(opts.clientState, "base64").toString("utf8"))
+    expect(state.holdIntakeAnswered).toBe(false)
   })
 })
