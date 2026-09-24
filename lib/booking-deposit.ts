@@ -8,6 +8,7 @@ import { getUser } from "@/lib/db"
 import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
 import { notifyOwnerBookFormSubmitted } from "@/lib/book-form-owner-alert"
 import { buildBookCollectedExtras } from "@/lib/book-customer-request"
+import { notifyLiveHoldOfBookingSubmission } from "@/lib/booking-live-hold"
 
 function sqlClient() {
   return neon(resolveNeonDatabaseUrl())
@@ -101,6 +102,8 @@ export async function createBookingDepositCheckout(params: {
     customer_notes?: string
     availability_label?: string
     job_kind?: string
+    booking_invite_id?: string
+    booking_source?: string
   }
 }): Promise<{ url: string; sessionId: string }> {
   const owner = await getUser(params.ownerUserId)
@@ -166,6 +169,8 @@ export async function createBookingDepositCheckout(params: {
       } : {}),
       ...(params.intakeExtras?.availability_label ? { availability_label: params.intakeExtras.availability_label.slice(0, 200) } : {}),
       ...(params.intakeExtras?.job_kind ? { job_kind: params.intakeExtras.job_kind.slice(0, 40) } : {}),
+      ...(params.intakeExtras?.booking_invite_id ? { booking_invite_id: params.intakeExtras.booking_invite_id.slice(0, 80) } : {}),
+      ...(params.intakeExtras?.booking_source ? { booking_source: params.intakeExtras.booking_source.slice(0, 100) } : {}),
     },
     success_url: `${appUrl}${successPath.startsWith("/") ? successPath : `/${successPath}`}`,
     cancel_url: `${appUrl}${cancelPath.startsWith("/") ? cancelPath : `/${cancelPath}`}`,
@@ -260,5 +265,15 @@ export async function fulfillBookingDepositFromCheckout(session: {
     availabilityLabel,
     summary: `${jobType} — ${(hold.customer_name as string) || "Online booking"}`,
     collected: collectedExtras,
+    bookingSource: session.metadata?.booking_source || null,
+  })
+  await notifyLiveHoldOfBookingSubmission({
+    inviteId: session.metadata?.booking_invite_id || "",
+    ownerUserId,
+    callerE164: (hold.customer_phone as string) || "",
+    businessLineE164: (hold.business_line as string) || "",
+    leadId: job.lead_id,
+    customerName: (hold.customer_name as string) || "Online booking",
+    jobType,
   })
 }

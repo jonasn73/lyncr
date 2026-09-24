@@ -231,6 +231,8 @@ export async function POST(req: NextRequest) {
         customer_notes: notes,
         availability_label: availabilityLabel,
         job_kind: jobKind,
+        booking_invite_id: readString(body, "booking_invite_id"),
+        booking_source: readString(body, "booking_source"),
       },
     })
     return NextResponse.json({
