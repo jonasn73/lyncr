@@ -1,43 +1,31 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { transcribeTelnyxRecording } from "../lib/transcribe-audio"
+import { transcribeTelnyxRecording } from "@/lib/transcribe-audio"
 
 afterEach(() => {
-  vi.unstubAllEnvs()
   vi.unstubAllGlobals()
-  vi.restoreAllMocks()
+  vi.unstubAllEnvs()
 })
 
-describe("Telnyx Call Control recording download", () => {
-  it("preserves a signed recording URL and omits bearer auth", async () => {
-    vi.stubEnv("OPENAI_API_KEY", "openai-test")
-    vi.stubEnv("TELNYX_API_KEY", "telnyx-test")
-    const signedUrl = "https://recordings.example/vehicle.mp3?X-Amz-Date=20260924T112900Z&X-Amz-Signature=secret"
+describe("Telnyx recording transcription", () => {
+  it("downloads the call clip and transcribes it with the Telnyx API key", async () => {
+    vi.stubEnv("TELNYX_API_KEY", "test-telnyx-key")
+    vi.stubEnv("OPENAI_API_KEY", "")
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3])))
-      .mockResolvedValueOnce(new Response("2015 Toyota Camry"))
+      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ text: "2015 Toyota Camry" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }))
     vi.stubGlobal("fetch", fetchMock)
 
-    expect(await transcribeTelnyxRecording(signedUrl)).toBe("2015 Toyota Camry")
-    expect(fetchMock).toHaveBeenNthCalledWith(1, signedUrl, undefined)
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      "https://api.openai.com/v1/audio/transcriptions",
-      expect.objectContaining({ headers: { Authorization: "Bearer openai-test" } })
-    )
-  })
+    const transcript = await transcribeTelnyxRecording("https://recordings.telnyx.com/clip.mp3")
 
-  it("adds the format suffix before an unsigned query string", async () => {
-    vi.stubEnv("OPENAI_API_KEY", "openai-test")
-    vi.stubEnv("TELNYX_API_KEY", "telnyx-test")
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(new Uint8Array([1])))
-      .mockResolvedValueOnce(new Response("2015 Toyota Camry"))
-    vi.stubGlobal("fetch", fetchMock)
-
-    expect(await transcribeTelnyxRecording("https://recordings.example/vehicle?download=1"))
-      .toBe("2015 Toyota Camry")
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "https://recordings.example/vehicle.mp3?download=1", {
-      headers: { Authorization: "Bearer telnyx-test" },
-    })
+    expect(transcript).toBe("2015 Toyota Camry")
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[1][0]).toBe("https://api.telnyx.com/v2/ai/audio/transcriptions")
+    const request = fetchMock.mock.calls[1][1] as RequestInit
+    expect(request.headers).toEqual({ Authorization: "Bearer test-telnyx-key" })
+    expect((request.body as FormData).get("model")).toBe("distil-whisper/distil-large-v2")
+    expect((request.body as FormData).get("file")).toBeInstanceOf(Blob)
   })
 })

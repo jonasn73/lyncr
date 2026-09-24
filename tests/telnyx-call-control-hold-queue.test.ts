@@ -662,6 +662,34 @@ describe("new-call hold intake", () => {
     expect(opts.text).toContain("five-digit ZIP code")
     expect(telnyxCallControlSpeak).not.toHaveBeenCalled()
   })
+
+  it("asks for spoken vehicle details when Telnyx transcription is available", async () => {
+    const previous = process.env.TELNYX_API_KEY
+    process.env.TELNYX_API_KEY = "test-key"
+    try {
+      getUser.mockResolvedValue({ industry: "locksmith" })
+      await handleHoldLoopGatherEnded({
+        callControlId: "cc-key-telnyx-stt",
+        state: {
+          ...timedOutState(),
+          holdStartedAtMs: Date.now(),
+          holdMaxWaitSecs: 600,
+          holdAwaitingIntakeAnswer: true,
+        },
+        digits: "2",
+        gatherStatus: "digit",
+      })
+      expect(telnyxCallControlSpeak).toHaveBeenCalledWith(
+        "cc-key-telnyx-stt",
+        expect.stringContaining("year, make and model"),
+        expect.any(String),
+        expect.any(Object)
+      )
+    } finally {
+      if (previous === undefined) delete process.env.TELNYX_API_KEY
+      else process.env.TELNYX_API_KEY = previous
+    }
+  })
 })
 
 describe("hold-queue vehicle-confirm — names the specific vehicle on file instead of any recognition wording", () => {

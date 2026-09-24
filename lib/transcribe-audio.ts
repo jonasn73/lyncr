@@ -1,12 +1,12 @@
 // ============================================
-// Background audio transcription (OpenAI)
+// Background audio transcription (Telnyx Speech-to-Text)
 // ============================================
-// Downloads a call recording and transcribes it via OpenAI's audio transcription API. Used by the
+// Downloads a call recording and transcribes it via Telnyx's audio transcription API. Used by the
 // voice wrap-up flow to turn the operator's spoken job note into text for call_logs.internal_notes.
-// Returns null (and logs) when OPENAI_API_KEY is missing or any step fails — callers fall back to
+// Returns null (and logs) when TELNYX_API_KEY is missing or any step fails — callers fall back to
 // storing the raw recording link.
 
-const TRANSCRIBE_MODEL = process.env.LYNCR_TRANSCRIBE_MODEL?.trim() || "whisper-1"
+const TRANSCRIBE_MODEL = process.env.LYNCR_TRANSCRIBE_MODEL?.trim() || "distil-whisper/distil-large-v2"
 
 /** Telnyx recording URLs sometimes need `.mp3`; normalize to a fetchable audio URL. */
 function normalizeRecordingUrl(url: string): string {
@@ -21,29 +21,30 @@ function normalizeRecordingUrl(url: string): string {
 }
 
 async function transcribeAudioBuffer(audioBuf: ArrayBuffer): Promise<string | null> {
-  const apiKey = process.env.OPENAI_API_KEY?.trim()
+  const apiKey = process.env.TELNYX_API_KEY?.trim()
   if (!apiKey) {
-    console.warn("[transcribe] OPENAI_API_KEY missing — storing recording link instead of transcript.")
+    console.warn("[transcribe] TELNYX_API_KEY missing — storing recording link instead of transcript.")
     return null
   }
   if (audioBuf.byteLength === 0) return null
 
   const form = new FormData()
   form.set("model", TRANSCRIBE_MODEL)
-  form.set("response_format", "text")
+  form.set("response_format", "json")
   form.set("file", new Blob([audioBuf], { type: "audio/mpeg" }), "clip.mp3")
 
-  const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+  const res = await fetch("https://api.telnyx.com/v2/ai/audio/transcriptions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}` },
     body: form,
   })
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText)
-    console.error(`[transcribe] OpenAI ${res.status}: ${text.slice(0, 240)}`)
+    console.error(`[transcribe] Telnyx STT ${res.status}: ${text.slice(0, 240)}`)
     return null
   }
-  const transcript = (await res.text()).trim()
+  const body = await res.json().catch(() => null) as { text?: unknown } | null
+  const transcript = typeof body?.text === "string" ? body.text.trim() : ""
   return transcript.length > 0 ? transcript : null
 }
 

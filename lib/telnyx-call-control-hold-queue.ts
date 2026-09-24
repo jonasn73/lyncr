@@ -739,7 +739,7 @@ async function startHoldRepromptGather(
     followUpAttempts < MAX_INTAKE_ATTEMPTS &&
     Boolean(state.holdIntakeFollowUp) &&
     // Ask ZIP after a confirmed vehicle or when speech transcription is unavailable.
-    (!isVehicleZipFollowUp || !state.holdVehicleVoiceRequired || Boolean(state.holdVehicleVoiceConfirmed) || !process.env.OPENAI_API_KEY?.trim())
+    (!isVehicleZipFollowUp || !state.holdVehicleVoiceRequired || Boolean(state.holdVehicleVoiceConfirmed) || !process.env.TELNYX_API_KEY?.trim())
 
   // Phase 3 completeness check — nothing higher-priority is being asked this cycle,
   // so verify the spoken year/make/model actually landed: read a good capture back
@@ -750,7 +750,7 @@ async function startHoldRepromptGather(
     intakeAnswered &&
     isVehicleZipFollowUp &&
     Boolean(state.holdVehicleVoiceRequired) &&
-    Boolean(process.env.OPENAI_API_KEY?.trim()) &&
+    Boolean(process.env.TELNYX_API_KEY?.trim()) &&
     !(state.holdVehicleVoiceConfirmed && followUpAnswered)
   ) {
     const collected = await getCallQueueCollectedByCallControlId(callControlId).catch(
@@ -1369,7 +1369,7 @@ async function handleHoldIntakeAnswer(
   // Capture year/make/model by voice when transcription is configured. Without it,
   // go straight to ZIP rather than recording an answer we cannot understand.
   if (matched.followUp?.fieldKey === "job_address_postal_code" && matched.vehicleVoice) {
-    if (!process.env.OPENAI_API_KEY?.trim()) {
+    if (!process.env.TELNYX_API_KEY?.trim()) {
       await speakHoldIntakeFollowUpNow(callControlId, baseState, matched.followUp)
       return
     }
