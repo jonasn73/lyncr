@@ -43,12 +43,14 @@ const fieldClass =
   "mt-0.5 w-full rounded-lg border border-border bg-card/80 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
 
 export default function BookPageClient({
+  inviteId = "",
   initialLine = "",
   initialPhone = "",
   initialFormMode = "book",
   inviteSource = "",
   initialPrefill = null,
 }: {
+  inviteId?: string
   /** From /book/[id] invite resolution — used when query string is absent. */
   initialLine?: string
   initialPhone?: string
@@ -210,6 +212,7 @@ export default function BookPageClient({
       is_asap: urgency === "asap",
       // So owner Latest can say “Booked from hold · press 1” when this came from hold SMS.
       ...(inviteSource.trim() ? { booking_source: inviteSource.trim() } : {}),
+      ...(inviteId ? { booking_invite_id: inviteId } : {}),
       ...(urgency === "window"
         ? {
             availability_date: dayKey,

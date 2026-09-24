@@ -82,6 +82,12 @@ export type TelnyxCallControlClientState = {
   holdMaxWaitSecs?: number
   /** Account override for music segment length (seconds) — snapshotted at enqueue. */
   holdRepromptSecs?: number
+  /** Caller requested and was sent a booking link; hold must not ask for intake again. */
+  holdBookingLinkSent?: boolean
+  /** Press 1 was selected; continue into hold after the confirmation speech. */
+  holdBookingLinkRequested?: boolean
+  /** Form completion has already been acknowledged aloud on this live call. */
+  holdBookingFormAcknowledged?: boolean
   /** True once the owner has gotten the one-time "still waiting" heads-up text for this call. */
   holdLongWaitAlerted?: boolean
   /**

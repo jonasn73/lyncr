@@ -151,7 +151,10 @@ async function sweepStaleCallQueueForUser(userId: string): Promise<void> {
       WHERE cq.user_id = ${userId}
         AND cq.status IN ('waiting', 'holding', 'bridging')
         AND (
-          cq.enqueued_at < now() - (${staleSecs}::text || ' seconds')::interval
+          (
+            cq.enqueued_at < now() - (${staleSecs}::text || ' seconds')::interval
+            AND coalesce(cq.collected->>'booking_link_sent', 'false') <> 'true'
+          )
           OR EXISTS (
             SELECT 1
             FROM call_logs cl
@@ -470,6 +473,97 @@ export async function mergeCallQueueCollected(
       return
     }
     console.warn(lyncrLog("call-queue-collected-merge-failed", { error: String(e) }))
+  }
+}
+
+/** Attach a completed booking form to this caller's active, link-sent hold call. */
+export async function recordBookingFormOnActiveHold(params: {
+  ownerUserId: string
+  callerE164: string
+  businessLineE164: string
+  leadId: string
+  customerName: string
+  jobType: string
+}): Promise<string | null> {
+  try {
+    const sql = getSql()
+    const rows = await sql`
+      UPDATE call_queue
+      SET collected = coalesce(collected, '{}'::jsonb) || ${JSON.stringify({
+        booking_form_lead_id: params.leadId,
+        booking_form_customer_name: params.customerName,
+        booking_form_job_type: params.jobType,
+      })}::jsonb,
+      updated_at = now()
+      WHERE id = (
+        SELECT id FROM call_queue
+        WHERE user_id = ${params.ownerUserId}::uuid
+          AND caller_e164 = ${params.callerE164}
+          AND business_line_e164 = ${params.businessLineE164}
+          AND status IN ('waiting', 'holding')
+          AND enqueued_at > now() - interval '2 hours'
+          AND collected->>'booking_link_sent' = 'true'
+        ORDER BY enqueued_at DESC LIMIT 1
+      )
+      RETURNING call_control_id, user_id
+    `
+    const row = rows[0] as { call_control_id?: string; user_id?: string } | undefined
+    if (row?.user_id) void broadcastQueue(row.user_id)
+    return row?.call_control_id || null
+  } catch (e) {
+    console.warn(lyncrLog("call-queue-booking-form-update-failed", { error: String(e) }))
+    return null
+  }
+}
+
+/** Only one hold webhook may play the form-received announcement. */
+export async function claimBookingFormHoldAcknowledgment(callControlId: string): Promise<boolean> {
+  try {
+    const sql = getSql()
+    const rows = await sql`
+      UPDATE call_queue
+      SET collected = coalesce(collected, '{}'::jsonb) || '{"booking_form_acknowledged":true}'::jsonb,
+          updated_at = now()
+      WHERE call_control_id = ${callControlId}
+        AND status IN ('waiting', 'holding')
+        AND collected->>'booking_form_lead_id' IS NOT NULL
+        AND coalesce(collected->>'booking_form_acknowledged', 'false') = 'false'
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    console.warn(lyncrLog("call-queue-booking-form-ack-claim-failed", { error: String(e) }))
+    return false
+  }
+}
+
+/** A callback requested after form submission belongs on the existing lead. */
+export async function markBookingFormLeadCallback(params: {
+  ownerUserId: string
+  leadId: string
+  callbackE164: string
+}): Promise<{ collected: Record<string, unknown>; summary: string | null; intentSlug: string | null } | null> {
+  try {
+    const sql = getSql()
+    const rows = await sql`
+      UPDATE ai_leads
+      SET collected = coalesce(collected, '{}'::jsonb) || ${JSON.stringify({
+        callback_requested: true,
+        callback_number: params.callbackE164,
+        pending_callback: true,
+        sales_recovery_stage: "pending_callbacks",
+      })}::jsonb
+      WHERE id = ${params.leadId}::uuid
+        AND user_id = ${params.ownerUserId}::uuid
+      RETURNING collected, summary, intent_slug
+    `
+    const row = rows[0] as { collected?: Record<string, unknown>; summary?: string | null; intent_slug?: string | null } | undefined
+    return row
+      ? { collected: row.collected || {}, summary: row.summary || null, intentSlug: row.intent_slug || null }
+      : null
+  } catch (e) {
+    console.warn(lyncrLog("booking-form-callback-update-failed", { error: String(e) }))
+    return null
   }
 }
 

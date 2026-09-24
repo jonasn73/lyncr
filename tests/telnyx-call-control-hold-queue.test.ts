@@ -20,10 +20,15 @@ const sendHoldLongWaitOwnerAlert = vi.fn<AnyFn>()
 const sendHoldIntakeCapturedOwnerAlert = vi.fn<AnyFn>()
 const holdLongWaitAlertMs = vi.fn<AnyFn>()
 const getCallQueueCollectedByCallControlId = vi.fn<AnyFn>()
+const claimBookingFormHoldAcknowledgment = vi.fn<AnyFn>()
+const markBookingFormLeadCallback = vi.fn<AnyFn>()
+const dispatchLeadSmsAlert = vi.fn<AnyFn>()
 const getRecentHoldIntakeForCaller = vi.fn<AnyFn>()
 const saveCallIntake = vi.fn<AnyFn>()
 
 vi.mock("@/lib/call-queue-db", () => ({
+  claimBookingFormHoldAcknowledgment: (...args: unknown[]) => claimBookingFormHoldAcknowledgment(...args),
+  markBookingFormLeadCallback: (...args: unknown[]) => markBookingFormLeadCallback(...args),
   countWaitingCallQueue: vi.fn(() => Promise.resolve(0)),
   getAccountHoldSettings: vi.fn(() => Promise.resolve({
     holdMusicUrl: null,
@@ -42,6 +47,7 @@ vi.mock("@/lib/call-queue-db", () => ({
 }))
 
 vi.mock("@/lib/intake-engine", () => ({
+  dispatchLeadSmsAlert: (...args: unknown[]) => dispatchLeadSmsAlert(...args),
   saveCallIntake: (...args: unknown[]) => saveCallIntake(...args),
 }))
 
@@ -138,6 +144,9 @@ function timedOutState(): TelnyxCallControlClientState {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  claimBookingFormHoldAcknowledgment.mockResolvedValue(false)
+  markBookingFormLeadCallback.mockResolvedValue({ collected: {}, summary: "Submitted form", intentSlug: null })
+  dispatchLeadSmsAlert.mockResolvedValue({ sms_sent: true })
   updateCallQueueStatus.mockResolvedValue(undefined)
   getCallQueueStatusByCallControlId.mockResolvedValue("holding")
   updateCallLog.mockResolvedValue(undefined)
@@ -156,6 +165,70 @@ beforeEach(() => {
   getCallQueueCollectedByCallControlId.mockResolvedValue({})
   getRecentHoldIntakeForCaller.mockResolvedValue(null)
   saveCallIntake.mockResolvedValue({ id: "lead-1", sms_sent: true, sms_error: null })
+})
+
+describe("booking link hold", () => {
+  it("keeps music and skips vehicle intake even after the usual max wait", async () => {
+    getUser.mockResolvedValue({ industry: "locksmith" })
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-link-hold",
+      state: { ...timedOutState(), holdBookingLinkSent: true },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    expect(opts.text).toContain("booking link")
+    expect(opts.text).not.toContain("vehicle")
+    expect(getUser).not.toHaveBeenCalled()
+    expect(sendInboundBookingSmsAndTag).not.toHaveBeenCalled()
+    expect(telnyxCallControlHangup).not.toHaveBeenCalled()
+  })
+
+  it("acknowledges a completed form once and resumes the hold path", async () => {
+    getCallQueueCollectedByCallControlId.mockResolvedValue({ booking_form_lead_id: "lead-1" })
+    claimBookingFormHoldAcknowledgment.mockResolvedValue(true)
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-link-form",
+      state: { ...timedOutState(), holdBookingLinkSent: true },
+      digits: "",
+      gatherStatus: "cancelled",
+    })
+
+    expect(claimBookingFormHoldAcknowledgment).toHaveBeenCalledWith("cc-link-form")
+    expect(telnyxCallControlSpeak).toHaveBeenCalledWith(
+      "cc-link-form",
+      expect.stringContaining("We received your booking details"),
+      expect.any(String),
+      expect.any(Object)
+    )
+    expect(updateCallQueueStatus).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: "left" })
+    )
+  })
+
+  it("adds a callback request to the submitted form lead without creating another lead", async () => {
+    getCallQueueCollectedByCallControlId.mockResolvedValue({ booking_form_lead_id: "lead-1" })
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-link-callback",
+      state: {
+        ...timedOutState(),
+        holdBookingLinkSent: true,
+        holdBookingFormAcknowledged: true,
+        holdAwaitingCallbackConfirm: true,
+      },
+      digits: "1",
+      gatherStatus: "digit",
+    })
+
+    expect(markBookingFormLeadCallback).toHaveBeenCalledWith({
+      ownerUserId: "owner-1",
+      leadId: "lead-1",
+      callbackE164: "+15025559999",
+    })
+    expect(dispatchLeadSmsAlert).toHaveBeenCalled()
+    expect(saveCallIntake).not.toHaveBeenCalled()
+  })
 })
 
 describe("confirmed spoken vehicle intake", () => {

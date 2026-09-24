@@ -49,6 +49,7 @@ export default async function BookInvitePage({
       }
     >
       <BookPageClient
+        inviteId={invite.id}
         initialLine={invite.businessLine}
         initialPhone={invite.callerPhone || ""}
         initialFormMode={initialFormMode}

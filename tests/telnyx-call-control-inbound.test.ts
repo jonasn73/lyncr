@@ -2131,12 +2131,28 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     })
 
     expect(sendSms).toHaveBeenCalled()
-    expect(confirmationSpeech).toHaveBeenCalledWith("sent", "press1", expect.any(Object))
+    expect(confirmationSpeech).not.toHaveBeenCalled()
     const speakCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/speak"))
     expect(speakCall).toBeTruthy()
     expect(JSON.parse(String(speakCall![1]?.body || "{}"))).toMatchObject({
-      payload: "We just texted you a booking link. You can hang up whenever you're ready.",
+      payload: "We just texted you a booking link. You can complete the form while you stay on the line. We'll keep you on hold.",
     })
+    const confirmBody = JSON.parse(String(speakCall![1]?.body || "{}")) as { client_state?: string }
+    expect(confirmBody.client_state).toBeTruthy()
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.speak.ended",
+        id: "evt-press1-confirm-ended",
+        payload: {
+          call_control_id: "cc-gather-1",
+          from: "+15025369252",
+          to: "+15025571219",
+          client_state: confirmBody.client_state,
+        },
+      },
+    })
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("/actions/playback_start"))).toBe(true)
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("/actions/hangup"))).toBe(false)
   })
 
   it("call.gather.ended timeout enters soft hold (music ASAP, no Telnyx enqueue)", async () => {

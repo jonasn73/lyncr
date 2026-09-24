@@ -17,6 +17,7 @@ import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
 import { notifyOwnerBookFormSubmitted } from "@/lib/book-form-owner-alert"
 import { toE164 } from "@/lib/phone-e164"
 import { checkRateLimit, clientIpFromHeaders, rateLimitedResponse } from "@/lib/rate-limit"
+import { notifyLiveHoldOfBookingSubmission } from "@/lib/booking-live-hold"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -192,6 +193,16 @@ export async function POST(req: NextRequest) {
       summary: `${jobType} — ${customerName}`,
       collected: collectedExtras,
       bookingSource: bookingSource || null,
+    })
+
+    await notifyLiveHoldOfBookingSubmission({
+      inviteId: readString(body, "booking_invite_id"),
+      ownerUserId: owner.id,
+      callerE164: customerPhone,
+      businessLineE164: line,
+      leadId: job.lead_id,
+      customerName,
+      jobType,
     })
 
     return NextResponse.json({

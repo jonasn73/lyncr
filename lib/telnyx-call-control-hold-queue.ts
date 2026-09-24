@@ -14,11 +14,13 @@
 import { after } from "next/server"
 import {
   countWaitingCallQueue,
+  claimBookingFormHoldAcknowledgment,
   getAccountHoldSettings,
   getCallQueueCollectedByCallControlId,
   getCallQueuePosition,
   getCallQueueStatusByCallControlId,
   mergeCallQueueCollected,
+  markBookingFormLeadCallback,
   updateCallQueueStatus,
   upsertCallQueueWaiting,
 } from "@/lib/call-queue-db"
@@ -76,7 +78,7 @@ import {
   type TelnyxCallControlClientState,
 } from "@/lib/telnyx-call-control-state"
 import { getUser, normalizePhoneNumberE164, updateCallLog } from "@/lib/db"
-import { saveCallIntake } from "@/lib/intake-engine"
+import { dispatchLeadSmsAlert, saveCallIntake } from "@/lib/intake-engine"
 import {
   holdQueueIntakeValidDigits,
   isUrgentHoldQueueIntentSlug,
@@ -135,6 +137,7 @@ function holdElapsedMs(state: TelnyxCallControlClientState): number {
 }
 
 function holdTimedOut(state: TelnyxCallControlClientState): boolean {
+  if (state.holdBookingLinkSent) return false
   return holdElapsedMs(state) >= holdMaxWaitSecs(state.holdMaxWaitSecs) * 1000
 }
 
@@ -196,7 +199,11 @@ async function buildHoldRepromptText(
   }
   // Thank a caller only for answers given on this call. A path that has no
   // current-call summary gets a neutral reminder instead.
-  const base = !isHoldIntakeFullyAnswered(state)
+  const base = state.holdBookingLinkSent
+    ? state.holdBookingFormAcknowledged
+      ? "We received your booking details. You can keep holding for help, or press 2 to request a callback."
+      : "Your booking link is in the text we sent. You can complete it while you hold, or press 2 to request a callback."
+    : !isHoldIntakeFullyAnswered(state)
     ? HOLD_REPROMPT_DEFAULT
     : state.holdIntakeSummary
       ? HOLD_REPROMPT_ALREADY_ANSWERED
@@ -275,7 +282,7 @@ export async function enterBusyHoldQueue(params: {
     })
   }
 
-  if (waiting >= holdMaxConcurrent()) {
+  if (waiting >= holdMaxConcurrent() && !state.holdBookingLinkSent) {
     console.log(
       lyncrLog("telnyx-cc-hold-cap-reached", {
         callControlId,
@@ -315,13 +322,18 @@ export async function enterBusyHoldQueue(params: {
   nextState.holdMaxWaitSecs = holdMaxWaitSecs(holdSettings.holdMaxWaitSecs)
   nextState.holdRepromptSecs = holdSettings.holdRepromptSecs ?? undefined
 
-  // Lines Answer list + Activity tag — never block audio.
-  void upsertCallQueueWaiting({
+  // Music is already playing; persist the queue row and link marker before the
+  // webhook returns so a fast form submission can find this live call.
+  await upsertCallQueueWaiting({
     userId,
     callControlId,
     callSessionId: params.callSessionId,
     callerE164: state.callerE164,
     businessLineE164: state.businessLineE164,
+  }).then(async (row) => {
+    if (row && state.holdBookingLinkSent) {
+      await mergeCallQueueCollected(callControlId, { booking_link_sent: true })
+    }
   }).catch((e) => console.warn(lyncrLog("hold-queue-upsert-failed", { error: String(e) })))
   void tagHoldQueueCallLog(callControlId)
 
@@ -695,7 +707,7 @@ async function startHoldRepromptGather(
   // directly and only once. Never phrased as "we recognize you"; reads like an ordinary
   // targeted question ("if you're calling about your 2016 Chrysler 200, press 1"). Recognition
   // still only ever changes ROUTING here, never spoken acknowledgment — requested directly.
-  if (state.holdVehicleOnFile && !state.holdVehicleConfirmOffered) {
+  if (!state.holdBookingLinkSent && state.holdVehicleOnFile && !state.holdVehicleConfirmOffered) {
     await startVehicleConfirmGather(callControlId, state)
     return
   }
@@ -720,7 +732,7 @@ async function startHoldRepromptGather(
   // look like completed intake, skipped the vehicle question, and falsely thanked
   // callers for details they had not given on this call.
 
-  if (!intakeAnswered && intakeAttempts < MAX_INTAKE_ATTEMPTS) {
+  if (!state.holdBookingLinkSent && !intakeAnswered && intakeAttempts < MAX_INTAKE_ATTEMPTS) {
     try {
       const user = await getUser(state.userId)
       intakePrompt = resolveHoldQueueIntakePrompt(user?.industry)
@@ -734,6 +746,7 @@ async function startHoldRepromptGather(
   const followUpAttempts = state.holdIntakeFollowUpAttempts ?? 0
   const isVehicleZipFollowUp = state.holdIntakeFollowUp?.fieldKey === "job_address_postal_code"
   let askFollowUp =
+    !state.holdBookingLinkSent &&
     !intakePrompt &&
     !followUpAnswered &&
     followUpAttempts < MAX_INTAKE_ATTEMPTS &&
@@ -746,6 +759,7 @@ async function startHoldRepromptGather(
   // for confirmation, retry a failed/late/garbled clip (capped), run the ask if an
   // earlier failure skipped it, or move to ZIP when voice is exhausted.
   if (
+    !state.holdBookingLinkSent &&
     !intakePrompt &&
     intakeAnswered &&
     isVehicleZipFollowUp &&
@@ -1144,14 +1158,44 @@ async function finalizeCallbackRequest(
     ? `Callback requested — ${state.holdIntakeSummary}`
     : "Callback requested while on hold"
 
-  await saveCallIntake({
-    user_id: state.userId,
-    caller_e164: callbackE164,
-    intent_slug: intentSlug,
-    collected: { ...collected, callback_requested: true, callback_number: callbackE164 },
-    summary,
-    vapi_call_id: null,
-  }).catch((e) => console.warn(lyncrLog("telnyx-cc-hold-callback-save-failed", { error: String(e) })))
+  const formLeadId = typeof collected.booking_form_lead_id === "string"
+    ? collected.booking_form_lead_id
+    : ""
+  if (formLeadId) {
+    const updated = await markBookingFormLeadCallback({
+      ownerUserId: state.userId,
+      leadId: formLeadId,
+      callbackE164,
+    })
+    if (updated) {
+      await dispatchLeadSmsAlert({
+        userId: state.userId,
+        leadId: formLeadId,
+        caller_e164: callbackE164,
+        intent_slug: updated.intentSlug,
+        collected: updated.collected,
+        summary: `Callback requested while on hold — ${updated.summary || summary}`,
+      }).catch((e) => console.warn(lyncrLog("telnyx-cc-hold-callback-alert-failed", { error: String(e) })))
+    } else {
+      await saveCallIntake({
+        user_id: state.userId,
+        caller_e164: callbackE164,
+        intent_slug: intentSlug,
+        collected: { ...collected, callback_requested: true, callback_number: callbackE164 },
+        summary,
+        vapi_call_id: null,
+      }).catch((e) => console.warn(lyncrLog("telnyx-cc-hold-callback-save-failed", { error: String(e) })))
+    }
+  } else {
+    await saveCallIntake({
+      user_id: state.userId,
+      caller_e164: callbackE164,
+      intent_slug: intentSlug,
+      collected: { ...collected, callback_requested: true, callback_number: callbackE164 },
+      summary,
+      vapi_call_id: null,
+    }).catch((e) => console.warn(lyncrLog("telnyx-cc-hold-callback-save-failed", { error: String(e) })))
+  }
 
   console.log(lyncrLog("telnyx-cc-hold-callback-requested", { callControlId, callbackE164 }))
 
@@ -1854,12 +1898,48 @@ export async function handleHoldLoopGatherEnded(params: {
     return
   }
 
-  // Caller already left — do not restart music / SMS / hangup spam on a dead leg.
+  // A customer who hangs up while filling the form owns that choice; never
+  // interrupt a dead leg with an acknowledgment or restart music.
   if (
     gatherStatus === "call_hangup" ||
-    gatherStatus === "cancelled" ||
+    gatherStatus === "cancelled" && !state.holdBookingLinkSent ||
     gatherStatus === "call_hangup_bye"
   ) {
+    await abandonHoldQueue(callControlId)
+    return
+  }
+
+  if (state.holdBookingLinkSent && !state.holdBookingFormAcknowledged) {
+    const collected = await getCallQueueCollectedByCallControlId(callControlId).catch(
+      () => ({}) as Record<string, unknown>
+    )
+    if (collected && typeof collected.booking_form_lead_id === "string") {
+      const acknowledged = await claimBookingFormHoldAcknowledgment(callControlId)
+      const formState = {
+        ...state,
+        holdBookingFormAcknowledged: acknowledged || collected.booking_form_acknowledged === true,
+      }
+      if (acknowledged) {
+        await telnyxCallControlPlaybackStop(callControlId).catch(() => undefined)
+        await speakHoldAckThenMusic(
+          callControlId,
+          formState,
+          "We received your booking details and sent them to our team. You can stay on the line for help, or press 2 to request a callback."
+        )
+      } else {
+        await startHoldMusicGather(callControlId, formState)
+      }
+      return
+    }
+  }
+
+  // Gather was stopped by a form submission; the pending form record may still
+  // be racing its DB write, so keep music on rather than treating it as hangup.
+  if (gatherStatus === "cancelled" && state.holdBookingLinkSent) {
+    await startHoldMusicGather(callControlId, state)
+    return
+  }
+  if (gatherStatus === "cancelled") {
     await abandonHoldQueue(callControlId)
     return
   }
@@ -1920,6 +2000,10 @@ export async function handleHoldLoopGatherEnded(params: {
   }
 
   if (digits === "1") {
+    if (state.holdBookingLinkSent) {
+      await startHoldMusicGather(callControlId, state)
+      return
+    }
     if (isHoldIntakeFullyAnswered(state) && state.holdIntakeSummary) {
       await startCallbackConfirm(callControlId, state)
       return

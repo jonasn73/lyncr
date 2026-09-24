@@ -234,6 +234,8 @@ export async function sendInboundBookingSmsAndTag(opts: {
    * by the sweep before this call), and the SMS 24h cooldown backstops any race.
    */
   bypassIvrClaim?: boolean
+  /** Press-1 link while the caller stays on hold: keep the call log live. */
+  keepCallOpen?: boolean
 }): Promise<{ outcome: InboundBookingSmsOutcome; error?: string }> {
   // First hangup wins. Second overlapping event does not send another book link.
   if (opts.callSid && !opts.bypassIvrClaim) {
@@ -267,8 +269,8 @@ export async function sendInboundBookingSmsAndTag(opts: {
   if (opts.callSid) {
     void updateCallLog(opts.callSid, {
       routed_to_name: routedToName,
-      call_type: opts.callType ?? "missed",
-      status: "completed",
+      ...(opts.keepCallOpen ? {} : { call_type: opts.callType ?? "missed" }),
+      status: opts.keepCallOpen ? "in-progress" : "completed",
     }).catch((e) => console.warn("[inbound-booking-sms] status tag failed:", e))
   }
   return { outcome, error: result.error }

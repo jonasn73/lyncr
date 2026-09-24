@@ -658,6 +658,8 @@ async function handleSpeakFailed(
   // or the caller sits in dead air with no gather armed for the rest of the call.
   if (state?.phase === "await_hold_ack_speak") {
     await resumeHoldMusicAfterAckSpeak(event.callControlId, state)
+  } else if (state?.phase === "await_busy_sms_confirm_end" && state.holdBookingLinkRequested) {
+    await continueBookingLinkToHold(event.callControlId, state, event.callSessionId)
   }
 }
 
@@ -781,13 +783,34 @@ async function confirmBusySmsAndHangup(
   })
   const speakRes = await telnyxCallControlSpeak(
     callControlId,
-    bookingSmsConfirmSpeech(outcome, "press1", { callerDisplayName: state.callerDisplayName }),
+    state.holdBookingLinkRequested
+      ? outcome === "sent"
+        ? "We just texted you a booking link. You can complete the form while you stay on the line. We'll keep you on hold."
+        : "We couldn't text the booking link right now. Please stay on the line and we'll help you."
+      : bookingSmsConfirmSpeech(outcome, "press1", { callerDisplayName: state.callerDisplayName }),
     nextState
   )
   if (!speakRes.ok) {
     console.error(JSON.stringify({ lyncr: "telnyx-cc-busy-sms-confirm-failed", error: speakRes.error }))
-    await telnyxCallControlHangup(callControlId)
+    if (state.holdBookingLinkRequested) {
+      await continueBookingLinkToHold(callControlId, state)
+    } else {
+      await telnyxCallControlHangup(callControlId)
+    }
   }
+}
+
+async function continueBookingLinkToHold(
+  callControlId: string,
+  state: TelnyxCallControlClientState,
+  callSessionId?: string | null
+): Promise<void> {
+  await enterBusyHoldQueue({
+    callControlId,
+    state,
+    routing: { user_id: state.userId },
+    callSessionId,
+  })
 }
 
 function baseState(
@@ -1499,8 +1522,12 @@ async function handleSpeakEnded(
   const state = event.clientState
   if (!state) return
 
-  // Booking SMS confirmation finished — hang up.
+  // Booking SMS confirmation finished — link request joins hold instead of ending the call.
   if (state.phase === "await_busy_sms_confirm_end") {
+    if (state.holdBookingLinkRequested) {
+      await continueBookingLinkToHold(event.callControlId, state, event.callSessionId)
+      return
+    }
     console.log(
       JSON.stringify({
         lyncr: "telnyx-cc-busy-sms-confirm-hangup",
@@ -1715,10 +1742,6 @@ async function handleGatherEnded(
     if (musicKicked) {
       await telnyxCallControlPlaybackStop(event.callControlId).catch(() => undefined)
     }
-    void updateCallQueueStatus({
-      callControlId: event.callControlId,
-      status: "sms_left",
-    })
     const { outcome } = await sendInboundBookingSmsAndTag({
       fromE164: state.callerE164,
       ownerUserId: routing.user_id,
@@ -1727,8 +1750,13 @@ async function handleGatherEnded(
       routedToName: CAPTURE_STATUS_HOLD_PRESS1,
       source: "cc_busy_press1",
       businessLabel: resolveWorkspaceDisplayName(routing),
+      keepCallOpen: true,
     })
-    await confirmBusySmsAndHangup(event.callControlId, state, outcome)
+    await confirmBusySmsAndHangup(event.callControlId, {
+      ...state,
+      holdBookingLinkRequested: true,
+      holdBookingLinkSent: outcome === "sent",
+    }, outcome)
     return
   }
 
