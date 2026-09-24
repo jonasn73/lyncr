@@ -91,10 +91,9 @@ import {
   CAPTURE_STATUS_HOLD_AI_ASSISTED,
   CAPTURE_STATUS_HOLD_PRESS1,
   resolveInboundCapturePlan,
-  TIED_UP_BOOKING_PROMPT,
 } from "@/lib/inbound-time-capture"
 import { resolveInboundDialPlan, type InboundDialPlanResult } from "@/lib/inbound-dial-plan"
-import { sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
+import { bookingSmsConfirmSpeech, sendInboundBookingSmsAndTag, type InboundBookingSmsOutcome } from "@/lib/inbound-booking-sms"
 import { reportAiAssistantMinutesUsage } from "@/lib/ai-usage-billing"
 import { markIvrActionCompleted } from "@/lib/booking-sms-guards"
 import {
@@ -772,14 +771,19 @@ async function continueAfterInboundGreeting(
 /** After booking SMS — confirm and hang up (avoid double Busy greeting). */
 async function confirmBusySmsAndHangup(
   callControlId: string,
-  state: TelnyxCallControlClientState
+  state: TelnyxCallControlClientState,
+  outcome: InboundBookingSmsOutcome
 ): Promise<void> {
   const nextState = encodeTelnyxCallControlState({
     ...state,
     phase: "await_busy_sms_confirm_end",
     dialReason: "busy_automation",
   })
-  const speakRes = await telnyxCallControlSpeak(callControlId, TIED_UP_BOOKING_PROMPT, nextState)
+  const speakRes = await telnyxCallControlSpeak(
+    callControlId,
+    bookingSmsConfirmSpeech(outcome, "press1", { callerDisplayName: state.callerDisplayName }),
+    nextState
+  )
   if (!speakRes.ok) {
     console.error(JSON.stringify({ lyncr: "telnyx-cc-busy-sms-confirm-failed", error: speakRes.error }))
     await telnyxCallControlHangup(callControlId)
@@ -1715,7 +1719,7 @@ async function handleGatherEnded(
       callControlId: event.callControlId,
       status: "sms_left",
     })
-    await sendInboundBookingSmsAndTag({
+    const { outcome } = await sendInboundBookingSmsAndTag({
       fromE164: state.callerE164,
       ownerUserId: routing.user_id,
       businessLineE164: state.businessLineE164,
@@ -1724,7 +1728,7 @@ async function handleGatherEnded(
       source: "cc_busy_press1",
       businessLabel: resolveWorkspaceDisplayName(routing),
     })
-    await confirmBusySmsAndHangup(event.callControlId, state)
+    await confirmBusySmsAndHangup(event.callControlId, state, outcome)
     return
   }
 

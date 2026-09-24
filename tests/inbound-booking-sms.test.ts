@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-const { sendAndLogWorkspaceCustomerSmsMock, getActivePhoneNumberByE164Mock } = vi.hoisted(() => ({
+const { sendAndLogWorkspaceCustomerSmsMock, getActivePhoneNumberByE164Mock, hasOutboundSmsToCustomerRecentlyMock } = vi.hoisted(() => ({
   sendAndLogWorkspaceCustomerSmsMock: vi.fn(),
   getActivePhoneNumberByE164Mock: vi.fn(),
+  hasOutboundSmsToCustomerRecentlyMock: vi.fn().mockResolvedValue(false),
 }))
 
 vi.mock("@/lib/workspace-customer-sms", () => ({
@@ -36,7 +37,7 @@ vi.mock("@/lib/hold-queue", () => ({
 
 vi.mock("@/lib/booking-sms-guards", () => ({
   claimIvrAction: vi.fn().mockResolvedValue(true),
-  hasOutboundSmsToCustomerRecently: vi.fn().mockResolvedValue(false),
+  hasOutboundSmsToCustomerRecently: hasOutboundSmsToCustomerRecentlyMock,
 }))
 
 import { bookingSmsConfirmSpeech, sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
@@ -68,6 +69,42 @@ describe("bookingSmsConfirmSpeech", () => {
 describe("sendInboundBookingSmsAndTag — multi-shop owners", () => {
   afterEach(() => {
     vi.clearAllMocks()
+    hasOutboundSmsToCustomerRecentlyMock.mockResolvedValue(false)
+  })
+
+  it("sends a fresh link when the caller explicitly presses 1 despite an earlier text", async () => {
+    getActivePhoneNumberByE164Mock.mockResolvedValue(null)
+    hasOutboundSmsToCustomerRecentlyMock.mockResolvedValue(true)
+    sendAndLogWorkspaceCustomerSmsMock.mockResolvedValue({ ok: true })
+
+    const result = await sendInboundBookingSmsAndTag({
+      fromE164: "+15551234567",
+      ownerUserId: "owner-1",
+      businessLineE164: "+15025571219",
+      callSid: "call-repeat",
+      routedToName: "Booked from hold · press 1",
+      source: "cc_busy_press1",
+    })
+
+    expect(result.outcome).toBe("sent")
+    expect(hasOutboundSmsToCustomerRecentlyMock).not.toHaveBeenCalled()
+    expect(sendAndLogWorkspaceCustomerSmsMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("still suppresses an automatic follow-up after an earlier text", async () => {
+    hasOutboundSmsToCustomerRecentlyMock.mockResolvedValue(true)
+
+    const result = await sendInboundBookingSmsAndTag({
+      fromE164: "+15551234567",
+      ownerUserId: "owner-1",
+      businessLineE164: "+15025571219",
+      callSid: "call-auto",
+      routedToName: "Hold timeout",
+      source: "cc_busy_hold_max_wait",
+    })
+
+    expect(result.outcome).toBe("skipped")
+    expect(sendAndLogWorkspaceCustomerSmsMock).not.toHaveBeenCalled()
   })
 
   it("resolves organizationId from the called business line so a multi-shop owner's SMS doesn't get blocked", async () => {

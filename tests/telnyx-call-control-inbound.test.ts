@@ -2069,6 +2069,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
 
   it("call.gather.ended press 1 sends booking SMS then confirms", async () => {
     const sendSms = vi.fn(() => Promise.resolve({ outcome: "sent" }))
+    const confirmationSpeech = vi.fn(() => "We just texted you a booking link. You can hang up whenever you're ready.")
     vi.doMock("@/lib/db", () => ({
       getIncomingRoutingForVoiceWebhook: vi.fn(() =>
         Promise.resolve({
@@ -2100,7 +2101,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     }))
     vi.doMock("@/lib/inbound-booking-sms", () => ({
       sendInboundBookingSmsAndTag: sendSms,
-      bookingSmsConfirmSpeech: vi.fn(() => "mock booking sms confirm speech"),
+      bookingSmsConfirmSpeech: confirmationSpeech,
     }))
 
     const gatherState = encodeTelnyxCallControlState({
@@ -2130,8 +2131,12 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     })
 
     expect(sendSms).toHaveBeenCalled()
+    expect(confirmationSpeech).toHaveBeenCalledWith("sent", "press1", expect.any(Object))
     const speakCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/speak"))
     expect(speakCall).toBeTruthy()
+    expect(JSON.parse(String(speakCall![1]?.body || "{}"))).toMatchObject({
+      payload: "We just texted you a booking link. You can hang up whenever you're ready.",
+    })
   })
 
   it("call.gather.ended timeout enters soft hold (music ASAP, no Telnyx enqueue)", async () => {

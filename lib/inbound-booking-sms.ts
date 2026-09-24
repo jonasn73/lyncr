@@ -248,6 +248,10 @@ export async function sendInboundBookingSmsAndTag(opts: {
     businessLabel: opts.businessLabel,
     tone: opts.tone,
     intake: opts.intake,
+    // A deliberate keypress requests a fresh link, even if this caller received
+    // another shop text today. The per-call IVR claim still prevents webhook
+    // retries from sending the same request twice.
+    bypassCooldown: opts.source === "cc_busy_press1" || opts.source === "cc_busy_hold_press1",
   })
   const outcome: InboundBookingSmsOutcome = !result.ok
     ? "failed"
