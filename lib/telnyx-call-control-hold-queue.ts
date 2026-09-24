@@ -24,7 +24,6 @@ import {
 import { getAccountPresence } from "@/lib/account-presence"
 import {
   HOLD_FIRST_REPROMPT_MS,
-  HOLD_INTAKE_CAPTURED_ALERT_MIN_WAIT_MS,
   HOLD_REPROMPT_ALREADY_ANSWERED,
   HOLD_REPROMPT_DEFAULT,
   HOLD_REPROMPT_KNOWN_CUSTOMER,
@@ -1385,7 +1384,11 @@ async function handleHoldIntakeAnswer(
     return
   }
 
-  await speakHoldAckThenMusic(callControlId, baseState, "Got it, thanks — hang tight.")
+  await speakHoldAckThenMusic(
+    callControlId,
+    alertOwnerForCapturedHoldIntake(callControlId, baseState),
+    "Got it, thanks — hang tight."
+  )
 }
 
 /**
@@ -1487,7 +1490,7 @@ async function handleHoldIntakeFollowUpAnswer(
     { voice: baseState.holdSpeakVoice }
   ).catch(() => undefined)
 
-  await startHoldMusicGather(callControlId, baseState)
+  await startHoldMusicGather(callControlId, alertOwnerForCapturedHoldIntake(callControlId, baseState))
 }
 
 /** Voice-ask attempts so far — holdVehicleVoiceDone predates the counter, count it as one. */
@@ -1696,7 +1699,9 @@ function alertOwnerForCapturedHoldIntake(
     !isHoldIntakeFullyAnswered(state) ||
     !state.holdIntakeSummary ||
     state.holdIntakeCapturedAlerted ||
-    holdElapsedMs(state) < HOLD_INTAKE_CAPTURED_ALERT_MIN_WAIT_MS
+    // A typed year alone is only partial vehicle intake. Wait for the caller
+    // to confirm a full year, make and model read-back before texting the owner.
+    (state.holdIntakeFollowUp?.fieldKey === "vehicle_year" && !state.holdVehicleVoiceConfirmed)
   ) return state
 
   void sendHoldIntakeCapturedOwnerAlert({
@@ -1704,8 +1709,14 @@ function alertOwnerForCapturedHoldIntake(
     callerE164: state.callerE164,
     summary: state.holdIntakeSummary,
     urgent: state.holdIntakeUrgent,
-  }).catch((e) => console.warn(lyncrLog("hold-intake-captured-alert-failed", { error: String(e) })))
-  console.log(lyncrLog("telnyx-cc-hold-intake-captured-alert", { callControlId }))
+  })
+    .then((result) => console.log(lyncrLog("telnyx-cc-hold-intake-alert-result", {
+      callControlId,
+      sent: result.ok && result.sent,
+      error: result.ok ? null : result.error,
+    })))
+    .catch((e) => console.warn(lyncrLog("hold-intake-captured-alert-failed", { callControlId, error: String(e) })))
+  console.log(lyncrLog("telnyx-cc-hold-intake-alert-started", { callControlId }))
   return { ...state, holdIntakeCapturedAlerted: true }
 }
 
@@ -1758,17 +1769,16 @@ async function handleVehicleVoiceConfirmAnswer(
       const label = [str(collected.vehicle_year), str(collected.vehicle_make), str(collected.vehicle_model)]
         .filter(Boolean)
         .join(" ")
-      if (label) {
+      if (str(collected.vehicle_year) && str(collected.vehicle_make) && str(collected.vehicle_model)) {
         confirmedState.holdIntakeSummary = confirmedState.holdIntakeSummary
           ? `${confirmedState.holdIntakeSummary} — ${label}`
           : label
+        confirmedState.holdIntakeFollowUpAnswered = true
+      } else {
+        confirmedState.holdVehicleVoiceConfirmed = false
       }
-      // A confirmed read-back that included the year counts as the year answered —
-      // the typed-year fallback and the "still need your year" reprompts stand down,
-      // and the owner's intake-captured alert can fire.
-      if (str(collected.vehicle_year)) confirmedState.holdIntakeFollowUpAnswered = true
     } catch {
-      /* summary enrichment is best-effort */
+      confirmedState.holdVehicleVoiceConfirmed = false
     }
     console.log(lyncrLog("telnyx-cc-hold-vehicle-voice-confirmed", { callControlId }))
     // The caller has finished intake; offer the callback choice now instead of
@@ -1941,11 +1951,7 @@ export async function handleHoldLoopGatherEnded(params: {
     effectiveState = { ...state, holdLongWaitAlerted: true }
   }
 
-  // Separate heads-up once the caller has actually finished answering the smart-hold
-  // questions (a real, qualified lead) AND has waited at least a little while — owner's
-  // explicit choice: don't text on an intake answered within the first few seconds, only
-  // once it's also been a real wait (distinct, shorter threshold than the long-wait alert
-  // above, which is purely about wait-time pain).
+  // Recovery path for a completed intake whose immediate alert did not run.
   effectiveState = alertOwnerForCapturedHoldIntake(callControlId, effectiveState)
 
   // Music segment ended with no digit:

@@ -25,7 +25,11 @@ const saveCallIntake = vi.fn<AnyFn>()
 
 vi.mock("@/lib/call-queue-db", () => ({
   countWaitingCallQueue: vi.fn(() => Promise.resolve(0)),
-  getAccountHoldSettings: vi.fn(() => Promise.resolve(null)),
+  getAccountHoldSettings: vi.fn(() => Promise.resolve({
+    holdMusicUrl: null,
+    holdRepromptSecs: null,
+    holdMaxWaitSecs: null,
+  })),
   getCallQueueCollectedByCallControlId: (...args: unknown[]) =>
     getCallQueueCollectedByCallControlId(...args),
   getCallQueuePosition: vi.fn(() => Promise.resolve(null)),
@@ -48,7 +52,6 @@ vi.mock("@/lib/account-presence", () => ({
 }))
 
 vi.mock("@/lib/hold-queue", () => ({
-  HOLD_INTAKE_CAPTURED_ALERT_MIN_WAIT_MS: 60_000,
   HOLD_REPROMPT_DEFAULT: "Still here — thanks for waiting.",
   HOLD_REPROMPT_ALREADY_ANSWERED: "Thanks for those details. Press 1 to book by text, press 2 for a callback.",
   HOLD_REPROMPT_KNOWN_CUSTOMER: "Our team members are still tied up. Press 1 for a text, press 2 for a callback.",
@@ -156,6 +159,46 @@ beforeEach(() => {
 })
 
 describe("confirmed spoken vehicle intake", () => {
+  it("does not alert the owner when a caller says nothing", async () => {
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-silent",
+      state: {
+        ...timedOutState(),
+        holdStartedAtMs: Date.now() - 5_000,
+        holdMaxWaitSecs: 600,
+        holdAwaitingIntakeAnswer: true,
+      },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    expect(sendHoldIntakeCapturedOwnerAlert).not.toHaveBeenCalled()
+  })
+
+  it("does not alert the owner for a typed year without confirmed make and model", async () => {
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-year-only",
+      state: {
+        ...timedOutState(),
+        holdStartedAtMs: Date.now() - 5_000,
+        holdMaxWaitSecs: 600,
+        holdIntakeAnswered: true,
+        holdIntakeSummary: "Lost key / needs new key made",
+        holdIntakeFollowUp: {
+          text: "Type your vehicle year",
+          maxDigits: 4,
+          fieldKey: "vehicle_year",
+          fieldLabel: "Year",
+        },
+        holdAwaitingIntakeFollowUpAnswer: true,
+      },
+      digits: "2015",
+      gatherStatus: "digit",
+    })
+
+    expect(sendHoldIntakeCapturedOwnerAlert).not.toHaveBeenCalled()
+  })
+
   it("offers a callback immediately and alerts the owner with the full vehicle", async () => {
     getCallQueueCollectedByCallControlId.mockResolvedValue({
       vehicle_year: "2015",
@@ -167,7 +210,7 @@ describe("confirmed spoken vehicle intake", () => {
       callControlId: "cc-vehicle-voice-confirm",
       state: {
         ...timedOutState(),
-        holdStartedAtMs: Date.now() - 90_000,
+        holdStartedAtMs: Date.now() - 5_000,
         holdMaxWaitSecs: 600,
         holdIntakeAnswered: true,
         holdIntakeSummary: "Lost key / needs new key made",

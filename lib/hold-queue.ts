@@ -43,7 +43,6 @@ export const HOLD_FIRST_REPROMPT_MS = 18_000
  * answered from Lines within a few seconds anyway. Deliberately separate from (much
  * shorter than) holdLongWaitAlertMs, which is about wait-time pain, not lead quality.
  */
-export const HOLD_INTAKE_CAPTURED_ALERT_MIN_WAIT_MS = 60_000
 
 /** Max time a caller may wait in the hold queue (seconds) before one SMS + hangup. */
 export function holdMaxWaitSecs(accountOverrideSecs?: number | null): number {
