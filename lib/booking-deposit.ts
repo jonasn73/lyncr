@@ -6,6 +6,8 @@ import { getAppUrl } from "@/lib/telnyx"
 import { getStripeClient } from "@/lib/stripe-config"
 import { getUser } from "@/lib/db"
 import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
+import { notifyOwnerBookFormSubmitted } from "@/lib/book-form-owner-alert"
+import { buildBookCollectedExtras } from "@/lib/book-customer-request"
 
 function sqlClient() {
   return neon(resolveNeonDatabaseUrl())
@@ -92,6 +94,13 @@ export async function createBookingDepositCheckout(params: {
   intakeExtras?: {
     address_line1?: string
     job_type?: string
+    vehicle_year?: string
+    vehicle_make?: string
+    vehicle_model?: string
+    customer_email?: string
+    customer_notes?: string
+    availability_label?: string
+    job_kind?: string
   }
 }): Promise<{ url: string; sessionId: string }> {
   const owner = await getUser(params.ownerUserId)
@@ -145,6 +154,18 @@ export async function createBookingDepositCheckout(params: {
       ...(params.intakeExtras?.job_type
         ? { job_type: params.intakeExtras.job_type.slice(0, 120) }
         : {}),
+      ...(params.intakeExtras?.vehicle_year ? { vehicle_year: params.intakeExtras.vehicle_year.slice(0, 8) } : {}),
+      ...(params.intakeExtras?.vehicle_make ? { vehicle_make: params.intakeExtras.vehicle_make.slice(0, 60) } : {}),
+      ...(params.intakeExtras?.vehicle_model ? { vehicle_model: params.intakeExtras.vehicle_model.slice(0, 60) } : {}),
+      ...(params.intakeExtras?.customer_email ? { customer_email: params.intakeExtras.customer_email.slice(0, 160) } : {}),
+      ...(params.intakeExtras?.customer_notes ? {
+        customer_notes_1: params.intakeExtras.customer_notes.slice(0, 450),
+        ...(params.intakeExtras.customer_notes.length > 450
+          ? { customer_notes_2: params.intakeExtras.customer_notes.slice(450, 900) }
+          : {}),
+      } : {}),
+      ...(params.intakeExtras?.availability_label ? { availability_label: params.intakeExtras.availability_label.slice(0, 200) } : {}),
+      ...(params.intakeExtras?.job_kind ? { job_kind: params.intakeExtras.job_kind.slice(0, 40) } : {}),
     },
     success_url: `${appUrl}${successPath.startsWith("/") ? successPath : `/${successPath}`}`,
     cancel_url: `${appUrl}${cancelPath.startsWith("/") ? cancelPath : `/${cancelPath}`}`,
@@ -183,6 +204,19 @@ export async function fulfillBookingDepositFromCheckout(session: {
   const jobType =
     session.metadata?.job_type?.trim() || "Booked online (deposit paid)"
   const addressLine1 = session.metadata?.address_line1?.trim() || null
+  const vehicleYear = session.metadata?.vehicle_year?.trim() || null
+  const vehicleMake = session.metadata?.vehicle_make?.trim() || null
+  const vehicleModel = session.metadata?.vehicle_model?.trim() || null
+  const customerEmail = session.metadata?.customer_email?.trim() || null
+  const customerNotes = `${session.metadata?.customer_notes_1 || ""}${session.metadata?.customer_notes_2 || ""}`.trim()
+  const availabilityLabel = session.metadata?.availability_label?.trim() || `Preferred start ${scheduledAt}`
+  const collectedExtras = buildBookCollectedExtras({
+    urgency: "window",
+    email: customerEmail,
+    jobKind: session.metadata?.job_kind || null,
+    notes: customerNotes,
+    availabilityLabel,
+  })
 
   const job = await createUnassignedJobFromIntake({
     ownerUserId,
@@ -190,10 +224,17 @@ export async function fulfillBookingDepositFromCheckout(session: {
     customerName: (hold.customer_name as string) || "Online booking",
     addressLine1,
     jobType,
-    notes: `Public /book · Deposit hold ${holdId} · Stripe ${session.id}`,
+    notes: [customerNotes, `Public /book · Deposit hold ${holdId} · Stripe ${session.id}`].filter(Boolean).join("\n"),
+    vehicleYear,
+    vehicleMake,
+    vehicleModel,
+    customerEmail,
+    collectedExtras,
     scheduledAtIso: scheduledAt,
     pendingCallback: false,
     intakeSource: "public_book",
+    // Stripe returns the caller to a confirmation page after payment.
+    deferCustomerSms: true,
   })
 
   const leadId = job.lead_id || null
@@ -203,4 +244,21 @@ export async function fulfillBookingDepositFromCheckout(session: {
     SET status = 'paid', lead_id = ${leadId}, updated_at = now()
     WHERE id = ${holdId}
   `
+  await notifyOwnerBookFormSubmitted({
+    ownerUserId,
+    leadId: job.lead_id,
+    callerE164: (hold.customer_phone as string) || null,
+    customerName: (hold.customer_name as string) || null,
+    address: addressLine1,
+    jobType,
+    vehicleYear,
+    vehicleMake,
+    vehicleModel,
+    customerEmail,
+    notes: customerNotes,
+    urgency: "window",
+    availabilityLabel,
+    summary: `${jobType} — ${(hold.customer_name as string) || "Online booking"}`,
+    collected: collectedExtras,
+  })
 }

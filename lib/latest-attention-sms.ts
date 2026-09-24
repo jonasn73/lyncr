@@ -9,6 +9,7 @@ import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { resolveLeadAlertSmsRecipient } from "@/lib/lead-sms-recipient"
 import { getAppUrl } from "@/lib/telnyx"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
+import { buildLeadAlertSmsText } from "@/lib/lead-sms-alert"
 
 /** Hot Latest events that match isHotLatestAction / JustFinished semantics. */
 export type LatestAttentionEvent = "replied" | "job_finished" | "book_form"
@@ -29,6 +30,12 @@ export type NotifyLatestAttentionParams = {
   jobId?: string | null
   /** Short inbound preview for replied alerts. */
   preview?: string | null
+  /** Full submitted booking details when Latest is the owner's only SMS alert. */
+  bookFormLead?: {
+    intentSlug: string | null
+    collected: Record<string, unknown>
+    summary: string | null
+  }
 }
 
 export type NotifyLatestAttentionResult =
@@ -50,6 +57,8 @@ export function buildLatestAttentionSmsText(params: {
   customerPhone?: string | null
   customerName?: string | null
   preview?: string | null
+  businessName?: string | null
+  bookFormLead?: NotifyLatestAttentionParams["bookFormLead"]
 }): string {
   // Dashboard deep-link so the owner can open Latest on their phone.
   const base = getAppUrl().replace(/\/+$/, "")
@@ -66,6 +75,15 @@ export function buildLatestAttentionSmsText(params: {
   }
 
   if (params.event === "book_form") {
+    if (params.bookFormLead) {
+      return `${buildLeadAlertSmsText({
+        businessName: params.businessName || "Your business",
+        callerE164: params.customerPhone || null,
+        intentSlug: params.bookFormLead.intentSlug,
+        collected: params.bookFormLead.collected,
+        summary: params.bookFormLead.summary,
+      })}\nOpen: ${latestUrl}`
+    }
     const preview = (params.preview || "").replace(/\s+/g, " ").trim()
     const line = preview || "Customer submitted book form"
     return `Lyncr Latest: ${line}${who !== "a customer" ? ` — ${who}` : ""}. Open: ${latestUrl}`
@@ -132,6 +150,8 @@ export async function notifyOwnerLatestNeedsAttention(
     customerPhone: params.customerPhone,
     customerName: params.customerName,
     preview: params.preview,
+    businessName: user?.business_name?.trim() || user?.name?.trim() || "Your business",
+    bookFormLead: params.bookFormLead,
   })
 
   const sent = await sendTelnyxSms({ toE164, text, userId })

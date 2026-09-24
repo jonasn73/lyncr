@@ -11,7 +11,6 @@ import {
 } from "@/lib/book-customer-request"
 import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
 import { notifyOwnerBookFormSubmitted } from "@/lib/book-form-owner-alert"
-import { sendGotItHoldingCustomerSms } from "@/lib/got-it-customer-sms"
 import { getAppUrl } from "@/lib/telnyx"
 import {
   getIntakeBookLinkById,
@@ -203,7 +202,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       intakeSource: "activity_book_link",
       // ASAP stays a callback priority; window is still a soft lead until owner confirms.
       pendingCallback: urgency === "asap",
-      // Customer already came from our SMS — don't send another booking confirmation.
+      // The success page confirms submission; do not send another customer SMS.
       deferCustomerSms: true,
     })
 
@@ -214,26 +213,18 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       leadId: result.lead_id,
       callerE164: phone,
       customerName,
+      address,
+      jobType,
+      vehicleYear: year,
+      vehicleMake: make,
+      vehicleModel: model,
+      customerEmail: email,
+      notes,
       urgency,
       availabilityLabel,
       summary: `${jobType} — ${customerName}`,
       collected: collectedExtras,
     })
-
-    // Shop-line “we got it” — same human recap as the public form.
-    await sendGotItHoldingCustomerSms({
-      ownerUserId: link.ownerUserId,
-      leadId: result.lead_id,
-      customerPhone: phone,
-      customerName,
-      jobLabel: jobType,
-      vehicleYear: year,
-      vehicleMake: make,
-      vehicleModel: model,
-      urgency,
-      availabilityLabel,
-      addressSnippet: address || null,
-    }).catch((e) => console.warn("[book/form] got-it SMS failed:", e))
 
     const requiresPayment = link.feeMode !== "none" && Boolean(link.payToken)
     const payUrl = requiresPayment

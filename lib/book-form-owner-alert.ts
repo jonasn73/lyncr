@@ -1,5 +1,5 @@
 // Owner alerts when a customer finishes the public /book (or Activity book-link) form.
-// Latest SMS + optional instant lead SMS — createUnassignedJobFromIntake alone only fires Pusher.
+// One full owner SMS through Instant lead alerts or, if that is off, Latest alerts.
 
 import { updateAiLeadSmsOutcome } from "@/lib/db"
 import { dispatchLeadSmsAlert } from "@/lib/intake-engine"
@@ -11,6 +11,13 @@ export type NotifyOwnerBookFormParams = {
   leadId: string
   callerE164: string | null
   customerName: string | null
+  address: string | null
+  jobType: string
+  vehicleYear?: string | null
+  vehicleMake?: string | null
+  vehicleModel?: string | null
+  customerEmail?: string | null
+  notes?: string | null
   /** asap | window — drives Latest copy. */
   urgency: "asap" | "window" | string
   availabilityLabel?: string | null
@@ -22,7 +29,7 @@ export type NotifyOwnerBookFormParams = {
 }
 
 /**
- * After a book-form lead is saved: Latest-attention SMS + optional instant lead SMS.
+ * After a book-form lead is saved: one full-detail owner SMS through the enabled alert path.
  * Pusher `lead-salvageable` with book_form is already published by createUnassignedJobFromIntake.
  */
 export async function notifyOwnerBookFormSubmitted(
@@ -45,33 +52,33 @@ export async function notifyOwnerBookFormSubmitted(
   const leadSummary = holdHeadline
     ? `${holdHeadline} · ${urgencyLabel} — ${who}`
     : params.summary?.trim() || `Customer submitted book form · ${urgencyLabel} — ${who}`
-
-  // Owner Latest SMS (sms_latest_enabled) — works even when Instant lead SMS is off.
-  await notifyOwnerLatestNeedsAttention({
-    userId: params.ownerUserId,
-    event: "book_form",
-    customerPhone: params.callerE164,
-    customerName: who,
-    jobId: params.leadId,
-    preview: latestPreview,
-  }).catch((e) => console.warn("[book-form-owner-alert] latest SMS failed:", e))
+  const collected = {
+    ...(params.collected || {}),
+    customer_name: who,
+    service_type: params.jobType,
+    job_address: params.address,
+    vehicle_year: params.vehicleYear || null,
+    vehicle_make: params.vehicleMake || null,
+    vehicle_model: params.vehicleModel || null,
+    customer_email: params.customerEmail || null,
+    customer_notes: params.notes || null,
+    urgency,
+    availability: preview,
+    booking_source: params.bookingSource || null,
+  }
 
   // Instant lead SMS when Settings → Instant SMS lead alerts is on.
+  let leadSmsSent = false
   try {
     const sms = await dispatchLeadSmsAlert({
       userId: params.ownerUserId,
       leadId: params.leadId,
       caller_e164: params.callerE164,
       intent_slug: params.intentSlug ?? null,
-      collected: {
-        ...(params.collected || {}),
-        customer_name: who,
-        urgency,
-        availability: preview,
-        booking_source: params.bookingSource || null,
-      },
+      collected,
       summary: leadSummary,
     })
+    leadSmsSent = sms.sms_sent
     if (sms.sms_sent || sms.sms_error) {
       await updateAiLeadSmsOutcome(params.leadId, {
         sms_sent: sms.sms_sent,
@@ -80,5 +87,23 @@ export async function notifyOwnerBookFormSubmitted(
     }
   } catch (e) {
     console.warn("[book-form-owner-alert] lead SMS failed:", e)
+  }
+
+  // Latest is the fallback when Instant alerts are off or the send fails. Its
+  // book-form text carries the same submitted fields, without a duplicate ping.
+  if (!leadSmsSent) {
+    await notifyOwnerLatestNeedsAttention({
+      userId: params.ownerUserId,
+      event: "book_form",
+      customerPhone: params.callerE164,
+      customerName: who,
+      jobId: params.leadId,
+      preview: latestPreview,
+      bookFormLead: {
+        intentSlug: params.intentSlug ?? null,
+        collected,
+        summary: leadSummary,
+      },
+    }).catch((e) => console.warn("[book-form-owner-alert] latest SMS failed:", e))
   }
 }

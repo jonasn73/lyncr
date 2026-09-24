@@ -23,4 +23,36 @@ describe("buildLeadAlertSmsText", () => {
     expect(text).toContain("Car Key")
     expect(text).toContain("Lost keys at grocery store parking lot")
   })
+
+  it("includes all submitted booking fields in the owner SMS", () => {
+    const text = buildLeadAlertSmsText({
+      businessName: "Key Squad 502",
+      callerE164: "+15025369252",
+      intentSlug: null,
+      collected: {
+        customer_name: "Alex Customer",
+        service_type: "All keys lost",
+        vehicle_year: "2015",
+        vehicle_make: "Toyota",
+        vehicle_model: "Camry",
+        job_address: "123 Main St, Louisville, KY",
+        customer_email: "alex@example.com",
+        customer_notes: "Please call before arriving",
+        urgency: "window",
+        availability: "Thursday 1–3 PM",
+      },
+      summary: "All keys lost — Alex Customer",
+    })
+
+    for (const detail of [
+      "Alex Customer",
+      "+15025369252",
+      "All keys lost",
+      "2015 Toyota Camry",
+      "123 Main St, Louisville, KY",
+      "alex@example.com",
+      "Please call before arriving",
+      "Thursday 1–3 PM",
+    ]) expect(text).toContain(detail)
+  })
 })

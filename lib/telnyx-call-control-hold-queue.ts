@@ -1587,7 +1587,7 @@ async function startHoldVehicleVoicePrompt(
   }
   const text = opts.retry
     ? "Sorry — I didn't quite catch your vehicle. One more time: after the beep, say the year, make and model — for example, 2015 Toyota Camry. When you're done, press pound or just pause."
-    : "Got it. After the beep, tell us the year, make and model of your vehicle — for example, 2015 Toyota Camry. When you're done, press pound or just pause."
+    : "After the beep, tell us the year, make and model of your vehicle — for example, 2015 Toyota Camry. When you're done, press pound or just pause."
   const res = await telnyxCallControlSpeak(callControlId, text, encodeTelnyxCallControlState(nextState), {
     voice: speakVoice,
   })
@@ -1712,7 +1712,7 @@ async function finishHoldVehicleVoiceCapture(
     holdVehicleVoiceRecordedAtMs: Date.now(),
   }
   console.log(lyncrLog("telnyx-cc-hold-vehicle-voice-captured", { callControlId }))
-  await speakHoldAckThenMusic(callControlId, cleared, "Perfect — thank you. Hang tight.")
+  await speakHoldAckThenMusic(callControlId, cleared, "Thanks. I'll check those details now. Hang tight.")
 }
 
 /**
@@ -1754,6 +1754,27 @@ async function startVehicleVoiceReadbackConfirm(
   if (!gatherRes.ok) {
     await startHoldMusicGather(callControlId, { ...state, holdSpeakVoice: speakVoice })
   }
+}
+
+function alertOwnerForCapturedHoldIntake(
+  callControlId: string,
+  state: TelnyxCallControlClientState
+): TelnyxCallControlClientState {
+  if (
+    !isHoldIntakeFullyAnswered(state) ||
+    !state.holdIntakeSummary ||
+    state.holdIntakeCapturedAlerted ||
+    holdElapsedMs(state) < HOLD_INTAKE_CAPTURED_ALERT_MIN_WAIT_MS
+  ) return state
+
+  void sendHoldIntakeCapturedOwnerAlert({
+    userId: state.userId,
+    callerE164: state.callerE164,
+    summary: state.holdIntakeSummary,
+    urgent: state.holdIntakeUrgent,
+  }).catch((e) => console.warn(lyncrLog("hold-intake-captured-alert-failed", { error: String(e) })))
+  console.log(lyncrLog("telnyx-cc-hold-intake-captured-alert", { callControlId }))
+  return { ...state, holdIntakeCapturedAlerted: true }
 }
 
 /** gather.ended answering the make/model read-back (1 = right, 2 = redo the clip). */
@@ -1818,7 +1839,9 @@ async function handleVehicleVoiceConfirmAnswer(
       /* summary enrichment is best-effort */
     }
     console.log(lyncrLog("telnyx-cc-hold-vehicle-voice-confirmed", { callControlId }))
-    await speakHoldAckThenMusic(callControlId, confirmedState, "Great — thank you. Hang tight.")
+    // The caller has finished intake; offer the callback choice now instead of
+    // sending them through another music segment before they hear it.
+    await startHoldRepromptGather(callControlId, alertOwnerForCapturedHoldIntake(callControlId, confirmedState))
     return
   }
 
@@ -1991,21 +2014,7 @@ export async function handleHoldLoopGatherEnded(params: {
   // explicit choice: don't text on an intake answered within the first few seconds, only
   // once it's also been a real wait (distinct, shorter threshold than the long-wait alert
   // above, which is purely about wait-time pain).
-  if (
-    isHoldIntakeFullyAnswered(effectiveState) &&
-    effectiveState.holdIntakeSummary &&
-    !effectiveState.holdIntakeCapturedAlerted &&
-    holdElapsedMs(effectiveState) >= HOLD_INTAKE_CAPTURED_ALERT_MIN_WAIT_MS
-  ) {
-    void sendHoldIntakeCapturedOwnerAlert({
-      userId: effectiveState.userId,
-      callerE164: effectiveState.callerE164,
-      summary: effectiveState.holdIntakeSummary,
-      urgent: effectiveState.holdIntakeUrgent,
-    }).catch((e) => console.warn(lyncrLog("hold-intake-captured-alert-failed", { error: String(e) })))
-    console.log(lyncrLog("telnyx-cc-hold-intake-captured-alert", { callControlId }))
-    effectiveState = { ...effectiveState, holdIntakeCapturedAlerted: true }
-  }
+  effectiveState = alertOwnerForCapturedHoldIntake(callControlId, effectiveState)
 
   // Music segment ended with no digit:
   // - "invalid" + empty digits was the production silence bug (clip rejected ~1s) —

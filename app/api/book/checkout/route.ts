@@ -19,6 +19,7 @@ import {
   getUserRequireDeposit,
 } from "@/lib/booking-deposit"
 import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
+import { notifyOwnerBookFormSubmitted } from "@/lib/book-form-owner-alert"
 import { toE164 } from "@/lib/phone-e164"
 import { checkRateLimit, clientIpFromHeaders, rateLimitedResponse } from "@/lib/rate-limit"
 
@@ -157,6 +158,25 @@ export async function POST(req: NextRequest) {
         scheduledAtIso,
         pendingCallback: false,
         intakeSource: "public_book",
+        // The success page confirms the booking without another customer SMS.
+        deferCustomerSms: true,
+      })
+      await notifyOwnerBookFormSubmitted({
+        ownerUserId: owner.id,
+        leadId: job.lead_id,
+        callerE164: customerPhone,
+        customerName,
+        address: addressLine1,
+        jobType,
+        vehicleYear: year,
+        vehicleMake: make,
+        vehicleModel: model,
+        customerEmail,
+        notes,
+        urgency: "window",
+        availabilityLabel,
+        summary: `${jobType} — ${customerName}`,
+        collected: collectedExtras,
       })
       return NextResponse.json({
         data: {
@@ -191,6 +211,13 @@ export async function POST(req: NextRequest) {
       intakeExtras: {
         address_line1: addressLine1,
         job_type: jobType,
+        vehicle_year: year,
+        vehicle_make: make,
+        vehicle_model: model,
+        customer_email: customerEmail,
+        customer_notes: notes,
+        availability_label: availabilityLabel,
+        job_kind: jobKind,
       },
     })
     return NextResponse.json({

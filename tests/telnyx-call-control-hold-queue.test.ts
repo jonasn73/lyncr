@@ -17,6 +17,7 @@ const telnyxCallControlGatherUsingSpeak = vi.fn<AnyFn>()
 const telnyxCallControlStartAiAssistant = vi.fn<AnyFn>()
 const telnyxCallControlStopAiAssistant = vi.fn<AnyFn>()
 const sendHoldLongWaitOwnerAlert = vi.fn<AnyFn>()
+const sendHoldIntakeCapturedOwnerAlert = vi.fn<AnyFn>()
 const holdLongWaitAlertMs = vi.fn<AnyFn>()
 const getCallQueueCollectedByCallControlId = vi.fn<AnyFn>()
 const getRecentHoldIntakeForCaller = vi.fn<AnyFn>()
@@ -47,6 +48,7 @@ vi.mock("@/lib/account-presence", () => ({
 }))
 
 vi.mock("@/lib/hold-queue", () => ({
+  HOLD_INTAKE_CAPTURED_ALERT_MIN_WAIT_MS: 60_000,
   HOLD_REPROMPT_DEFAULT: "Still here — thanks for waiting.",
   HOLD_REPROMPT_ALREADY_ANSWERED: "Thanks for those details. Press 1 to book by text, press 2 for a callback.",
   HOLD_REPROMPT_KNOWN_CUSTOMER: "Our team members are still tied up. Press 1 for a text, press 2 for a callback.",
@@ -65,6 +67,10 @@ vi.mock("@/lib/hold-queue", () => ({
 
 vi.mock("@/lib/hold-long-wait-alert", () => ({
   sendHoldLongWaitOwnerAlert: (...args: unknown[]) => sendHoldLongWaitOwnerAlert(...args),
+}))
+
+vi.mock("@/lib/hold-intake-captured-alert", () => ({
+  sendHoldIntakeCapturedOwnerAlert: (...args: unknown[]) => sendHoldIntakeCapturedOwnerAlert(...args),
 }))
 
 vi.mock("@/lib/hold-inline-audio", () => ({
@@ -142,10 +148,52 @@ beforeEach(() => {
   telnyxCallControlStartAiAssistant.mockResolvedValue({ ok: true })
   sendInboundBookingSmsAndTag.mockResolvedValue({ outcome: "sent" })
   sendHoldLongWaitOwnerAlert.mockResolvedValue({ ok: true, sent: true })
+  sendHoldIntakeCapturedOwnerAlert.mockResolvedValue({ ok: true, sent: true })
   holdLongWaitAlertMs.mockReturnValue(999_000)
   getCallQueueCollectedByCallControlId.mockResolvedValue({})
   getRecentHoldIntakeForCaller.mockResolvedValue(null)
   saveCallIntake.mockResolvedValue({ id: "lead-1", sms_sent: true, sms_error: null })
+})
+
+describe("confirmed spoken vehicle intake", () => {
+  it("offers a callback immediately and alerts the owner with the full vehicle", async () => {
+    getCallQueueCollectedByCallControlId.mockResolvedValue({
+      vehicle_year: "2015",
+      vehicle_make: "Toyota",
+      vehicle_model: "Camry",
+    })
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-vehicle-voice-confirm",
+      state: {
+        ...timedOutState(),
+        holdStartedAtMs: Date.now() - 90_000,
+        holdMaxWaitSecs: 600,
+        holdIntakeAnswered: true,
+        holdIntakeSummary: "Lost key / needs new key made",
+        holdIntakeFollowUp: {
+          text: "Type your vehicle year",
+          maxDigits: 4,
+          fieldKey: "vehicle_year",
+          fieldLabel: "Year",
+        },
+        holdAwaitingVehicleVoiceConfirm: true,
+      },
+      digits: "1",
+      gatherStatus: "digit",
+    })
+
+    expect(sendHoldIntakeCapturedOwnerAlert).toHaveBeenCalledWith(
+      expect.objectContaining({ summary: "Lost key / needs new key made — 2015 Toyota Camry" })
+    )
+    expect(telnyxCallControlGatherUsingSpeak).toHaveBeenCalledTimes(1)
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    expect(opts.text).toContain("press 2 for a callback")
+    const state = JSON.parse(Buffer.from(opts.clientState, "base64").toString("utf8"))
+    expect(state.holdIntakeFollowUpAnswered).toBe(true)
+    expect(state.holdIntakeCapturedAlerted).toBe(true)
+    expect(telnyxCallControlSpeak).not.toHaveBeenCalled()
+  })
 })
 
 describe("hold-queue max-wait AI bridge (087)", () => {

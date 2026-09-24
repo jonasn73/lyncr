@@ -12,8 +12,12 @@ const TRANSCRIBE_MODEL = process.env.LYNCR_TRANSCRIBE_MODEL?.trim() || "whisper-
 function normalizeRecordingUrl(url: string): string {
   const u = url.trim()
   if (!u) return u
-  if (/\.(mp3|wav|ogg|m4a)$/i.test(u)) return u
-  return `${u}.mp3`
+  const path = u.split(/[?#]/, 1)[0]
+  if (/\.(mp3|wav|ogg|m4a)$/i.test(path)) return u
+  // Telnyx can return a presigned S3 URL. Its path and query must remain byte-for-byte
+  // intact or S3 rejects the download before transcription ever starts.
+  if (/[?&](?:X-Amz-Signature|Signature)=/i.test(u)) return u
+  return `${path}.mp3${u.slice(path.length)}`
 }
 
 async function transcribeAudioBuffer(audioBuf: ArrayBuffer): Promise<string | null> {
@@ -60,25 +64,28 @@ export async function transcribeRecording(recordingUrl: string): Promise<string 
 }
 
 /**
- * Call Control `call.recording.saved` clips (recording_urls.mp3) — unlike TeXML's
- * RecordingUrl, these 404/401 without the Telnyx API key as Bearer auth.
+ * Call Control `call.recording.saved` clips can use either a presigned recording
+ * URL or a Telnyx URL that requires the API key as Bearer auth.
  */
 export async function transcribeTelnyxRecording(recordingUrl: string): Promise<string | null> {
   const url = normalizeRecordingUrl(recordingUrl)
+  const isPresigned = /[?&](?:X-Amz-Signature|Signature)=/i.test(url)
   const apiKey = process.env.TELNYX_API_KEY?.trim()
-  if (!apiKey) {
+  if (!isPresigned && !apiKey) {
     console.warn("[transcribe] TELNYX_API_KEY missing — cannot download Call Control recording.")
     return null
   }
   try {
-    const audioRes = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } })
+    const audioRes = await fetch(url, isPresigned ? undefined : { headers: { Authorization: `Bearer ${apiKey}` } })
     if (!audioRes.ok) {
-      console.error(`[transcribe] telnyx recording fetch failed ${audioRes.status} for ${url}`)
+      // Signed query strings are credentials; do not put them in runtime logs.
+      console.error(`[transcribe] telnyx recording fetch failed ${audioRes.status} for ${url.split(/[?#]/, 1)[0]}`)
       return null
     }
     return await transcribeAudioBuffer(await audioRes.arrayBuffer())
   } catch (e) {
-    console.error("[transcribe] telnyx recording failed:", e)
+    // Fetch errors can include the signed URL; log only the error type.
+    console.error("[transcribe] telnyx recording failed:", e instanceof Error ? e.name : "unknown")
     return null
   }
 }

@@ -42,7 +42,11 @@ function formatServiceType(intentSlug: string | null, collected: Record<string, 
 
 function formatKeyStatus(collected: Record<string, unknown>, summary: string | null): string {
   const status = readCollectedString(collected, ["status", "urgency", "key_status", "priority"])
-  if (status !== "—") return status
+  if (status !== "—") {
+    if (status.toLowerCase() === "asap") return "ASAP"
+    if (status.toLowerCase() === "window") return "Preferred window"
+    return status
+  }
   if (summary?.trim()) {
     const firstSentence = summary.trim().split(/[.!?]/)[0]?.trim()
     if (firstSentence) return firstSentence.slice(0, 120)
@@ -51,7 +55,7 @@ function formatKeyStatus(collected: Record<string, unknown>, summary: string | n
 }
 
 function formatNotes(collected: Record<string, unknown>, summary: string | null): string {
-  const notes = readCollectedString(collected, ["notes", "issue_summary", "summary", "details"])
+  const notes = readCollectedString(collected, ["customer_notes", "notes", "job_notes", "issue_summary", "summary", "details"])
   if (notes !== "—") return notes
   return summary?.trim() || "—"
 }
@@ -81,15 +85,23 @@ export function buildLeadAlertSmsText(params: {
   const serviceType = formatServiceType(params.intentSlug, params.collected)
   const status = formatKeyStatus(params.collected, params.summary)
   const notes = formatNotes(params.collected, params.summary)
+  const name = readCollectedString(params.collected, ["customer_name", "name"])
+  const address = readCollectedString(params.collected, ["job_address", "service_address", "address_line1", "address"])
+  const email = readCollectedString(params.collected, ["customer_email", "email"])
+  const availability = readCollectedString(params.collected, ["availability_label", "availability", "preferred_window"])
 
   return [
     `⚡ ${brandLabel()} New Lead Alert ⚡`,
     `Business: ${business}`,
     `Customer: ${customer}`,
+    ...(name !== "—" ? [`Name: ${name}`] : []),
     "Details:",
     `- Vehicle: ${vehicle}`,
     `- Type: ${serviceType}`,
     `- Status: ${status}`,
+    ...(address !== "—" ? [`- Address: ${address}`] : []),
+    ...(availability !== "—" ? [`- Availability: ${availability}`] : []),
+    ...(email !== "—" ? [`- Email: ${email}`] : []),
     `Notes: ${notes}`,
     `View full breakdown in your ${brandLabel()} panel.`,
   ].join("\n")

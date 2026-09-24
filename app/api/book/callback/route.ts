@@ -3,7 +3,6 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import {
-  getActivePhoneNumberByE164,
   getUserByPhoneNumber,
   normalizePhoneNumberE164,
 } from "@/lib/db"
@@ -16,7 +15,6 @@ import {
 } from "@/lib/book-customer-request"
 import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
 import { notifyOwnerBookFormSubmitted } from "@/lib/book-form-owner-alert"
-import { sendGotItHoldingCustomerSms } from "@/lib/got-it-customer-sms"
 import { toE164 } from "@/lib/phone-e164"
 import { checkRateLimit, clientIpFromHeaders, rateLimitedResponse } from "@/lib/rate-limit"
 
@@ -182,37 +180,19 @@ export async function POST(req: NextRequest) {
       leadId: job.lead_id,
       callerE164: customerPhone,
       customerName,
+      address: addressLine1,
+      jobType,
+      vehicleYear: year,
+      vehicleMake: make,
+      vehicleModel: model,
+      customerEmail,
+      notes,
       urgency,
       availabilityLabel,
       summary: `${jobType} — ${customerName}`,
       collected: collectedExtras,
       bookingSource: bookingSource || null,
     })
-
-    // The called DID already identifies the shop — resolve it explicitly so multi-shop
-    // owners don't hit resolveWorkspaceSmsSender's "more than one shop" guard and fail
-    // every callback send (that guard only accepts an org it wasn't told to look up).
-    const callbackLine = await getActivePhoneNumberByE164(line)
-    const callbackOrganizationId =
-      callbackLine?.organization_id && !callbackLine.organization_id.startsWith("legacy-")
-        ? callbackLine.organization_id
-        : null
-
-    // Shop-line “we got it” — recaps the request, invites them to text this number.
-    await sendGotItHoldingCustomerSms({
-      ownerUserId: owner.id,
-      organizationId: callbackOrganizationId,
-      leadId: job.lead_id,
-      customerPhone,
-      customerName,
-      jobLabel: jobType,
-      vehicleYear: year,
-      vehicleMake: make,
-      vehicleModel: model,
-      urgency,
-      availabilityLabel,
-      addressSnippet: addressLine1 || null,
-    }).catch((e) => console.warn("[POST /api/book/callback] got-it SMS failed:", e))
 
     return NextResponse.json({
       data: {
