@@ -159,6 +159,26 @@ beforeEach(() => {
 })
 
 describe("confirmed spoken vehicle intake", () => {
+  it("starts the owner alert as soon as a nonvehicle service is selected", async () => {
+    getUser.mockResolvedValue({ industry: "locksmith" })
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-lockout",
+      state: {
+        ...timedOutState(),
+        holdStartedAtMs: Date.now() - 5_000,
+        holdMaxWaitSecs: 600,
+        holdAwaitingIntakeAnswer: true,
+      },
+      digits: "1",
+      gatherStatus: "digit",
+    })
+
+    expect(sendHoldIntakeCapturedOwnerAlert).toHaveBeenCalledWith(
+      expect.objectContaining({ summary: "Locked out of car" })
+    )
+  })
+
   it("does not alert the owner when a caller says nothing", async () => {
     await handleHoldLoopGatherEnded({
       callControlId: "cc-silent",

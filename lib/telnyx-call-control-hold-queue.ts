@@ -11,6 +11,7 @@
 //   press 1 anytime → SMS + leave_queue + confirm
 //   max wait → one SMS + hangup
 
+import { after } from "next/server"
 import {
   countWaitingCallQueue,
   getAccountHoldSettings,
@@ -1704,7 +1705,7 @@ function alertOwnerForCapturedHoldIntake(
     (state.holdIntakeFollowUp?.fieldKey === "vehicle_year" && !state.holdVehicleVoiceConfirmed)
   ) return state
 
-  void sendHoldIntakeCapturedOwnerAlert({
+  const sendPromise = sendHoldIntakeCapturedOwnerAlert({
     userId: state.userId,
     callerE164: state.callerE164,
     summary: state.holdIntakeSummary,
@@ -1716,6 +1717,13 @@ function alertOwnerForCapturedHoldIntake(
       error: result.ok ? null : result.error,
     })))
     .catch((e) => console.warn(lyncrLog("hold-intake-captured-alert-failed", { callControlId, error: String(e) })))
+  // Start the send now, and keep the webhook function alive until Telnyx responds.
+  // A detached promise can be cut off as soon as the voice webhook returns.
+  try {
+    after(() => sendPromise)
+  } catch (e) {
+    console.warn(lyncrLog("hold-intake-alert-background-unavailable", { callControlId, error: String(e) }))
+  }
   console.log(lyncrLog("telnyx-cc-hold-intake-alert-started", { callControlId }))
   return { ...state, holdIntakeCapturedAlerted: true }
 }
