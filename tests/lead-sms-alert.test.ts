@@ -55,4 +55,19 @@ describe("buildLeadAlertSmsText", () => {
       "Thursday 1–3 PM",
     ]) expect(text).toContain(detail)
   })
+
+  it("shows the keypad ZIP on a hold lead SMS", () => {
+    const text = buildLeadAlertSmsText({
+      businessName: "Key Squad 502",
+      callerE164: "+15025369252",
+      intentSlug: "locksmith_key_generation",
+      collected: {
+        intent_label: "Lost key / needs new key made",
+        job_address_postal_code: "40202",
+      },
+      summary: "Caller on hold — Lost key / needs new key made — ZIP code 40202",
+    })
+    expect(text).toContain("- ZIP code: 40202")
+    expect(text).toContain("Lost key / needs new key made")
+  })
 })

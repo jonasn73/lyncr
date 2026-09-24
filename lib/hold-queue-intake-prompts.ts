@@ -11,9 +11,8 @@
 // TTS-friendly multiple-choice copy for a DTMF menu.
 //
 // Phase 1 = `options` (one multiple-choice question). Phase 2 = each option may also
-// carry `followUp` — a second, numeric-only question asked on the NEXT reprompt cycle,
-// only when that specific option was the one picked (e.g. only "vehicle" answers get
-// asked for a model year — a property lockout never does).
+// carry `followUp` — a second, numeric-only question. Every supported service asks
+// for service ZIP; vehicle jobs can first capture year/make/model by voice.
 
 export type HoldQueueIntakeFollowUp = {
   /** Spoken via gather_using_speak on the reprompt cycle after the option is picked. */
@@ -35,6 +34,8 @@ export type HoldQueueIntakeOption = {
   intentSlug: string
   /** Optional Phase-2 numeric follow-up, asked only when this option is picked. */
   followUp?: HoldQueueIntakeFollowUp
+  /** Capture year/make/model by voice when transcription is available. */
+  vehicleVoice?: boolean
   /**
    * "Right now" situations (stranded, locked out, active leak) — read by
    * lib/abandoned-hold-rescue.ts to skip the after-hours 15-minute wait so an
@@ -50,11 +51,11 @@ export type HoldQueueIntakePrompt = {
   options: HoldQueueIntakeOption[]
 }
 
-const VEHICLE_YEAR_FOLLOW_UP: HoldQueueIntakeFollowUp = {
-  text: "If you know it, type the four-digit model year now, then press pound. Otherwise just stay on the line.",
-  maxDigits: 4,
-  fieldKey: "vehicle_year",
-  fieldLabel: "Year",
+const VEHICLE_ZIP_FOLLOW_UP: HoldQueueIntakeFollowUp = {
+  text: "Please type the five-digit ZIP code where you need service, then press pound.",
+  maxDigits: 5,
+  fieldKey: "job_address_postal_code",
+  fieldLabel: "ZIP code",
 }
 
 const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> = {
@@ -70,7 +71,7 @@ const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> 
     // the waiting card) and deliberately don't match any real option id, so
     // resolveHoldQueueCollectedPreFill's job-type auto-select correctly no-ops for
     // locksmith — the operator still picks the specific job type, same as always.
-    // Phase 2's model-year follow-up still pre-fills, independent of that.
+    // The ZIP follow-up applies to every service; only vehicle jobs use voice capture.
     //
     // Split "vehicle key / lockout" (the original 3-option version) into its two most
     // common, operationally-different cases: a plain lockout (fast, no key needed —
@@ -84,21 +85,24 @@ const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> 
         digit: "1",
         label: "Locked out of car",
         intentSlug: "locksmith_lockout",
+        followUp: VEHICLE_ZIP_FOLLOW_UP,
         urgent: true,
       },
       {
         digit: "2",
         label: "Lost key / needs new key made",
         intentSlug: "locksmith_key_generation",
-        followUp: VEHICLE_YEAR_FOLLOW_UP,
+        followUp: VEHICLE_ZIP_FOLLOW_UP,
+        vehicleVoice: true,
       },
       {
         digit: "3",
         label: "Home or business lockout",
         intentSlug: "locksmith_property",
+        followUp: VEHICLE_ZIP_FOLLOW_UP,
         urgent: true,
       },
-      { digit: "4", label: "Something else", intentSlug: "locksmith_other" },
+      { digit: "4", label: "Something else", intentSlug: "locksmith_other", followUp: VEHICLE_ZIP_FOLLOW_UP },
     ],
   },
   auto_repair: {
@@ -112,7 +116,8 @@ const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> 
         // Matches ai-intake-field-registry.ts auto_repair branch "Vehicle not
         // drivable / warning lights / noise".
         intentSlug: "auto_repair_diagnostic",
-        followUp: VEHICLE_YEAR_FOLLOW_UP,
+        followUp: VEHICLE_ZIP_FOLLOW_UP,
+        vehicleVoice: true,
         urgent: true,
       },
       {
@@ -120,7 +125,8 @@ const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> 
         label: "Scheduled repair",
         // Matches branch "Scheduled maintenance / oil / brakes".
         intentSlug: "auto_repair_maintenance",
-        followUp: VEHICLE_YEAR_FOLLOW_UP,
+        followUp: VEHICLE_ZIP_FOLLOW_UP,
+        vehicleVoice: true,
       },
     ],
   },
@@ -131,11 +137,12 @@ const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> 
       "Quick question while you wait. If you need a tow right now, press 1. " +
       "For roadside help like a jump start or flat tire, press 2.",
     options: [
-      { digit: "1", label: "Tow needed", intentSlug: "towing_tow", urgent: true },
+      { digit: "1", label: "Tow needed", intentSlug: "towing_tow", followUp: VEHICLE_ZIP_FOLLOW_UP, urgent: true },
       {
         digit: "2",
         label: "Roadside help (jump / flat tire)",
         intentSlug: "towing_roadside",
+        followUp: VEHICLE_ZIP_FOLLOW_UP,
         urgent: true,
       },
     ],
@@ -145,8 +152,8 @@ const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> 
       "Quick question while you wait. If you have an active leak right now, press 1. " +
       "For an estimate, press 2.",
     options: [
-      { digit: "1", label: "Active leak", intentSlug: "roofing_emergency", urgent: true },
-      { digit: "2", label: "Estimate", intentSlug: "roofing_estimate" },
+      { digit: "1", label: "Active leak", intentSlug: "roofing_emergency", followUp: VEHICLE_ZIP_FOLLOW_UP, urgent: true },
+      { digit: "2", label: "Estimate", intentSlug: "roofing_estimate", followUp: VEHICLE_ZIP_FOLLOW_UP },
     ],
   },
   plumbing: {
@@ -156,9 +163,9 @@ const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> 
     options: [
       // Bespoke industry — ids are flat (BESPOKE_OPTIONS in job-intake-registry.ts),
       // not registry-branch-derived, so these must match those exact ids.
-      { digit: "1", label: "Leak / flooding", intentSlug: "plumbing_emergency_leak", urgent: true },
-      { digit: "2", label: "Clogged drain", intentSlug: "plumbing_drain_clog" },
-      { digit: "3", label: "Something else", intentSlug: "plumbing_other" },
+      { digit: "1", label: "Leak / flooding", intentSlug: "plumbing_emergency_leak", followUp: VEHICLE_ZIP_FOLLOW_UP, urgent: true },
+      { digit: "2", label: "Clogged drain", intentSlug: "plumbing_drain_clog", followUp: VEHICLE_ZIP_FOLLOW_UP },
+      { digit: "3", label: "Something else", intentSlug: "plumbing_other", followUp: VEHICLE_ZIP_FOLLOW_UP },
     ],
   },
   hvac: {
@@ -168,9 +175,9 @@ const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> 
     options: [
       // Bespoke industry — ids are flat (BESPOKE_OPTIONS in job-intake-registry.ts),
       // not registry-branch-derived, so these must match those exact ids.
-      { digit: "1", label: "No heat", intentSlug: "hvac_no_heat", urgent: true },
-      { digit: "2", label: "No cooling", intentSlug: "hvac_no_cooling", urgent: true },
-      { digit: "3", label: "Something else", intentSlug: "hvac_other" },
+      { digit: "1", label: "No heat", intentSlug: "hvac_no_heat", followUp: VEHICLE_ZIP_FOLLOW_UP, urgent: true },
+      { digit: "2", label: "No cooling", intentSlug: "hvac_no_cooling", followUp: VEHICLE_ZIP_FOLLOW_UP, urgent: true },
+      { digit: "3", label: "Something else", intentSlug: "hvac_other", followUp: VEHICLE_ZIP_FOLLOW_UP },
     ],
   },
   electrical: {
@@ -180,9 +187,9 @@ const HOLD_QUEUE_INTAKE_PROMPTS: Partial<Record<string, HoldQueueIntakePrompt>> 
     options: [
       // Bespoke industry — ids are flat (BESPOKE_OPTIONS in job-intake-registry.ts),
       // not registry-branch-derived, so these must match those exact ids.
-      { digit: "1", label: "Sparks / smoke / safety concern", intentSlug: "electrical_safety", urgent: true },
-      { digit: "2", label: "Partial or no power", intentSlug: "electrical_partial_power" },
-      { digit: "3", label: "Something else", intentSlug: "electrical_other" },
+      { digit: "1", label: "Sparks / smoke / safety concern", intentSlug: "electrical_safety", followUp: VEHICLE_ZIP_FOLLOW_UP, urgent: true },
+      { digit: "2", label: "Partial or no power", intentSlug: "electrical_partial_power", followUp: VEHICLE_ZIP_FOLLOW_UP },
+      { digit: "3", label: "Something else", intentSlug: "electrical_other", followUp: VEHICLE_ZIP_FOLLOW_UP },
     ],
   },
 }
@@ -230,19 +237,18 @@ export const MAX_VEHICLE_VOICE_CONFIRM_ASKS = 1
 /** Transcription still pending after this long counts as failed → retry the ask. */
 export const VEHICLE_VOICE_PENDING_STALE_MS = 60_000
 
-export type HoldVehicleVoiceStep = "ask" | "retry" | "confirm" | "year_fallback" | "none"
+export type HoldVehicleVoiceStep = "ask" | "retry" | "confirm" | "zip_fallback" | "none"
 
 /**
  * The "do we have every vehicle detail we need?" check, run each reprompt cycle
  * once nothing higher-priority (the Phase-1 question) is being asked. Voice runs
- * FIRST — one spoken "2015 Toyota Camry" replaces typing a year — and the typed
- * year question survives only as the fallback:
+ * FIRST — one spoken "2015 Toyota Camry" captures the vehicle, then ZIP is asked:
  * - a captured make the caller hasn't confirmed yet → read it back ("confirm")
  * - a finished clip that produced no usable make (silence, spoke too late, garbage
  *   transcript, lost webhook past the stale window) → one more ask ("retry")
  * - the clip never ran at all (earlier failure) → "ask"
- * - voice exhausted (or confirm handled) but the YEAR is still missing → the DTMF
- *   typed-year question ("year_fallback") so the year is never simply lost
+ * - voice exhausted (or confirm handled) → ask for service ZIP so the call
+ *   can still become a useful lead without a transcript
  * - transcription still in flight, caps reached, or everything captured → "none"
  */
 export function resolveHoldVehicleVoiceStep(params: {
@@ -255,26 +261,21 @@ export function resolveHoldVehicleVoiceStep(params: {
   /** True when pending has outlived VEHICLE_VOICE_PENDING_STALE_MS. */
   pendingIsStale: boolean
   capturedMake: string | null
-  capturedYear: string | null
-  /** The typed-year fallback already ran and was answered. */
-  yearFallbackAnswered: boolean
+  /** The typed ZIP follow-up already ran and was answered. */
+  zipFallbackAnswered: boolean
 }): HoldVehicleVoiceStep {
   if (!params.isVehicleIntent) return "none"
   if (params.transcriptionPending && !params.pendingIsStale) return "none"
   const make = params.capturedMake?.trim()
-  const hasYear = Boolean(params.capturedYear?.trim()) || params.yearFallbackAnswered
 
-  if (params.confirmed) {
-    return hasYear ? "none" : "year_fallback"
-  }
+  if (params.confirmed || params.zipFallbackAnswered) return "none"
   if (make) {
     if (params.confirmAsks < MAX_VEHICLE_VOICE_CONFIRM_ASKS) return "confirm"
-    return hasYear ? "none" : "year_fallback"
+    return "zip_fallback"
   }
   if (params.attempts === 0) return "ask"
   if (params.attempts < MAX_VEHICLE_VOICE_ATTEMPTS) return "retry"
-  // Voice never produced a make — at least get the year deterministically.
-  return hasYear ? "none" : "year_fallback"
+  return "zip_fallback"
 }
 
 export type HoldQueueCollectedPreFill = {

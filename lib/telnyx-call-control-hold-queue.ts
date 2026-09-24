@@ -40,7 +40,6 @@ import {
   resolveHoldMusicUrlCandidates,
 } from "@/lib/hold-queue"
 import { sendHoldLongWaitOwnerAlert } from "@/lib/hold-long-wait-alert"
-import { sendHoldIntakeCapturedOwnerAlert } from "@/lib/hold-intake-captured-alert"
 import { loadHoldMusicPlaybackContentBase64 } from "@/lib/hold-inline-audio"
 import {
   CAPTURE_STATUS_HOLD_AI_ASSISTED,
@@ -733,25 +732,25 @@ async function startHoldRepromptGather(
     }
   }
   const followUpAttempts = state.holdIntakeFollowUpAttempts ?? 0
-  const isVehicleYearFollowUp = state.holdIntakeFollowUp?.fieldKey === "vehicle_year"
+  const isVehicleZipFollowUp = state.holdIntakeFollowUp?.fieldKey === "job_address_postal_code"
   let askFollowUp =
     !intakePrompt &&
     !followUpAnswered &&
     followUpAttempts < MAX_INTAKE_ATTEMPTS &&
     Boolean(state.holdIntakeFollowUp) &&
-    // Vehicle jobs go voice-first — the typed-year question only runs when the
-    // completeness check below explicitly falls back to it.
-    !isVehicleYearFollowUp
+    // Ask ZIP after a confirmed vehicle or when speech transcription is unavailable.
+    (!isVehicleZipFollowUp || !state.holdVehicleVoiceRequired || Boolean(state.holdVehicleVoiceConfirmed) || !process.env.OPENAI_API_KEY?.trim())
 
   // Phase 3 completeness check — nothing higher-priority is being asked this cycle,
   // so verify the spoken year/make/model actually landed: read a good capture back
   // for confirmation, retry a failed/late/garbled clip (capped), run the ask if an
-  // earlier failure skipped it, or fall back to the typed-year question when voice
-  // is exhausted and the year is still missing. One collected read per cycle.
+  // earlier failure skipped it, or move to ZIP when voice is exhausted.
   if (
     !intakePrompt &&
     intakeAnswered &&
-    isVehicleYearFollowUp &&
+    isVehicleZipFollowUp &&
+    Boolean(state.holdVehicleVoiceRequired) &&
+    Boolean(process.env.OPENAI_API_KEY?.trim()) &&
     !(state.holdVehicleVoiceConfirmed && followUpAnswered)
   ) {
     const collected = await getCallQueueCollectedByCallControlId(callControlId).catch(
@@ -768,9 +767,7 @@ async function startHoldRepromptGather(
       pendingIsStale: pending && recordedAt > 0 && Date.now() - recordedAt > VEHICLE_VOICE_PENDING_STALE_MS,
       capturedMake:
         typeof collected.vehicle_make === "string" ? collected.vehicle_make : null,
-      capturedYear:
-        typeof collected.vehicle_year === "string" ? collected.vehicle_year : null,
-      yearFallbackAnswered: followUpAnswered,
+      zipFallbackAnswered: followUpAnswered,
     })
     const stepState: TelnyxCallControlClientState = { ...state, holdPromptCount: promptCount }
     if (step === "confirm") {
@@ -784,7 +781,7 @@ async function startHoldRepromptGather(
       if (started) return
       // Prompt failed — fall through to the ordinary reprompt below.
     }
-    if (step === "year_fallback" && !followUpAnswered && followUpAttempts < MAX_INTAKE_ATTEMPTS) {
+    if (step === "zip_fallback" && !followUpAnswered && followUpAttempts < MAX_INTAKE_ATTEMPTS) {
       askFollowUp = true
     }
   }
@@ -1310,7 +1307,7 @@ export async function abandonHoldQueue(callControlId: string): Promise<void> {
  * "press 1" reprompt). A matched digit is captured to call_queue.collected —
  * broadcasting it to Lines so the operator sees it before pressing Answer — then
  * acknowledged with a short "Got it" and hold music resumes. If that option queues a
- * Phase-2 numeric follow-up (e.g. model year), it's stashed on state for the very
+ * Phase-2 numeric follow-up (service ZIP), it's stashed on state for the very
  * next reprompt cycle. An unmatched digit or timeout leaves holdIntakeAnswered false —
  * startHoldRepromptGather's attempt cap decides whether a later cycle retries, rather
  * than this being a permanent one-shot.
@@ -1325,13 +1322,13 @@ async function handleHoldIntakeAnswer(
     holdAwaitingIntakeAnswer: false,
   }
 
-  let matched: { intentSlug: string; label: string; followUp?: HoldQueueIntakeFollowUp } | null = null
+  let matched: { intentSlug: string; label: string; followUp?: HoldQueueIntakeFollowUp; vehicleVoice?: boolean } | null = null
   try {
     const user = await getUser(state.userId)
     const prompt = resolveHoldQueueIntakePrompt(user?.industry)
     const option = prompt && digits ? resolveHoldQueueIntakeOption(prompt, digits) : null
     if (option) {
-      matched = { intentSlug: option.intentSlug, label: option.label, followUp: option.followUp }
+      matched = { intentSlug: option.intentSlug, label: option.label, followUp: option.followUp, vehicleVoice: option.vehicleVoice }
     }
   } catch (e) {
     console.warn(lyncrLog("telnyx-cc-hold-intake-resolve-failed", { error: String(e) }))
@@ -1349,12 +1346,13 @@ async function handleHoldIntakeAnswer(
   baseState.holdIntakeAnswered = true
   baseState.holdIntakeSummary = matched.label
   baseState.holdIntakeUrgent = isUrgentHoldQueueIntentSlug(matched.intentSlug)
+  baseState.holdVehicleVoiceRequired = Boolean(matched.vehicleVoice)
 
   if (matched.followUp) {
     baseState.holdIntakeFollowUp = matched.followUp
   }
 
-  void mergeCallQueueCollected(callControlId, {
+  await mergeCallQueueCollected(callControlId, {
     intent_slug: matched.intentSlug,
     intent_label: matched.label,
   }).catch((e) => console.warn(lyncrLog("telnyx-cc-hold-intake-collect-failed", { error: String(e) })))
@@ -1368,12 +1366,13 @@ async function handleHoldIntakeAnswer(
   // first question, or the operator had already answered, so it read as "never asked
   // again." Ask it now, in the same turn, while the topic is still fresh.
   //
-  // Vehicle jobs go voice-first (owner's call: one spoken "2015 Toyota Camry" beats
-  // typing a year and then speaking anyway — faster, and some callers hate keypads).
-  // The typed-year question survives only as the fallback when voice capture fails
-  // (see resolveHoldVehicleVoiceStep's "year_fallback"), or right here if the voice
-  // prompt itself can't start.
-  if (matched.followUp?.fieldKey === "vehicle_year") {
+  // Capture year/make/model by voice when transcription is configured. Without it,
+  // go straight to ZIP rather than recording an answer we cannot understand.
+  if (matched.followUp?.fieldKey === "job_address_postal_code" && matched.vehicleVoice) {
+    if (!process.env.OPENAI_API_KEY?.trim()) {
+      await speakHoldIntakeFollowUpNow(callControlId, baseState, matched.followUp)
+      return
+    }
     const started = await startHoldVehicleVoicePrompt(callControlId, baseState, {})
     if (started) return
     await speakHoldIntakeFollowUpNow(callControlId, baseState, matched.followUp)
@@ -1393,7 +1392,7 @@ async function handleHoldIntakeAnswer(
 }
 
 /**
- * Ask the Phase-2 follow-up (e.g. model year) immediately after its Phase-1 answer,
+ * Ask for service ZIP immediately after the service answer or vehicle read-back,
  * instead of waiting for the next reprompt cycle. No music plays between the two — the
  * Phase-1 gather already stopped it before speaking.
  */
@@ -1429,12 +1428,12 @@ async function speakHoldIntakeFollowUpNow(
 }
 
 /**
- * gather.ended answering the Phase-2 numeric follow-up (e.g. model year). Any digits
+ * gather.ended answering the ZIP follow-up. Any digits
  * at all are accepted as-is and merged (a caller who only gets 3 of 4 digits in before
  * the inter-digit timeout still gives the operator something useful), but only a FULL
  * answer (every digit) marks it as answered — a partial or empty answer leaves
  * holdIntakeFollowUpAnswered false so a later cycle retries for a complete one instead
- * of treating a half-typed year as final.
+ * of treating a partial ZIP as final.
  */
 async function handleHoldIntakeFollowUpAnswer(
   callControlId: string,
@@ -1462,7 +1461,7 @@ async function handleHoldIntakeFollowUpAnswer(
       : `${followUp.fieldLabel} ${digits}`
   }
 
-  void mergeCallQueueCollected(callControlId, {
+  await mergeCallQueueCollected(callControlId, {
     [followUp.fieldKey]: digits,
     [`${followUp.fieldKey}_label`]: `${followUp.fieldLabel} ${digits}`,
   }).catch((e) =>
@@ -1477,21 +1476,13 @@ async function handleHoldIntakeFollowUpAnswer(
     })
   )
 
-  // Note: the typed year is now the FALLBACK path — voice capture (year, make and
-  // model in one clip) runs first, so reaching here means voice is exhausted or
-  // never started. No voice re-trigger: just read the year back and resume music.
-
-  // Echo the actual digits back — "Perfect, got it" alone left callers unsure whether
-  // anything was really captured (reported live). Hearing their own answer read back
-  // is unambiguous confirmation; a generic phrase isn't.
-  await telnyxCallControlSpeak(
-    callControlId,
-    `Got it — ${followUp.fieldLabel} ${digits}.`,
-    encodeTelnyxCallControlState(baseState),
-    { voice: baseState.holdSpeakVoice }
-  ).catch(() => undefined)
-
-  await startHoldMusicGather(callControlId, alertOwnerForCapturedHoldIntake(callControlId, baseState))
+  const completedState = alertOwnerForCapturedHoldIntake(callControlId, baseState)
+  if (baseState.holdIntakeFollowUpAnswered) {
+    // Do not send the caller back to a full music cycle after the last answer.
+    await startHoldRepromptGather(callControlId, completedState)
+    return
+  }
+  await startHoldMusicGather(callControlId, completedState)
 }
 
 /** Voice-ask attempts so far — holdVehicleVoiceDone predates the counter, count it as one. */
@@ -1504,7 +1495,7 @@ function holdVehicleVoiceAttemptCount(state: TelnyxCallControlClientState): numb
  * recording itself starts on this speak's `call.speak.ended` (see
  * handleTelnyxCallControlVoiceWebhook), so the beep always lands AFTER the sentence
  * instead of over it. Returns false when the speak couldn't start — the caller then
- * gets the ordinary year read-back + music, and a later reprompt cycle retries.
+ * resumes the music loop and a later reprompt cycle retries.
  */
 async function startHoldVehicleVoicePrompt(
   callControlId: string,
@@ -1700,21 +1691,23 @@ function alertOwnerForCapturedHoldIntake(
     !isHoldIntakeFullyAnswered(state) ||
     !state.holdIntakeSummary ||
     state.holdIntakeCapturedAlerted ||
-    // A typed year alone is only partial vehicle intake. Wait for the caller
-    // to confirm a full year, make and model read-back before texting the owner.
-    (state.holdIntakeFollowUp?.fieldKey === "vehicle_year" && !state.holdVehicleVoiceConfirmed)
+    (state.holdIntakeFollowUp?.fieldKey === "job_address_postal_code" && !state.holdIntakeFollowUpAnswered)
   ) return state
 
-  const sendPromise = sendHoldIntakeCapturedOwnerAlert({
-    userId: state.userId,
-    callerE164: state.callerE164,
-    summary: state.holdIntakeSummary,
-    urgent: state.holdIntakeUrgent,
-  })
+  const sendPromise = getCallQueueCollectedByCallControlId(callControlId)
+    .then((collected) => saveCallIntake({
+      user_id: state.userId,
+      caller_e164: state.callerE164,
+      intent_slug: typeof collected.intent_slug === "string" ? collected.intent_slug : null,
+      collected,
+      summary: `Caller on hold — ${state.holdIntakeSummary}`,
+      vapi_call_id: callControlId,
+    }))
     .then((result) => console.log(lyncrLog("telnyx-cc-hold-intake-alert-result", {
       callControlId,
-      sent: result.ok && result.sent,
-      error: result.ok ? null : result.error,
+      leadId: result.id,
+      sent: result.sms_sent,
+      error: result.sms_error,
     })))
     .catch((e) => console.warn(lyncrLog("hold-intake-captured-alert-failed", { callControlId, error: String(e) })))
   // Start the send now, and keep the webhook function alive until Telnyx responds.
@@ -1724,7 +1717,7 @@ function alertOwnerForCapturedHoldIntake(
   } catch (e) {
     console.warn(lyncrLog("hold-intake-alert-background-unavailable", { callControlId, error: String(e) }))
   }
-  console.log(lyncrLog("telnyx-cc-hold-intake-alert-started", { callControlId }))
+  console.log(lyncrLog("telnyx-cc-hold-intake-lead-started", { callControlId }))
   return { ...state, holdIntakeCapturedAlerted: true }
 }
 
@@ -1781,7 +1774,6 @@ async function handleVehicleVoiceConfirmAnswer(
         confirmedState.holdIntakeSummary = confirmedState.holdIntakeSummary
           ? `${confirmedState.holdIntakeSummary} — ${label}`
           : label
-        confirmedState.holdIntakeFollowUpAnswered = true
       } else {
         confirmedState.holdVehicleVoiceConfirmed = false
       }
@@ -1789,8 +1781,11 @@ async function handleVehicleVoiceConfirmAnswer(
       confirmedState.holdVehicleVoiceConfirmed = false
     }
     console.log(lyncrLog("telnyx-cc-hold-vehicle-voice-confirmed", { callControlId }))
-    // The caller has finished intake; offer the callback choice now instead of
-    // sending them through another music segment before they hear it.
+    // ZIP is still needed for dispatch. Ask it now, then offer a callback.
+    if (confirmedState.holdIntakeFollowUp && !confirmedState.holdIntakeFollowUpAnswered) {
+      await speakHoldIntakeFollowUpNow(callControlId, confirmedState, confirmedState.holdIntakeFollowUp)
+      return
+    }
     await startHoldRepromptGather(callControlId, alertOwnerForCapturedHoldIntake(callControlId, confirmedState))
     return
   }
@@ -1904,7 +1899,7 @@ export async function handleHoldLoopGatherEnded(params: {
     return
   }
 
-  // Same reasoning for the Phase-2 numeric follow-up — a 4-digit year must never be
+  // Same reasoning for the Phase-2 numeric follow-up — a 5-digit ZIP must never be
   // parsed as "press 1" just because it happens to start with a 1 (Telnyx only sends
   // the full collected string here, so this checks state, not the digits themselves).
   if (state.holdAwaitingIntakeFollowUpAnswer) {

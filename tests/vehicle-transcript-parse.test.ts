@@ -79,8 +79,7 @@ const baseStep = {
   transcriptionPending: false,
   pendingIsStale: false,
   capturedMake: null as string | null,
-  capturedYear: "2015" as string | null,
-  yearFallbackAnswered: false,
+  zipFallbackAnswered: false,
 }
 
 describe("resolveHoldVehicleVoiceStep", () => {
@@ -88,57 +87,45 @@ describe("resolveHoldVehicleVoiceStep", () => {
     expect(resolveHoldVehicleVoiceStep({ ...baseStep, capturedMake: "Toyota" })).toBe("confirm")
     expect(
       resolveHoldVehicleVoiceStep({ ...baseStep, capturedMake: "Toyota", confirmAsks: 1 })
-    ).toBe("none")
+    ).toBe("zip_fallback")
     expect(
       resolveHoldVehicleVoiceStep({ ...baseStep, capturedMake: "Toyota", confirmed: true })
     ).toBe("none")
   })
 
-  it("retries a failed capture once, then falls back for the year", () => {
-    expect(resolveHoldVehicleVoiceStep({ ...baseStep, capturedYear: null })).toBe("retry")
-    // Voice exhausted with no make AND no year → typed-year fallback, never nothing.
-    expect(
-      resolveHoldVehicleVoiceStep({ ...baseStep, attempts: 2, capturedYear: null })
-    ).toBe("year_fallback")
-    // Voice exhausted but the clip at least yielded a year → done.
-    expect(resolveHoldVehicleVoiceStep({ ...baseStep, attempts: 2 })).toBe("none")
+  it("retries a failed capture once, then asks for ZIP", () => {
+    expect(resolveHoldVehicleVoiceStep(baseStep)).toBe("retry")
+    expect(resolveHoldVehicleVoiceStep({ ...baseStep, attempts: 2 })).toBe("zip_fallback")
+    expect(resolveHoldVehicleVoiceStep({ ...baseStep, attempts: 2, zipFallbackAnswered: true })).toBe("none")
   })
 
   it("asks when the clip never ran at all", () => {
-    expect(resolveHoldVehicleVoiceStep({ ...baseStep, attempts: 0, capturedYear: null })).toBe("ask")
+    expect(resolveHoldVehicleVoiceStep({ ...baseStep, attempts: 0 })).toBe("ask")
   })
 
-  it("falls back to the typed year when a capture lacks one after confirm handling", () => {
+  it("asks ZIP after an unconfirmed capture", () => {
     expect(
       resolveHoldVehicleVoiceStep({
         ...baseStep,
         capturedMake: "Toyota",
-        capturedYear: null,
         confirmAsks: 1,
       })
-    ).toBe("year_fallback")
-    expect(
-      resolveHoldVehicleVoiceStep({ ...baseStep, confirmed: true, capturedYear: null })
-    ).toBe("year_fallback")
-    // A typed year already on file satisfies it.
+    ).toBe("zip_fallback")
     expect(
       resolveHoldVehicleVoiceStep({
         ...baseStep,
         confirmed: true,
-        capturedYear: null,
-        yearFallbackAnswered: true,
       })
     ).toBe("none")
   })
 
   it("waits while transcription is in flight, but not forever", () => {
     expect(
-      resolveHoldVehicleVoiceStep({ ...baseStep, capturedYear: null, transcriptionPending: true })
+      resolveHoldVehicleVoiceStep({ ...baseStep, transcriptionPending: true })
     ).toBe("none")
     expect(
       resolveHoldVehicleVoiceStep({
         ...baseStep,
-        capturedYear: null,
         transcriptionPending: true,
         pendingIsStale: true,
       })

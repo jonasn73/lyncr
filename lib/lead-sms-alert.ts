@@ -87,6 +87,7 @@ export function buildLeadAlertSmsText(params: {
   const notes = formatNotes(params.collected, params.summary)
   const name = readCollectedString(params.collected, ["customer_name", "name"])
   const address = readCollectedString(params.collected, ["job_address", "service_address", "address_line1", "address"])
+  const zip = readCollectedString(params.collected, ["job_address_postal_code", "postal_code", "zip_code"])
   const email = readCollectedString(params.collected, ["customer_email", "email"])
   const availability = readCollectedString(params.collected, ["availability_label", "availability", "preferred_window"])
 
@@ -100,6 +101,7 @@ export function buildLeadAlertSmsText(params: {
     `- Type: ${serviceType}`,
     `- Status: ${status}`,
     ...(address !== "—" ? [`- Address: ${address}`] : []),
+    ...(zip !== "—" ? [`- ZIP code: ${zip}`] : []),
     ...(availability !== "—" ? [`- Availability: ${availability}`] : []),
     ...(email !== "—" ? [`- Email: ${email}`] : []),
     `Notes: ${notes}`,

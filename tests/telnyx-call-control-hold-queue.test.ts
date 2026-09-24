@@ -159,7 +159,7 @@ beforeEach(() => {
 })
 
 describe("confirmed spoken vehicle intake", () => {
-  it("starts the owner alert as soon as a nonvehicle service is selected", async () => {
+  it("asks for ZIP immediately after a nonvehicle service is selected", async () => {
     getUser.mockResolvedValue({ industry: "locksmith" })
 
     await handleHoldLoopGatherEnded({
@@ -174,9 +174,9 @@ describe("confirmed spoken vehicle intake", () => {
       gatherStatus: "digit",
     })
 
-    expect(sendHoldIntakeCapturedOwnerAlert).toHaveBeenCalledWith(
-      expect.objectContaining({ summary: "Locked out of car" })
-    )
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    expect(opts.text).toContain("five-digit ZIP code")
+    expect(saveCallIntake).not.toHaveBeenCalled()
   })
 
   it("does not alert the owner when a caller says nothing", async () => {
@@ -192,12 +192,12 @@ describe("confirmed spoken vehicle intake", () => {
       gatherStatus: "timeout",
     })
 
-    expect(sendHoldIntakeCapturedOwnerAlert).not.toHaveBeenCalled()
+    expect(saveCallIntake).not.toHaveBeenCalled()
   })
 
-  it("does not alert the owner for a typed year without confirmed make and model", async () => {
+  it("does not save a lead for an incomplete ZIP", async () => {
     await handleHoldLoopGatherEnded({
-      callControlId: "cc-year-only",
+      callControlId: "cc-short-zip",
       state: {
         ...timedOutState(),
         holdStartedAtMs: Date.now() - 5_000,
@@ -205,21 +205,58 @@ describe("confirmed spoken vehicle intake", () => {
         holdIntakeAnswered: true,
         holdIntakeSummary: "Lost key / needs new key made",
         holdIntakeFollowUp: {
-          text: "Type your vehicle year",
-          maxDigits: 4,
-          fieldKey: "vehicle_year",
-          fieldLabel: "Year",
+          text: "Type your ZIP code",
+          maxDigits: 5,
+          fieldKey: "job_address_postal_code",
+          fieldLabel: "ZIP code",
         },
         holdAwaitingIntakeFollowUpAnswer: true,
       },
-      digits: "2015",
+      digits: "402",
       gatherStatus: "digit",
     })
 
-    expect(sendHoldIntakeCapturedOwnerAlert).not.toHaveBeenCalled()
+    expect(saveCallIntake).not.toHaveBeenCalled()
   })
 
-  it("offers a callback immediately and alerts the owner with the full vehicle", async () => {
+  it("saves a real lead with ZIP immediately after a complete keypad answer", async () => {
+    getCallQueueCollectedByCallControlId.mockResolvedValue({
+      intent_slug: "locksmith_key_generation",
+      intent_label: "Lost key / needs new key made",
+      job_address_postal_code: "40202",
+    })
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-complete-zip",
+      state: {
+        ...timedOutState(),
+        holdStartedAtMs: Date.now() - 5_000,
+        holdMaxWaitSecs: 600,
+        holdIntakeAnswered: true,
+        holdIntakeSummary: "Lost key / needs new key made",
+        holdIntakeFollowUp: {
+          text: "Type your ZIP code",
+          maxDigits: 5,
+          fieldKey: "job_address_postal_code",
+          fieldLabel: "ZIP code",
+        },
+        holdAwaitingIntakeFollowUpAnswer: true,
+      },
+      digits: "40202",
+      gatherStatus: "digit",
+    })
+
+    await vi.waitFor(() => expect(saveCallIntake).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent_slug: "locksmith_key_generation",
+        collected: expect.objectContaining({ job_address_postal_code: "40202" }),
+        summary: expect.stringContaining("ZIP code 40202"),
+      })
+    ))
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls.at(-1)?.[1]
+    expect(opts.text).toContain("press 2 for a callback")
+  })
+
+  it("asks for ZIP after the caller confirms the spoken vehicle", async () => {
     getCallQueueCollectedByCallControlId.mockResolvedValue({
       vehicle_year: "2015",
       vehicle_make: "Toyota",
@@ -235,10 +272,10 @@ describe("confirmed spoken vehicle intake", () => {
         holdIntakeAnswered: true,
         holdIntakeSummary: "Lost key / needs new key made",
         holdIntakeFollowUp: {
-          text: "Type your vehicle year",
-          maxDigits: 4,
-          fieldKey: "vehicle_year",
-          fieldLabel: "Year",
+          text: "Type your ZIP code",
+          maxDigits: 5,
+          fieldKey: "job_address_postal_code",
+          fieldLabel: "ZIP code",
         },
         holdAwaitingVehicleVoiceConfirm: true,
       },
@@ -246,15 +283,13 @@ describe("confirmed spoken vehicle intake", () => {
       gatherStatus: "digit",
     })
 
-    expect(sendHoldIntakeCapturedOwnerAlert).toHaveBeenCalledWith(
-      expect.objectContaining({ summary: "Lost key / needs new key made — 2015 Toyota Camry" })
-    )
+    expect(saveCallIntake).not.toHaveBeenCalled()
     expect(telnyxCallControlGatherUsingSpeak).toHaveBeenCalledTimes(1)
     const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
-    expect(opts.text).toContain("press 2 for a callback")
+    expect(opts.text).toContain("ZIP code")
     const state = JSON.parse(Buffer.from(opts.clientState, "base64").toString("utf8"))
-    expect(state.holdIntakeFollowUpAnswered).toBe(true)
-    expect(state.holdIntakeCapturedAlerted).toBe(true)
+    expect(state.holdIntakeFollowUpAnswered).toBeFalsy()
+    expect(state.holdVehicleVoiceConfirmed).toBe(true)
     expect(telnyxCallControlSpeak).not.toHaveBeenCalled()
   })
 })
@@ -608,7 +643,7 @@ describe("new-call hold intake", () => {
     expect(opts.text).not.toContain("Thanks for those details")
   })
 
-  it("only asks for vehicle details after the caller chooses a vehicle-key need", async () => {
+  it("asks for service ZIP after a vehicle-key need when transcription is unavailable", async () => {
     getUser.mockResolvedValue({ industry: "locksmith" })
     await handleHoldLoopGatherEnded({
       callControlId: "cc-key-this-call",
@@ -623,12 +658,9 @@ describe("new-call hold intake", () => {
       gatherStatus: "digit",
     })
 
-    expect(telnyxCallControlSpeak).toHaveBeenCalledWith(
-      "cc-key-this-call",
-      expect.stringContaining("year, make and model"),
-      expect.any(String),
-      expect.any(Object)
-    )
+    const opts = telnyxCallControlGatherUsingSpeak.mock.calls[0][1]
+    expect(opts.text).toContain("five-digit ZIP code")
+    expect(telnyxCallControlSpeak).not.toHaveBeenCalled()
   })
 })
 

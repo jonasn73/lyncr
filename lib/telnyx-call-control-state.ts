@@ -160,13 +160,14 @@ export type TelnyxCallControlClientState = {
   holdAwaitingIntakeAnswer?: boolean
   /**
    * Phase-2 numeric follow-up queued by the option picked in Phase 1 (e.g. "type the
-   * model year") — carried on state until it's answered or gives up retrying.
+   * service ZIP") — carried on state until it's answered or gives up retrying.
    */
   holdIntakeFollowUp?: { text: string; maxDigits: number; fieldKey: string; fieldLabel: string }
+  holdVehicleVoiceRequired?: boolean
   /**
    * True once the Phase-2 follow-up captured a FULL answer (all maxDigits digits) — a
    * partial or empty answer leaves this false so a later cycle retries instead of
-   * treating a half-typed year as final.
+   * treating a partial ZIP as final.
    */
   holdIntakeFollowUpAnswered?: boolean
   /** How many times the Phase-2 follow-up has been spoken — capped (see MAX_INTAKE_ATTEMPTS). */
@@ -199,7 +200,7 @@ export type TelnyxCallControlClientState = {
   holdIntakeSummary?: string
   /** True when the matched Phase-1 option is a "right now" situation — see isUrgentHoldQueueIntentSlug. */
   holdIntakeUrgent?: boolean
-  /** One-time owner SMS once intake is fully captured AND the caller has waited a bit — never repeats. */
+  /** One-time persisted lead and owner SMS once this call's intake is complete. */
   holdIntakeCapturedAlerted?: boolean
   /**
    * True only while a gather is waiting on the callback-number confirm ("press 1, that's
