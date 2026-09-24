@@ -168,12 +168,12 @@ export const HOLD_REPROMPT_DEFAULT =
  * Same reminder, for a caller who's already fully answered the smart-hold intake
  * questions — acknowledges that instead of repeating the exact same "please answer"
  * framing to someone who's already engaged and told us what they need. Only once intake
- * is done do we offer a callback (press 2) — asking earlier would promise a callback
+ * is done do we offer a callback — asking earlier would promise a callback
  * before we actually know what it's for.
  */
 export const HOLD_REPROMPT_ALREADY_ANSWERED =
-  "Thanks for those details — you're still in line. Press 1 to book by text, " +
-  "press 2 if you'd rather we call you back, or stay on the line."
+  "Thanks, I have your details. Press 1 if you'd like us to call you back, " +
+  "or stay on the line to keep waiting."
 
 /**
  * Same reminder, for a caller we already have real details on file for (any existing

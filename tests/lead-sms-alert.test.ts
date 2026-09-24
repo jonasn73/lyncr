@@ -16,11 +16,11 @@ describe("buildLeadAlertSmsText", () => {
       summary: "Caller needs a spare programmed key",
     })
 
-    expect(text).toContain("Lyncr New Lead Alert")
+    expect(text).toContain("Lyncr Lead")
     expect(text).toContain("Business: Key Squad Locksmith")
-    expect(text).toContain("Customer: +15025551234")
+    expect(text).toContain("Caller: +15025551234")
     expect(text).toContain("2019 Honda Accord")
-    expect(text).toContain("Car Key")
+    expect(text).toContain("Service: Car Key")
     expect(text).toContain("Lost keys at grocery store parking lot")
   })
 
@@ -67,7 +67,11 @@ describe("buildLeadAlertSmsText", () => {
       },
       summary: "Caller on hold — Lost key / needs new key made — ZIP code 40202",
     })
-    expect(text).toContain("- ZIP code: 40202")
-    expect(text).toContain("Lost key / needs new key made")
+    expect(text).toContain("ZIP: 40202")
+    expect(text).toContain("Service: Lost key / needs new key made")
+    expect(text).toContain("Status: Waiting on hold")
+    expect(text).not.toContain("Notes:")
+    expect(text.match(/40202/g)).toHaveLength(1)
+    expect(text.match(/Lost key \/ needs new key made/g)).toHaveLength(1)
   })
 })

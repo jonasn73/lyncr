@@ -1920,6 +1920,10 @@ export async function handleHoldLoopGatherEnded(params: {
   }
 
   if (digits === "1") {
+    if (isHoldIntakeFullyAnswered(state) && state.holdIntakeSummary) {
+      await startCallbackConfirm(callControlId, state)
+      return
+    }
     await leaveHoldQueueWithSms(callControlId, state, "cc_busy_hold_press1")
     return
   }

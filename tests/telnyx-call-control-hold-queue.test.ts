@@ -53,7 +53,7 @@ vi.mock("@/lib/account-presence", () => ({
 
 vi.mock("@/lib/hold-queue", () => ({
   HOLD_REPROMPT_DEFAULT: "Still here — thanks for waiting.",
-  HOLD_REPROMPT_ALREADY_ANSWERED: "Thanks for those details. Press 1 to book by text, press 2 for a callback.",
+  HOLD_REPROMPT_ALREADY_ANSWERED: "Thanks, I have your details. Press 1 for a callback, or stay on the line.",
   HOLD_REPROMPT_KNOWN_CUSTOMER: "Our team members are still tied up. Press 1 for a text, press 2 for a callback.",
   HOLD_VEHICLE_CHANGED_PROMPT: "Has anything changed since we last spoke? Press 1 if yes, press 2 if no.",
   HOLD_VEHICLE_NO_CHANGE_REPROMPT: "Our team members are still tied up right now. Stay on the line, or press 2 for a callback.",
@@ -253,7 +253,8 @@ describe("confirmed spoken vehicle intake", () => {
       })
     ))
     const opts = telnyxCallControlGatherUsingSpeak.mock.calls.at(-1)?.[1]
-    expect(opts.text).toContain("press 2 for a callback")
+    expect(opts.text).toContain("Press 1 for a callback")
+    expect(opts.text).not.toContain("book by text")
   })
 
   it("asks for ZIP after the caller confirms the spoken vehicle", async () => {
@@ -291,6 +292,28 @@ describe("confirmed spoken vehicle intake", () => {
     expect(state.holdIntakeFollowUpAnswered).toBeFalsy()
     expect(state.holdVehicleVoiceConfirmed).toBe(true)
     expect(telnyxCallControlSpeak).not.toHaveBeenCalled()
+  })
+
+  it("routes press 1 to callback after intake is complete, without another booking text", async () => {
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-complete-press1",
+      state: {
+        ...timedOutState(),
+        holdStartedAtMs: Date.now() - 5_000,
+        holdMaxWaitSecs: 600,
+        holdIntakeAnswered: true,
+        holdIntakeFollowUpAnswered: true,
+        holdIntakeSummary: "Lost key / needs new key made — ZIP code 40228",
+      },
+      digits: "1",
+      gatherStatus: "valid",
+    })
+
+    expect(sendInboundBookingSmsAndTag).not.toHaveBeenCalled()
+    expect(telnyxCallControlGatherUsingSpeak).toHaveBeenCalledWith(
+      "cc-complete-press1",
+      expect.objectContaining({ text: expect.stringContaining("We'll call you back") })
+    )
   })
 })
 

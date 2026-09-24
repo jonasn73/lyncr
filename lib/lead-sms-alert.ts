@@ -40,24 +40,30 @@ function formatServiceType(intentSlug: string | null, collected: Record<string, 
   return "General inquiry"
 }
 
-function formatKeyStatus(collected: Record<string, unknown>, summary: string | null): string {
+function formatLeadStatus(collected: Record<string, unknown>, summary: string | null): string {
+  if (collected.callback_requested === true) return "Callback requested"
+  if (summary?.startsWith("Caller on hold —")) return "Waiting on hold"
   const status = readCollectedString(collected, ["status", "urgency", "key_status", "priority"])
   if (status !== "—") {
     if (status.toLowerCase() === "asap") return "ASAP"
-    if (status.toLowerCase() === "window") return "Preferred window"
+    if (status.toLowerCase() === "window") return "—"
     return status
   }
-  if (summary?.trim()) {
-    const firstSentence = summary.trim().split(/[.!?]/)[0]?.trim()
-    if (firstSentence) return firstSentence.slice(0, 120)
-  }
-  return "New lead captured"
+  return "—"
 }
 
-function formatNotes(collected: Record<string, unknown>, summary: string | null): string {
+function formatNotes(collected: Record<string, unknown>, summary: string | null, serviceType: string): string {
   const notes = readCollectedString(collected, ["customer_notes", "notes", "job_notes", "issue_summary", "summary", "details"])
   if (notes !== "—") return notes
-  return summary?.trim() || "—"
+  const fallback = summary?.trim() || ""
+  if (
+    !fallback ||
+    fallback.startsWith("Caller on hold —") ||
+    fallback.startsWith("Customer submitted book form") ||
+    fallback === serviceType ||
+    fallback.startsWith(`${serviceType} —`)
+  ) return "—"
+  return fallback
 }
 
 function formatCallerNumber(callerE164: string | null, collected: Record<string, unknown>): string {
@@ -83,8 +89,8 @@ export function buildLeadAlertSmsText(params: {
   const customer = formatCallerNumber(params.callerE164, params.collected)
   const vehicle = formatVehicleLine(params.collected)
   const serviceType = formatServiceType(params.intentSlug, params.collected)
-  const status = formatKeyStatus(params.collected, params.summary)
-  const notes = formatNotes(params.collected, params.summary)
+  const status = formatLeadStatus(params.collected, params.summary)
+  const notes = formatNotes(params.collected, params.summary, serviceType)
   const name = readCollectedString(params.collected, ["customer_name", "name"])
   const address = readCollectedString(params.collected, ["job_address", "service_address", "address_line1", "address"])
   const zip = readCollectedString(params.collected, ["job_address_postal_code", "postal_code", "zip_code"])
@@ -92,19 +98,18 @@ export function buildLeadAlertSmsText(params: {
   const availability = readCollectedString(params.collected, ["availability_label", "availability", "preferred_window"])
 
   return [
-    `⚡ ${brandLabel()} New Lead Alert ⚡`,
+    `🔔 ${brandLabel()} Lead`,
     `Business: ${business}`,
-    `Customer: ${customer}`,
+    `Caller: ${customer}`,
     ...(name !== "—" ? [`Name: ${name}`] : []),
-    "Details:",
-    `- Vehicle: ${vehicle}`,
-    `- Type: ${serviceType}`,
-    `- Status: ${status}`,
-    ...(address !== "—" ? [`- Address: ${address}`] : []),
-    ...(zip !== "—" ? [`- ZIP code: ${zip}`] : []),
-    ...(availability !== "—" ? [`- Availability: ${availability}`] : []),
-    ...(email !== "—" ? [`- Email: ${email}`] : []),
-    `Notes: ${notes}`,
-    `View full breakdown in your ${brandLabel()} panel.`,
+    `Service: ${serviceType}`,
+    ...(vehicle !== "—" ? [`Vehicle: ${vehicle}`] : []),
+    ...(address !== "—" ? [`Address: ${address}`] : []),
+    ...(zip !== "—" ? [`ZIP: ${zip}`] : []),
+    ...(status !== "—" ? [`Status: ${status}`] : []),
+    ...(availability !== "—" ? [`Availability: ${availability}`] : []),
+    ...(email !== "—" ? [`Email: ${email}`] : []),
+    ...(notes !== "—" ? [`Notes: ${notes}`] : []),
+    `Open ${brandLabel()} Leads to respond.`,
   ].join("\n")
 }
