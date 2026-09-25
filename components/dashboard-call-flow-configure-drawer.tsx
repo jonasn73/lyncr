@@ -490,6 +490,11 @@ export function DashboardCallFlowConfigureDrawer({
   async function handleSave() {
     setSaving(true)
     try {
+      const baseline = JSON.parse(baselineRef.current) as ConfigureDraft
+      const hoursChanged =
+        draft.hoursScheduleEnabled !== baseline.hoursScheduleEnabled ||
+        draft.hoursTimezone !== baseline.hoursTimezone ||
+        JSON.stringify(draft.weeklyHours) !== JSON.stringify(baseline.weeklyHours)
       const res = await fetch("/api/routing/configure", {
         method: "PUT",
         credentials: "include",
@@ -520,9 +525,13 @@ export function DashboardCallFlowConfigureDrawer({
           holdRepromptSecs: draft.holdRepromptSecs.trim()
             ? Number(draft.holdRepromptSecs)
             : null,
-          hoursScheduleEnabled: draft.hoursScheduleEnabled,
-          hoursTimezone: draft.hoursTimezone,
-          weeklyHours: draft.weeklyHours,
+          ...(hoursChanged
+            ? {
+                hoursScheduleEnabled: draft.hoursScheduleEnabled,
+                hoursTimezone: draft.hoursTimezone,
+                weeklyHours: draft.weeklyHours,
+              }
+            : {}),
           oncall_technician_id: draft.oncallTechnicianId,
         }),
       })
@@ -548,7 +557,7 @@ export function DashboardCallFlowConfigureDrawer({
       // Hours may have just applied a new schedule (and cleared a manual lock) —
       // refresh the Presence bar so it reflects that immediately instead of on
       // the next poll tick.
-      if (draft.hoursScheduleEnabled) void refreshPresence()
+      if (hoursChanged && draft.hoursScheduleEnabled) void refreshPresence()
 
       baselineRef.current = draftSnapshot(draft)
       window.dispatchEvent(
@@ -785,9 +794,9 @@ export function DashboardCallFlowConfigureDrawer({
                                 Ring delay before fallback
                               </p>
                               <p className="text-2xs text-muted-foreground">
-                                How long to ring your cell before emergency / missed handling.
-                                Tip: with Hold queue, prefer 15–20s so carrier voicemail does not
-                                pick up first (we also detect machines automatically).
+                                How long to ring your cell before missed-call handling. With Hold
+                                queue, choose a delay shorter than your cell voicemail pickup;
+                                15s is a good starting point.
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 {RING_OPTIONS.map((sec) => (
@@ -987,10 +996,10 @@ export function DashboardCallFlowConfigureDrawer({
                     </div>
                     {draft.fallbackType === "hold" ? (
                       <p className="rounded-xl border border-border bg-card/40 px-3 py-3 text-2xs leading-relaxed text-muted-foreground">
-                        We hang up if your cell&apos;s carrier voicemail answers, then start hold
-                        music so you can Answer from Lines. Prefer a 20s ring delay above (25s max
-                        with Hold — longer often hits personal voicemail first). Music and max-wait
-                        time live under Greetings.
+                        Unanswered rings go to Hold after the delay above. If your cell voicemail
+                        answers first, the caller may reach voicemail instead. Set the delay
+                        shorter than your voicemail pickup. Music and max-wait time live under
+                        Greetings.
                       </p>
                     ) : null}
                   </fieldset>
