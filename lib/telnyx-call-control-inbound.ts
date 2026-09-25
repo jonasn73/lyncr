@@ -955,9 +955,14 @@ async function dialTechnicianLeg(
   // to him too: his personal voicemail intercepts before ring_timeout_seconds, Telnyx reports
   // "answered", and the caller never reaches Hold. Guard by fallback type here so only an owner who
   // actually wants his own cell voicemail (fallback_type "owner") keeps the zero-delay bridge.
+  // Custom Routing is an ad hoc handoff to a person answering on another phone. Waiting for
+  // AMD consumes their opening greeting before the caller is bridged. Connect this route as
+  // soon as the phone answers; the configured fallback still handles unanswered ring timeouts.
+  // A carrier voicemail pickup counts as an answer on this route, so it can preempt fallback.
   const useAmdGuard = Boolean(
-    (state.dialReason && AMD_GUARDED_DIAL_REASONS.has(state.dialReason)) ||
-      fallbackNeedsCarrierVmGuard(fallbackRaw)
+    state.dialReason !== "custom_routing" &&
+      ((state.dialReason && AMD_GUARDED_DIAL_REASONS.has(state.dialReason)) ||
+        fallbackNeedsCarrierVmGuard(fallbackRaw))
   )
   const dialStartedAtMs = Date.now()
 

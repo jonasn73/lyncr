@@ -19,7 +19,7 @@ const getFirstAvailableOwnerReceptionistMock = vi.hoisted(() =>
   )
 )
 const getCustomRoutingPhoneForDidMock = vi.hoisted(() =>
-  vi.fn(() => Promise.resolve(null))
+  vi.fn(async (): Promise<string | null> => null)
 )
 const getTeamReceptionistForDidMock = vi.hoisted(() =>
   vi.fn(() => Promise.resolve(null))
@@ -400,6 +400,75 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(dialBody.answering_machine_detection).toBe("detect")
     expect(dialBody.timeout_secs).toBe(25)
     expect(dialBody.link_to).toBe("cc-in-hold-amd")
+  })
+
+  it("Custom Routing bridges on answer even when the fallback is Hold", async () => {
+    getActiveRoutingModeForDidMock.mockResolvedValue("custom_routing")
+    getCustomRoutingPhoneForDidMock.mockResolvedValue("+15029995874")
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "hold",
+          ring_timeout_seconds: 25,
+          inbound_caller_greeting_enabled: true,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      upsertTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
+      getTelnyxOutboundLegForInbound: vi.fn(() => Promise.resolve(null)),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+    }))
+
+    const inboundState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_greeting_end",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15551230000",
+      dialTargetE164: "+15029995874",
+      ringTimeoutSec: 25,
+      fallbackType: "hold",
+      dialReason: "custom_routing",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.speak.ended",
+        id: "evt-speak-custom-hold",
+        payload: {
+          call_control_id: "cc-in-custom-hold",
+          from: "+15551230000",
+          to: "+15025571219",
+          direction: "incoming",
+          client_state: inboundState,
+        },
+      },
+    })
+
+    const dialCall = fetchMock.mock.calls.find(
+      (c) => String(c[0]).includes("/v2/calls") && !String(c[0]).includes("/actions/")
+    )
+    expect(dialCall).toBeTruthy()
+    const dialBody = JSON.parse(String(dialCall![1].body))
+    expect(dialBody.to).toBe("+15029995874")
+    expect(dialBody.bridge_on_answer).toBe(true)
+    expect(dialBody.answering_machine_detection).toBeUndefined()
+    expect(dialBody.timeout_secs).toBe(25)
+    expect(decodeTelnyxCallControlState(dialBody.client_state)?.amdGuard).toBeUndefined()
   })
 
   it("AMD machine on hold dial hangs up B-leg and starts Busy soft-hold", async () => {
