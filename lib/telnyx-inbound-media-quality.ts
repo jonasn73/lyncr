@@ -113,9 +113,8 @@ export function fallbackNeedsCarrierVmGuard(fallbackType: string | null | undefi
 /**
  * When AI is the no-answer fallback, cap PSTN ring time (~4 rings) before `/fallback` → AI bridge.
  * Default AI cap: 20s (`LYNCR_INBOUND_AI_DIAL_TIMEOUT`).
- * When Hold queue is the fallback, honor the UI ring delay up to a cap just before typical
- * carrier VM pickup (~22–25s). Default Hold cap: 25s (`LYNCR_INBOUND_HOLD_DIAL_TIMEOUT`).
- * Prefer 20s in the UI — enough for ~4–5 rings without racing personal voicemail.
+ * When Hold queue is the fallback, use a short automatic ring window so the caller reaches
+ * Hold before a typical carrier voicemail pickup. The Hold cap can be shortened by env.
  */
 export function resolveInboundForwardDialTimeoutSeconds(
   ringTimeoutFromRouting: number,
@@ -130,10 +129,9 @@ export function resolveInboundForwardDialTimeoutSeconds(
     return Math.min(ring, cap)
   }
   if (wantsHoldAfterNoAnswer) {
-    // 25s default: UI 15/20/25 honor fully; 30/45/60 snap down so we hang up before most carrier VMs.
-    const raw = (process.env.LYNCR_INBOUND_HOLD_DIAL_TIMEOUT || "25").trim()
+    const raw = (process.env.LYNCR_INBOUND_HOLD_DIAL_TIMEOUT || "15").trim()
     const holdCap = parseInt(raw, 10)
-    const cap = Number.isFinite(holdCap) && holdCap >= 5 && holdCap <= 120 ? holdCap : 25
+    const cap = Number.isFinite(holdCap) && holdCap >= 5 && holdCap <= 15 ? holdCap : 15
     return Math.min(ring, cap)
   }
   return resolveInboundFastDialTimeoutSeconds(ringTimeoutFromRouting)

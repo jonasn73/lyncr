@@ -15,7 +15,7 @@ export const ACTIVE_ROUTING_MODE_OPTIONS: {
   {
     value: "your_phone",
     label: "Your Phone",
-    description: "Ring your cell first. Configure backup ring delay below.",
+    description: "Ring your cell first, then use the missed-call choice below.",
   },
   {
     value: "team_receptionist",

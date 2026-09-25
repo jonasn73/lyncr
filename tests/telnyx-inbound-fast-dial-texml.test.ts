@@ -60,9 +60,9 @@ describe("resolveInboundForwardDialTimeoutSeconds", () => {
     expect(resolveInboundForwardDialTimeoutSeconds(30, false)).toBe(30)
   })
 
-  it("caps at 25s when Hold queue fallback is enabled", () => {
+  it("caps at 15s when Hold queue fallback is enabled", () => {
     vi.stubEnv("LYNCR_INBOUND_HOLD_DIAL_TIMEOUT", "25")
-    expect(resolveInboundForwardDialTimeoutSeconds(30, false, true)).toBe(25)
+    expect(resolveInboundForwardDialTimeoutSeconds(30, false, true)).toBe(15)
   })
 
   it("keeps shorter ring when Hold cap is higher than routing timeout", () => {
@@ -70,14 +70,14 @@ describe("resolveInboundForwardDialTimeoutSeconds", () => {
     expect(resolveInboundForwardDialTimeoutSeconds(15, false, true)).toBe(15)
   })
 
-  it("defaults Hold cap to 25s when env unset", () => {
+  it("defaults Hold cap to 15s when env unset", () => {
     vi.stubEnv("LYNCR_INBOUND_HOLD_DIAL_TIMEOUT", "")
-    expect(resolveInboundForwardDialTimeoutSeconds(30, false, true)).toBe(25)
+    expect(resolveInboundForwardDialTimeoutSeconds(30, false, true)).toBe(15)
   })
 
-  it("honors UI 20s under the Hold cap", () => {
+  it("caps a longer saved timeout to 15s", () => {
     vi.stubEnv("LYNCR_INBOUND_HOLD_DIAL_TIMEOUT", "")
-    expect(resolveInboundForwardDialTimeoutSeconds(20, false, true)).toBe(20)
+    expect(resolveInboundForwardDialTimeoutSeconds(20, false, true)).toBe(15)
   })
 })
 

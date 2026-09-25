@@ -60,7 +60,9 @@ const ROUTING_MODE_VISUALS: Record<
 const fieldClass =
   "w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
-const RING_OPTIONS = [15, 20, 30, 45, 60] as const
+function automaticRingTimeout(fallbackType: FallbackOption): number {
+  return fallbackType === "hold" ? 15 : fallbackType === "ai" ? 20 : 30
+}
 
 const TABS = [
   { id: "routing" as const, label: "Call Routing" },
@@ -351,8 +353,6 @@ export function DashboardCallFlowConfigureDrawer({
           repromptSecs: d.holdDefaults.repromptSecs || 45,
         })
       }
-      const nextRing = Number(d.ringTimeoutSeconds ?? 30)
-      const ring = RING_OPTIONS.includes(nextRing as (typeof RING_OPTIONS)[number]) ? nextRing : 30
       const fb = String(d.fallbackType || "owner").toLowerCase()
       // Accept hold (and legacy hold_queue alias) from API / DB.
       const fallbackType: FallbackOption =
@@ -380,7 +380,7 @@ export function DashboardCallFlowConfigureDrawer({
           savedRecId && members.some((m) => m.id === savedRecId)
             ? savedRecId
             : members[0]?.id || null,
-        ringTimeout: ring,
+        ringTimeout: automaticRingTimeout(fallbackType),
         voice: d.ivrVoiceEngineModel || DEFAULT_IVR_VOICE_ENGINE_MODEL,
         busy:
           (d.onJobGreetingText || d.closedGreetingText || TELNYX_MENU_BUSY_PROMPT).trim() ||
@@ -765,56 +765,6 @@ export function DashboardCallFlowConfigureDrawer({
                                 Available → rings them first. Unavailable → your phone if Available,
                                 otherwise the busy voice menu (press 1 for booking form).
                               </p>
-                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                Ring delay before next step
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                {RING_OPTIONS.map((sec) => (
-                                  <button
-                                    key={sec}
-                                    type="button"
-                                    onClick={() => setDraft((d) => ({ ...d, ringTimeout: sec }))}
-                                    className={cn(
-                                      "min-h-10 rounded-lg border px-3 text-sm font-semibold transition-colors",
-                                      draft.ringTimeout === sec
-                                        ? "border-primary bg-primary/15 text-primary"
-                                        : "border-border text-foreground hover:border-border"
-                                    )}
-                                  >
-                                    {sec}s
-                                  </button>
-                                ))}
-                              </div>
-                            </section>
-                          ) : null}
-
-                          {opt.value === "your_phone" && active ? (
-                            <section className="ml-1 space-y-3 rounded-xl border border-border bg-card/40 p-4">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                Ring delay before fallback
-                              </p>
-                              <p className="text-2xs text-muted-foreground">
-                                How long to ring your cell before missed-call handling. With Hold
-                                queue, choose a delay shorter than your cell voicemail pickup;
-                                15s is a good starting point.
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                {RING_OPTIONS.map((sec) => (
-                                  <button
-                                    key={sec}
-                                    type="button"
-                                    onClick={() => setDraft((d) => ({ ...d, ringTimeout: sec }))}
-                                    className={cn(
-                                      "min-h-10 rounded-lg border px-3 text-sm font-semibold transition-colors",
-                                      draft.ringTimeout === sec
-                                        ? "border-primary bg-primary/15 text-primary"
-                                        : "border-border text-foreground hover:border-border"
-                                    )}
-                                  >
-                                    {sec}s
-                                  </button>
-                                ))}
-                              </div>
                             </section>
                           ) : null}
                         </div>
@@ -939,7 +889,7 @@ export function DashboardCallFlowConfigureDrawer({
                       If nobody answers
                     </legend>
                     <p className="text-2xs text-muted-foreground">
-                      When the ring above times out, where should the caller go next?
+                      Where should the caller go if nobody picks up?
                     </p>
                     <div role="radiogroup" aria-label="Missed-call fallback" className="space-y-2">
                       {fallbackOptions.map((opt) => {
@@ -951,7 +901,13 @@ export function DashboardCallFlowConfigureDrawer({
                             type="button"
                             role="radio"
                             aria-checked={active}
-                            onClick={() => setDraft((d) => ({ ...d, fallbackType: opt.id }))}
+                            onClick={() =>
+                              setDraft((d) => ({
+                                ...d,
+                                fallbackType: opt.id,
+                                ringTimeout: automaticRingTimeout(opt.id),
+                              }))
+                            }
                             className={cn(
                               "flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition-colors touch-manipulation",
                               active
@@ -996,10 +952,9 @@ export function DashboardCallFlowConfigureDrawer({
                     </div>
                     {draft.fallbackType === "hold" ? (
                       <p className="rounded-xl border border-border bg-card/40 px-3 py-3 text-2xs leading-relaxed text-muted-foreground">
-                        Unanswered rings go to Hold after the delay above. If your cell voicemail
-                        answers first, the caller may reach voicemail instead. Set the delay
-                        shorter than your voicemail pickup. Music and max-wait time live under
-                        Greetings.
+                        Lyncr sends unanswered calls to Hold after about 15 seconds. If your cell
+                        voicemail answers sooner, callers may still reach it. Music and max-wait
+                        time live under Greetings.
                       </p>
                     ) : null}
                   </fieldset>
