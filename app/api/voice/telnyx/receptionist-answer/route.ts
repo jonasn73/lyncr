@@ -108,12 +108,9 @@ async function notifyOwnerCrmAnswered(req: NextRequest): Promise<void> {
   const toNumber = param(req, "to")
   const receptionistId = param(req, "r", "receptionistId")
 
-  // AWAITED, not fire-and-forget. This is the only writer of answered_at on the TeXML
-  // path — the status webhook passes skipAnsweredAt precisely because it defers to
-  // here — and an un-awaited promise in a serverless function can be frozen with the
-  // instance before it settles. That is why answered_at landed on some calls and not
-  // others: every unstamped call is invisible to intake, to Activities, and to pay,
-  // because pay requires a real pickup.
+  // This is the only writer of answered_at on the TeXML path. The caller must not
+  // wait for this DB write before Telnyx receives the response that opens the bridge.
+  // scheduleAnsweredTelemetry runs it through Next's after() so it still finishes.
   try {
     await updateCallLog(callSid, {
       call_type: "incoming",
@@ -150,6 +147,16 @@ async function notifyOwnerCrmAnswered(req: NextRequest): Promise<void> {
   } catch (e) {
     console.error("[receptionist-answer] could not schedule owner call-answered broadcast:", e)
     void broadcastOwnerAnswered()
+  }
+}
+
+/** Return bridge TeXML immediately; finish answer stamping after the response. */
+function scheduleAnsweredTelemetry(req: NextRequest): void {
+  try {
+    after(() => notifyOwnerCrmAnswered(req))
+  } catch (e) {
+    console.error("[receptionist-answer] could not schedule answered telemetry:", e)
+    void notifyOwnerCrmAnswered(req)
   }
 }
 
@@ -202,7 +209,7 @@ async function respond(req: NextRequest): Promise<NextResponse> {
   if (isGate) {
     const digit = await readPressedDigit(req)
     if (digit === "1") {
-      await notifyOwnerCrmAnswered(req)
+      scheduleAnsweredTelemetry(req)
       if (receptionistId?.trim()) scheduleReceptionistHudConnected(req, receptionistId)
       return xmlResponseBody(buildReceptionistPress1AcceptedTexml())
     }
@@ -211,14 +218,14 @@ async function respond(req: NextRequest): Promise<NextResponse> {
 
   // Your Phone / owner cell: no Press-1 — stamp answered + bridge the caller immediately.
   if (isOwnerLeg) {
-    await notifyOwnerCrmAnswered(req)
+    scheduleAnsweredTelemetry(req)
     return xmlResponseBody(immediateBridgeXml(phrase))
   }
 
   // Receptionist cell: bridge on pickup, same as the owner leg. Stamp answered_at and
   // open the HUD so the call is recorded, payable, and has an intake form.
   if (!PRESS1_SCREEN_ENABLED) {
-    await notifyOwnerCrmAnswered(req)
+    scheduleAnsweredTelemetry(req)
     scheduleReceptionistHudConnected(req, receptionistId!)
     return xmlResponseBody(immediateBridgeXml(phrase))
   }

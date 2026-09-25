@@ -23,6 +23,7 @@ import { lyncrLog } from "@/lib/lyncr-env"
 import { getOrCreateCallControlApp } from "@/lib/telnyx-call-control-config"
 import {
   telnyxCallControlDial,
+  telnyxCallControlGatherStop,
   telnyxCallControlPlaybackStop,
 } from "@/lib/telnyx-call-control-api"
 import {
@@ -116,10 +117,13 @@ export async function POST(req: NextRequest) {
       inboundCallControlId: target.call_control_id,
     }
 
-    // Stop Busy greeting / hold music so barge-in Answer connects cleanly.
-    await telnyxCallControlPlaybackStop(target.call_control_id).catch(() => undefined)
-
     await updateCallQueueStatus({ callControlId: target.call_control_id, status: "bridging" })
+    // Clear hold audio and its active gather before dialing. The gather's ended
+    // webhook sees status=bridging and will not restart music during the live call.
+    await Promise.all([
+      telnyxCallControlPlaybackStop(target.call_control_id).catch(() => undefined),
+      telnyxCallControlGatherStop(target.call_control_id).catch(() => undefined),
+    ])
 
     const dialRes = await telnyxCallControlDial({
       connectionId,
@@ -129,6 +133,8 @@ export async function POST(req: NextRequest) {
       fromE164,
       timeoutSecs: 45,
       clientState: encodeTelnyxCallControlState(agentState),
+      // Connect inside Telnyx on pickup without waiting for the answer webhook.
+      bridgeOnAnswer: true,
     })
 
     if (!dialRes.ok) {

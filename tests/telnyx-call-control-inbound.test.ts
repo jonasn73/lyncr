@@ -22,7 +22,13 @@ const getCustomRoutingPhoneForDidMock = vi.hoisted(() =>
   vi.fn(async (): Promise<string | null> => null)
 )
 const getTeamReceptionistForDidMock = vi.hoisted(() =>
-  vi.fn(() => Promise.resolve(null))
+  vi.fn(
+    async (): Promise<{ receptionistId: string; name: string | null; phoneE164: string | null; isActive: boolean } | null> =>
+      null
+  )
+)
+const getOnCallTechnicianForOwnerMock = vi.hoisted(() =>
+  vi.fn(async (): Promise<{ technicianId: string; name: string | null; phoneE164: string } | null> => null)
 )
 const resolveInboundCapturePlanMock = vi.hoisted(() =>
   vi.fn(async (): Promise<{ kind: string }> => ({ kind: "day_dial" }))
@@ -37,6 +43,7 @@ vi.mock("@/lib/active-routing-mode-db", () => ({
   getCustomRoutingPhoneForDid: getCustomRoutingPhoneForDidMock,
   getFirstAvailableOwnerReceptionist: getFirstAvailableOwnerReceptionistMock,
   getTeamReceptionistForDid: getTeamReceptionistForDidMock,
+  getOnCallTechnicianForOwner: getOnCallTechnicianForOwnerMock,
 }))
 
 vi.mock("@/lib/inbound-time-capture", async (importOriginal) => {
@@ -116,6 +123,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     getFirstAvailableOwnerReceptionistMock.mockResolvedValue(null)
     getCustomRoutingPhoneForDidMock.mockResolvedValue(null)
     getTeamReceptionistForDidMock.mockResolvedValue(null)
+    getOnCallTechnicianForOwnerMock.mockResolvedValue(null)
     resolveInboundCapturePlanMock.mockResolvedValue({ kind: "day_dial" })
     vi.stubEnv("LYNCR_INBOUND_CALL_CONTROL", "1")
     vi.stubEnv("TELNYX_API_KEY", "test-key")
@@ -128,6 +136,8 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     // vi.doMock registrations outlive resetModules — undo the one test that opts into it
     // so every other test keeps hitting the real (DB-less-in-test, always-miss) module.
     vi.doUnmock("@/lib/tts-audio-cache")
+    vi.doUnmock("@/lib/call-queue-db")
+    vi.doUnmock("@/lib/telnyx-call-control-call-log")
   })
 
   it("call.initiated answers immediately without speak", async () => {
@@ -467,6 +477,97 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(dialBody.answering_machine_detection).toBeUndefined()
     expect(dialBody.timeout_secs).toBe(25)
     expect(decodeTelnyxCallControlState(dialBody.client_state)?.amdGuard).toBeUndefined()
+  })
+
+  it("bridges every remaining human routing type on answer without AMD", async () => {
+    let legacyReceptionist = false
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: legacyReceptionist ? "legacy-1" : null,
+          receptionist_phone: legacyReceptionist ? "+15029995874" : null,
+          receptionist_name: legacyReceptionist ? "Legacy" : null,
+          fallback_type: "hold",
+          ring_timeout_seconds: 25,
+          inbound_caller_greeting_enabled: true,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      upsertTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
+      getTelnyxOutboundLegForInbound: vi.fn(() => Promise.resolve(null)),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+    }))
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    const cases = [
+      { mode: "team_receptionist", captureKind: "day_dial", reason: "team_receptionist", target: "+15029995874" },
+      { mode: "team_receptionist", captureKind: "day_dial", reason: "team_owner_available", target: "+15022602716" },
+      { mode: "your_phone", captureKind: "presence_on_job", reason: "busy_backup_recv", target: "+15029995874" },
+      { mode: "your_phone", captureKind: "presence_closed", reason: "oncall_tech", target: "+15028887777" },
+      { mode: "legacy", captureKind: "day_dial", reason: "legacy_recv", target: "+15029995874" },
+      { mode: "legacy", captureKind: "day_dial", reason: "failsafe", target: "+15022602716" },
+    ]
+
+    for (const [index, route] of cases.entries()) {
+      legacyReceptionist = route.reason === "legacy_recv"
+      getActiveRoutingModeForDidMock.mockResolvedValue(route.mode)
+      resolveInboundCapturePlanMock.mockResolvedValue({ kind: route.captureKind })
+      getTeamReceptionistForDidMock.mockResolvedValue(route.reason === "team_receptionist"
+        ? { receptionistId: "team-1", name: "Teammate", phoneE164: "+15029995874", isActive: true }
+        : null)
+      getFirstAvailableOwnerReceptionistMock.mockResolvedValue(route.reason === "busy_backup_recv"
+        ? { receptionistId: "backup-1", name: "Backup", phoneE164: "+15029995874" }
+        : null)
+      getOnCallTechnicianForOwnerMock.mockResolvedValue(route.reason === "oncall_tech"
+        ? { technicianId: "tech-1", name: "On call", phoneE164: "+15028887777" }
+        : null)
+
+      const inboundState = encodeTelnyxCallControlState({
+        v: 1,
+        phase: "await_greeting_end",
+        userId: "u1",
+        businessLineE164: "+15025571219",
+        callerE164: "+15551230000",
+        dialTargetE164: route.target,
+        ringTimeoutSec: 25,
+        fallbackType: "hold",
+      })
+      const inboundId = `cc-in-route-${index}`
+      const callsBefore = fetchMock.mock.calls.length
+      await handleTelnyxCallControlVoiceWebhook({
+        data: {
+          event_type: "call.speak.ended",
+          id: `evt-speak-route-${index}`,
+          payload: {
+            call_control_id: inboundId,
+            from: "+15551230000",
+            to: "+15025571219",
+            direction: "incoming",
+            client_state: inboundState,
+          },
+        },
+      })
+      const dialCall = fetchMock.mock.calls.slice(callsBefore).find(
+        (c) => String(c[0]).includes("/v2/calls") && !String(c[0]).includes("/actions/")
+      )
+      expect(dialCall, route.reason).toBeTruthy()
+      const dialBody = JSON.parse(String(dialCall![1].body))
+      expect(dialBody.to, route.reason).toBe(route.target)
+      expect(dialBody.link_to, route.reason).toBe(inboundId)
+      expect(dialBody.bridge_on_answer, route.reason).toBe(true)
+      expect(dialBody.answering_machine_detection, route.reason).toBeUndefined()
+      expect(decodeTelnyxCallControlState(dialBody.client_state)?.dialReason, route.reason).toBe(route.reason)
+    }
   })
 
   it("AMD machine on hold dial hangs up B-leg and starts Busy soft-hold", async () => {
@@ -1144,6 +1245,53 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       },
     })
     expect(handleCallConnectedMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("Lines Answer leaves the instant Telnyx bridge alone and marks the queue answered on call.bridged", async () => {
+    const updateCallQueueStatusMock = vi.fn(() => Promise.resolve())
+    vi.doMock("@/lib/call-queue-db", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("@/lib/call-queue-db")>()),
+      updateCallQueueStatus: updateCallQueueStatusMock,
+    }))
+    const persistCallControlBridgedMock = vi.fn(() => Promise.resolve())
+    vi.doMock("@/lib/telnyx-call-control-call-log", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("@/lib/telnyx-call-control-call-log")>()),
+      persistCallControlBridged: persistCallControlBridgedMock,
+    }))
+    const state = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_queue_agent_answer",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15551230000",
+      inboundCallControlId: "cc-queue-caller",
+      queueTargetCallControlId: "cc-queue-caller",
+      dialReason: "queue_answer",
+    })
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    const payload = {
+      call_control_id: "cc-queue-agent",
+      from: "+15025571219",
+      to: "+15022602716",
+      direction: "outgoing",
+      client_state: state,
+    }
+    await handleTelnyxCallControlVoiceWebhook({
+      data: { event_type: "call.answered", id: "evt-queue-agent-answer", payload },
+    })
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("/actions/bridge"))).toBe(false)
+    expect(updateCallQueueStatusMock).not.toHaveBeenCalled()
+
+    await handleTelnyxCallControlVoiceWebhook({
+      data: { event_type: "call.bridged", id: "evt-queue-agent-bridged", payload },
+    })
+    expect(updateCallQueueStatusMock).toHaveBeenCalledWith({
+      callControlId: "cc-queue-caller",
+      status: "answered",
+      answeredByUserId: "u1",
+    })
+    expect(persistCallControlBridgedMock).toHaveBeenCalled()
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("/actions/bridge"))).toBe(false)
   })
 
   it("owner fallback dial still auto-bridges (no AMD)", async () => {

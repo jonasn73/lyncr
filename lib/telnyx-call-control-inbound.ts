@@ -25,7 +25,6 @@ import {
 import { cacheTtsAudioInBackground, estimateSpeechMillis, getCachedTtsAudioUrl } from "@/lib/tts-audio-cache"
 import {
   abandonHoldQueue,
-  bridgeAgentToHoldQueue,
   enterBusyHoldQueue,
   handleCallEnqueuedHoldMusic,
   handleHoldLoopGatherEnded,
@@ -74,8 +73,6 @@ import {
   resolveInboundCallLogSid,
 } from "@/lib/telnyx-call-control-call-log"
 import {
-  buildHoldFallbackAmdDetectionConfig,
-  fallbackNeedsCarrierVmGuard,
   readInboundDialPreferredCodecs,
   readInboundDialRingbackAudioUrl,
   resolveAmdMinMachineAgeForRingSec,
@@ -904,18 +901,6 @@ async function stopCallerDialRingback(inboundCallControlId: string): Promise<voi
   await telnyxCallControlPlaybackStop(id).catch(() => undefined)
 }
 
-/**
- * Dial reasons that ring someone's personal cell (tech, on-call tech, receptionist) rather
- * than the owner's own main line. Only these get AMD-guarded — a carrier/personal voicemail
- * pickup on one of these numbers must not be bridged in as if the person answered (#call-answered-gap).
- * The owner's own line keeps the instant `bridge_on_answer` behavior from the 2026-09-05 change.
- */
-const AMD_GUARDED_DIAL_REASONS = new Set<TelnyxCallControlDialReason>([
-  "oncall_tech",
-  "team_receptionist",
-  "busy_backup_recv",
-])
-
 async function dialTechnicianLeg(
   inboundCallControlId: string,
   state: TelnyxCallControlClientState,
@@ -944,27 +929,18 @@ async function dialTechnicianLeg(
   }
 
   const fallbackRaw = String(state.fallbackType ?? routing.fallback_type ?? "").toLowerCase()
-  // 2026-09-06 dropped AMD from every primary dial to match the owner's instant-connect
-  // behavior — but on a personal-cell dial (tech / on-call tech / receptionist), that let a
-  // carrier/personal voicemail pickup get bridged in and logged as "answered" even though the
-  // person never picked up (#call-answered-gap). Restore AMD for those dial reasons unconditionally.
-  //
-  // The owner line and Custom Routing need to bridge on answer. On the latest owner call,
-  // AMD returned "human" almost three seconds after call.answered; the opening hello was
-  // already gone. Fallback still handles unanswered ring timeouts, but a carrier voicemail
-  // pickup counts as an answer on these instant-connect routes and can preempt fallback.
-  const useAmdGuard = Boolean(
-    state.dialReason !== "custom_routing" && state.dialReason !== "day_dial" &&
-      ((state.dialReason && AMD_GUARDED_DIAL_REASONS.has(state.dialReason)) ||
-        fallbackNeedsCarrierVmGuard(fallbackRaw))
-  )
+  // Every human phone route must bridge inside Telnyx on answer. Waiting for AMD clips
+  // the callee's first hello while its webhook and our bridge request make a round trip.
+  // An unanswered ring still follows fallback; carrier voicemail pickup counts as an
+  // answer, so it may preempt fallback. Keep the AMD webhook handler for in-flight calls
+  // placed by an older deployment, but do not enable AMD on new dials.
   const dialStartedAtMs = Date.now()
 
   const nextStatePayload: TelnyxCallControlClientState = {
     ...state,
     phase: "await_dial_end",
     inboundCallControlId,
-    amdGuard: useAmdGuard || undefined,
+    amdGuard: undefined,
     dialStartedAtMs,
   }
   const nextState = encodeTelnyxCallControlState(nextStatePayload)
@@ -985,13 +961,7 @@ async function dialTechnicianLeg(
       fromE164: dialFrom,
       timeoutSecs: state.ringTimeoutSec ?? 30,
       clientState: nextState,
-      bridgeOnAnswer: !useAmdGuard,
-      ...(useAmdGuard
-        ? {
-            answeringMachineDetection: "detect",
-            answeringMachineDetectionConfig: buildHoldFallbackAmdDetectionConfig(),
-          }
-        : {}),
+      bridgeOnAnswer: true,
       // Same codec preference the legacy TeXML path already sends — Call Control's Dial
       // previously left this unset and silently fell back to connection defaults.
       preferredCodecs: readInboundDialPreferredCodecs(),
@@ -1018,8 +988,8 @@ async function dialTechnicianLeg(
       fromTail4: dialFrom.replace(/\D/g, "").slice(-4),
       timeoutSecs: state.ringTimeoutSec ?? 30,
       dialStartedAtMs,
-      bridgeOnAnswer: !useAmdGuard,
-      amdGuard: useAmdGuard,
+      bridgeOnAnswer: true,
+      amdGuard: false,
       dialReason: state.dialReason || null,
       fallbackType: fallbackRaw || null,
     })
@@ -1379,12 +1349,9 @@ async function handleCallAnswered(
   event: NonNullable<ReturnType<typeof parseTelnyxVoiceWebhookEvent>>
 ): Promise<void> {
   const state = event.clientState
-  // Lines Answer — agent cell picked up → bridge into the hold queue.
+  // Lines Answer is already bridged by Telnyx on pickup. The bridge webhook
+  // marks the queue row answered; no application bridge round trip belongs here.
   if (state?.phase === "await_queue_agent_answer") {
-    await bridgeAgentToHoldQueue({
-      agentCallControlId: event.callControlId,
-      state,
-    })
     return
   }
   // The technician/receptionist leg just answered (bridge_on_answer: true dials the instant
@@ -1788,6 +1755,19 @@ async function handleCallBridged(
 ): Promise<void> {
   const state = event.clientState
   if (!state) return
+  if (state.phase === "await_queue_agent_answer") {
+    const target = state.queueTargetCallControlId?.trim()
+    if (target) {
+      await updateCallQueueStatus({
+        callControlId: target,
+        status: "answered",
+        answeredByUserId: state.userId,
+      }).catch((error) => {
+        console.error(lyncrLog("telnyx-cc-queue-answered-status-failed", { target, error: String(error) }))
+      })
+    }
+    console.log(lyncrLog("telnyx-cc-queue-bridged", { agentCallControlId: event.callControlId, target: target || null }))
+  }
   // Bridge events usually arrive on the outbound PSTN leg — still map back to the inbound call log row.
   const inboundSid = resolveInboundCallLogSid(event)
   // Cell answered — stop A-leg ringback so talk audio is not mixed with tone.

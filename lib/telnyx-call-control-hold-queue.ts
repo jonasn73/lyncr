@@ -58,9 +58,7 @@ import { lyncrLog } from "@/lib/lyncr-env"
 import { resolveAiVoiceAssistantEntitlement } from "@/lib/ai-voice-entitlement"
 import {
   markTelnyxCallControlTerminal,
-  telnyxCallControlBridge,
   telnyxCallControlGather,
-  telnyxCallControlGatherStop,
   telnyxCallControlGatherUsingAudio,
   telnyxCallControlGatherUsingSpeak,
   telnyxCallControlHangup,
@@ -71,7 +69,6 @@ import {
   telnyxCallControlRecordStop,
   telnyxCallControlSpeak,
   telnyxCallControlStartAiAssistant,
-  telnyxCallControlStopAiAssistant,
 } from "@/lib/telnyx-call-control-api"
 import {
   encodeTelnyxCallControlState,
@@ -2067,77 +2064,4 @@ export async function handleHoldLoopGatherEnded(params: {
 
   // Re-prompt timed out / invalid → music again.
   await startHoldMusicGather(callControlId, effectiveState)
-}
-
-/**
- * Agent leg answered from Lines — bridge to specific waiting caller or queue head.
- */
-export async function bridgeAgentToHoldQueue(params: {
-  agentCallControlId: string
-  state: TelnyxCallControlClientState
-}): Promise<void> {
-  const { agentCallControlId, state } = params
-  const queueName = state.holdQueueName || lyncrHoldQueueName(state.userId)
-  const target = state.queueTargetCallControlId?.trim()
-
-  if (target) {
-    await telnyxCallControlPlaybackStop(target).catch(() => undefined)
-    // Cancel any gather still armed from the hold loop (music/reprompt) so it can't
-    // outlive the bridge and fire a stale call.gather.ended into the live call. This
-    // alone isn't sufficient — gather_stop fires its own call.gather.ended — the real
-    // backstop is the status guard in handleHoldLoopGatherEnded.
-    await telnyxCallControlGatherStop(target).catch(() => undefined)
-    // Harmless no-op when the AI never started — clears the way for a human answer
-    // when the owner picks up mid AI-assisted-hold conversation.
-    if (state.phase === "await_ai_assistant_hold") {
-      await telnyxCallControlStopAiAssistant(target).catch(() => undefined)
-    }
-  }
-
-  const bridgeRes = target
-    ? await telnyxCallControlBridge(agentCallControlId, {
-        callControlId: target,
-        clientState: encodeTelnyxCallControlState({
-          ...state,
-          phase: "await_dial_end",
-          dialReason: "queue_answer",
-        }),
-      })
-    : await telnyxCallControlBridge(agentCallControlId, {
-        queue: queueName,
-        clientState: encodeTelnyxCallControlState({
-          ...state,
-          phase: "await_dial_end",
-          dialReason: "queue_answer",
-        }),
-      })
-
-  if (!bridgeRes.ok) {
-    console.error(
-      lyncrLog("telnyx-cc-queue-bridge-failed", {
-        agentCallControlId,
-        error: bridgeRes.error,
-        queueName,
-        target: target || null,
-      })
-    )
-    await telnyxCallControlHangup(agentCallControlId)
-    return
-  }
-
-  if (target) {
-    await updateCallQueueStatus({
-      callControlId: target,
-      status: "answered",
-      answeredByUserId: state.userId,
-    })
-  }
-
-  console.log(
-    lyncrLog("telnyx-cc-queue-bridged", {
-      agentCallControlId,
-      queueName,
-      target: target || "queue-head",
-    })
-  )
 }
